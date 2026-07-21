@@ -1,0 +1,85 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/locations/bar.gd" id="1_bar"]
+
+[node name="Bar" type="Control"]
+layout_mode = 3
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_bar")
+
+[node name="BackgroundTexture" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch_mode = 0
+
+[node name="BackgroundFallback" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.1, 0.07, 0.06, 1)
+
+[node name="Overlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0, 0.0, 0.0, 0.4)
+mouse_filter = 1
+
+[node name="ContentVBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -120.0
+offset_right = 250.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="LocationName" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "The Bar"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.9, 0.8, 0.7, 1)
+
+[node name="LocationDesc" type="Label" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "A dimly lit bar where the drinks flow and the tips keep the bills paid."
+horizontal_alignment = 1
+autowrap_mode = 3
+custom_minimum_size = Vector2(400, 0)
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.75, 0.7, 0.6, 1)
+
+[node name="ActionBtn" type="Button" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "🍺 Work a Shift\n(+12 Money, -12 Sanity)"
+theme_override_font_sizes/font_size = 15
+
+[node name="BackBtn" type="Button" parent="ContentVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "← Back to Hub"
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)

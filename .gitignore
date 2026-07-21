@@ -1,0 +1,22 @@
+# Godot editor and cache
+.godot/
+.import/
+.export/
+
+# Local raw build output (not used for hosting)
+build/
+
+# Godot binary and export templates (never commit these)
+Godot_v*
+*.tpz
+*.zip
+*.tar.gz
+
+# Ziva plugin — development tool, not part of the game
+addons/ziva_agent/
+
+# OS clutter
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
