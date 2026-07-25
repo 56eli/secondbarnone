@@ -179,6 +179,37 @@ func add_history(entry: String) -> void:
 	history_updated.emit(entry)
 
 
+## Return the current season as a string.
+func get_season() -> String:
+	match month_index:
+		11, 0, 1:
+			return "Winter"
+		2, 3, 4:
+			return "Spring"
+		5, 6, 7:
+			return "Summer"
+		8, 9, 10:
+			return "Autumn"
+	return "Unknown"
+
+
+## Return a mood descriptor based on current stats.
+func get_mood() -> String:
+	if sanity < 25.0 and money < 25.0:
+		return "Everything feels precarious. The walls are closing in."
+	if sanity < 25.0:
+		return "Your spirit is fraying. You need to return to the community."
+	if money < 25.0:
+		return "The bills are piling up. Financial pressure weighs heavily."
+	if sanity > 80.0 and money > 80.0:
+		return "Life feels balanced and full of possibility."
+	if sanity > 80.0:
+		return "Your spirit soars. The community work is deeply fulfilling."
+	if money > 80.0:
+		return "Financially comfortable, but the soul needs tending too."
+	return "You are managing. Not thriving, but surviving."
+
+
 func get_character_names() -> Array[String]:
 	var names: Array[String] = []
 	for p in character_profiles:

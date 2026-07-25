@@ -4,6 +4,8 @@ signal back_to_hub()
 
 @onready var char_list_vbox: VBoxContainer = %CharListVBox
 @onready var detail_panel: Panel = %DetailPanel
+@onready var detail_portrait: TextureRect = %DetailPortrait
+@onready var detail_portrait_fallback: Label = %DetailPortraitFallback
 @onready var detail_name: Label = %DetailName
 @onready var detail_role: Label = %DetailRole
 @onready var detail_bio: Label = %DetailBio
@@ -31,18 +33,17 @@ func set_characters(chars: Array[CharacterProfile]) -> void:
 
 
 func _populate_character_list(characters: Array[CharacterProfile]) -> void:
-
 	for char_profile in characters:
 		var hbox := HBoxContainer.new()
 		hbox.size_flags_horizontal = 3
-		hbox.add_theme_constant_override("separation", 8)
+		hbox.add_theme_constant_override("separation", 10)
 
 		# Portrait container: TextureRect + initials label overlay
 		var portrait_container := Control.new()
-		portrait_container.custom_minimum_size = Vector2(32, 32)
+		portrait_container.custom_minimum_size = Vector2(40, 40)
 
 		var portrait_texture_rect := TextureRect.new()
-		portrait_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		portrait_texture_rect.visible = char_profile.portrait != null
 		if char_profile.portrait:
 			portrait_texture_rect.texture = char_profile.portrait
@@ -51,10 +52,10 @@ func _populate_character_list(characters: Array[CharacterProfile]) -> void:
 
 		var portrait_fallback_label := Label.new()
 		portrait_fallback_label.visible = char_profile.portrait == null
-		portrait_fallback_label.custom_minimum_size = Vector2(32, 32)
+		portrait_fallback_label.custom_minimum_size = Vector2(40, 40)
 		portrait_fallback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		portrait_fallback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		portrait_fallback_label.add_theme_font_size_override("font_size", 14)
+		portrait_fallback_label.add_theme_font_size_override("font_size", 16)
 		portrait_fallback_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8, 1))
 		var initials: String = _get_initials(char_profile.display_name)
 		portrait_fallback_label.text = initials
@@ -62,12 +63,22 @@ func _populate_character_list(characters: Array[CharacterProfile]) -> void:
 		portrait_fallback_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 		# Name + role label
-		var info_label := Label.new()
-		info_label.size_flags_horizontal = 3
+		var info_vbox := VBoxContainer.new()
+		info_vbox.size_flags_horizontal = 3
+		info_vbox.add_theme_constant_override("separation", 2)
+
+		var name_label := Label.new()
+		name_label.text = char_profile.display_name
+		name_label.add_theme_font_size_override("font_size", 15)
+		name_label.add_theme_color_override("font_color", Color(1, 0.95, 0.85, 1))
+		info_vbox.add_child(name_label)
+
+		var role_label := Label.new()
 		var role_text: String = "Protagonist" if char_profile.role == CharacterProfile.Role.PROTAGONIST else "Side Character"
-		info_label.text = "%s — %s" % [char_profile.display_name, role_text]
-		info_label.add_theme_font_size_override("font_size", 14)
-		info_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 1))
+		role_label.text = "%s  |  %s" % [role_text, char_profile.default_location]
+		role_label.add_theme_font_size_override("font_size", 11)
+		role_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.55, 1))
+		info_vbox.add_child(role_label)
 
 		# Click button (transparent, covers row)
 		var row_btn := Button.new()
@@ -75,7 +86,7 @@ func _populate_character_list(characters: Array[CharacterProfile]) -> void:
 		row_btn.size_flags_horizontal = 3
 		row_btn.add_theme_font_size_override("font_size", 1)
 		row_btn.add_theme_color_override("font_color", Color(0, 0, 0, 0))
-		row_btn.custom_minimum_size = Vector2(0, 36)
+		row_btn.custom_minimum_size = Vector2(0, 44)
 		row_btn.pressed.connect(_on_character_selected.bind(char_profile))
 
 		# Layer: bg + hbox on top, then transparent button on top of both
@@ -86,12 +97,12 @@ func _populate_character_list(characters: Array[CharacterProfile]) -> void:
 
 		var row_container := Control.new()
 		row_container.size_flags_horizontal = 3
-		row_container.custom_minimum_size = Vector2(0, 36)
+		row_container.custom_minimum_size = Vector2(0, 44)
 
 		bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		row_container.add_child(bg)
 		hbox.add_child(portrait_container)
-		hbox.add_child(info_label)
+		hbox.add_child(info_vbox)
 		row_container.add_child(hbox)
 		row_container.add_child(row_btn)
 		row_btn.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -104,6 +115,16 @@ func _on_character_selected(profile: CharacterProfile) -> void:
 	detail_panel.visible = true
 	detail_name.text = profile.display_name
 
+	# Show portrait in detail
+	if profile.portrait:
+		detail_portrait.texture = profile.portrait
+		detail_portrait.visible = true
+		detail_portrait_fallback.visible = false
+	else:
+		detail_portrait.visible = false
+		detail_portrait_fallback.visible = true
+		detail_portrait_fallback.text = _get_initials(profile.display_name)
+
 	match profile.role:
 		CharacterProfile.Role.PROTAGONIST:
 			detail_role.text = "Protagonist"
@@ -111,7 +132,7 @@ func _on_character_selected(profile: CharacterProfile) -> void:
 			detail_role.text = "Side Character"
 
 	detail_bio.text = profile.short_bio
-	detail_relationship.text = "Relationship to Léon: %s" % profile.relationship_to_leon
+	detail_relationship.text = "Relationship to Leon: %s" % profile.relationship_to_leon
 	detail_location.text = "Location: %s" % profile.default_location
 
 	# Scroll to detail panel
