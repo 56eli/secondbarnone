@@ -1,9 +1,14 @@
-# Godot editor and cache
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Godot editor and cache (legacy project — see README)
 .godot/
 .import/
 .export/
 
-# Local raw build output (not used for hosting)
+# Local build output
 build/
 
 # Godot binary and export templates (never commit these)
