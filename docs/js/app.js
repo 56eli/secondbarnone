@@ -10,6 +10,7 @@
  * file is presentation and wiring only.
  */
 
+import { resourceBarClass } from './core/resource-bar.js';
 import {
   GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, saveStore,
 } from './core/game-state.js';
@@ -17,7 +18,7 @@ import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
   renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderSatchel, renderPerks, renderAlmanac, renderToast,
+  renderResultModal, renderPerks, renderAlmanac, renderToast,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
@@ -67,7 +68,11 @@ export function initGame(opts = {}) {
   // ---------------------------------------------------------------- HUD
 
   const setBar = (node, value, max) => {
-    if (node) node.style.width = `${(value / max) * 100}%`;
+    if (!node) return;
+    const percent = Math.max(0, Math.min(100, (value / max) * 100));
+    node.style.width = `${percent}%`;
+    node.classList.remove('bar-critical', 'bar-warning', 'bar-fair', 'bar-full');
+    node.classList.add(resourceBarClass(percent, 100));
   };
   const setText = (node, text) => { if (node) node.textContent = text; };
 
@@ -170,7 +175,6 @@ export function initGame(opts = {}) {
       onVisit: (loc) => transitionTo(() => locationScreen(loc)),
       onMap: () => transitionTo(mapScreen),
       onCharacters: () => transitionTo(charactersScreen),
-      onSatchel: () => transitionTo(satchelScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
     });
@@ -197,21 +201,6 @@ export function initGame(opts = {}) {
     });
   }
 
-  function satchelScreen() {
-    return renderSatchel(gs, {
-      onBack: () => transitionTo(hubScreen),
-      onUse: (id) => {
-        const used = gs.useItem(id);
-        toast(used ? 'Used.' : 'That is not something you can use.');
-        updateHud();
-        showScreen(satchelScreen());
-      },
-      onDrop: (id) => {
-        gs.removeItem(id);
-        showScreen(satchelScreen());
-      },
-    });
-  }
 
   function perksScreen() {
     return renderPerks(gs, {
@@ -231,10 +220,7 @@ export function initGame(opts = {}) {
   // -------------------------------------------------------------- extras
 
   function handleSpecial(kind, arg, locationId) {
-    if (kind === 'sell_item') {
-      const got = gs.sellItem(arg);
-      toast(got > 0 ? `Sold for ${got}.` : 'Nothing to sell.');
-    } else if (kind === 'prepay_rent') {
+    if (kind === 'prepay_rent') {
       toast(gs.prepayRent(1) ? 'Paid a week ahead.' : 'Not enough money.');
     }
     updateHud();
@@ -310,7 +296,6 @@ export function initGame(opts = {}) {
       hub: () => showScreen(hubScreen()),
       map: () => showScreen(mapScreen()),
       location: (id) => showScreen(locationScreen(id)),
-      satchel: () => showScreen(satchelScreen()),
       perks: () => showScreen(perksScreen()),
       almanac: () => showScreen(almanacScreen()),
       characters: () => showScreen(charactersScreen()),

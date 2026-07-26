@@ -76,14 +76,14 @@ body {
 }
 
 .hud-portrait {
-  width: 60px;
-  height: 60px;
+  width: 82px;
+  height: 82px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--accent);
   box-shadow: 0 2px 10px rgba(201, 162, 39, 0.25);
   background: #1a1a28;
-  flex: 0 0 60px;
+  flex: 0 0 82px;
 }
 
 .hud-identity-text {
@@ -145,16 +145,20 @@ body {
 }
 
 .bar-fill {
+  display: block;
   height: 100%;
+  min-width: 0;
   width: 50%;
   border-radius: 999px;
   /* Mirrors the Godot tween: 0.5s cubic ease-out */
   transition: width 500ms cubic-bezier(0.22, 0.61, 0.36, 1), background-color 300ms ease;
 }
 
-.bar-fill.sanity { background: linear-gradient(90deg, #4e9c6b, var(--sanity)); }
-.bar-fill.money { background: linear-gradient(90deg, #b8912f, var(--money)); }
-.bar-fill.low { background: linear-gradient(90deg, #a33b3b, var(--danger)); }
+.bar-fill { background: #42b96e; }
+.bar-fill.bar-critical { background: #d84a4a; }
+.bar-fill.bar-warning { background: #e5bd3f; }
+.bar-fill.bar-fair { background: #8fd66b; }
+.bar-fill.bar-full { background: #35b85a; }
 
 .stat-num { font-size: 12px; color: var(--text-dim); min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -590,7 +594,7 @@ footer a { color: #7d786f; }
 }
 
 /* ============================================================
-   Expansion styles — the city, satchel, practice, almanac, weather and toasts.
+   Expansion styles — Paris, practice, almanac, weather and toasts.
    ============================================================ */
 
 :root {
@@ -601,8 +605,7 @@ footer a { color: #7d786f; }
 .hud-weather { font-size: 12px; color: var(--text-dim); margin-right: 8px; }
 .hud-insight { font-size: 12px; color: #b98fd0; margin-left: 8px; }
 
-.bar-fill.energy { background: linear-gradient(90deg, #3f6f92, var(--energy)); }
-.bar-fill.rep { background: linear-gradient(90deg, #7d5c93, var(--rep)); }
+
 
 /* ---------------- effect chips ---------------- */
 
@@ -703,7 +706,7 @@ footer a { color: #7d786f; }
 .special p { margin: 0 0 9px; font-size: 12.5px; }
 
 
-/* ---------------- satchel & perks ---------------- */
+/* ---------------- practice ---------------- */
 
 .item-list, .perk-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1036,9 +1039,9 @@ footer a { color: #7d786f; }
   #hud { padding: 10px 12px; }
 
   .hud-portrait {
-    width: 52px;
-    height: 52px;
-    flex-basis: 52px;
+    width: 68px;
+    height: 68px;
+    flex-basis: 68px;
   }
 
   .hud-top {

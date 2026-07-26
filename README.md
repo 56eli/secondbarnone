@@ -10,8 +10,7 @@ districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
 know. Weather is written down four days in advance and closes the outdoor ones.
-Insight buys perks, the satchel holds six things at a time, and a gentle
-daily focus cue makes the next decision easier to read. Survive **100 days**
+Insight buys practices, and a gentle daily focus cue makes the next decision easier to read. Survive **100 days**
 and the run acknowledges it — without forcing you to stop.
 
 **Play:** https://56eli.github.io/secondbarnone/
@@ -83,7 +82,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
     main.js                entry point (three lines)
     app.js                 wiring: HUD, screens, modal, autosave, game over
     core/
-      game-state.js        stats, calendar, satchel, perks, save/load
+      game-state.js        stats, calendar, practices, save/load
       event-manager.js     scheduling, weighted selection
       turn.js              one turn, resolved in order
       rng.js               seedable RNG
@@ -93,7 +92,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       events.js            64 events (each with a character)
       weather.js / items.js / perks.js
       festivals.js / achievements.js
-    ui/screens.js          hub, map, location, satchel, practice, …
+    ui/screens.js          hub, map, location, practice, …
   assets/                  optimised WebP + SVG
 
 assets/                    full-resolution source art (not deployed)

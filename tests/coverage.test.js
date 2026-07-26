@@ -14,6 +14,7 @@ import { createRng, defaultRng } from '../docs/js/core/rng.js';
 import { GameState, MAX_STAT, RENT_AMOUNT } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, LOCATION_COPY } from '../docs/js/core/turn.js';
+import { resourceBarClass } from '../docs/js/core/resource-bar.js';
 import {
   buildEventPool, rarityName, Rarity, Category,
   WEIGHT_STANDARD, WEIGHT_RARE_HELPFUL, WEIGHT_RARE_HURTFUL,
@@ -386,4 +387,15 @@ test('every character biography is distinct', () => {
 test('every character has a distinct display name', () => {
   const names = createAllProfiles().map((c) => c.name);
   assert.equal(new Set(names).size, names.length, 'duplicate display name found');
+});
+
+// ----------------------------------------------------------- HUD resources
+test('resource bars use percentage-proportional status bands', () => {
+  assert.equal(resourceBarClass(0, 100), 'bar-critical');
+  assert.equal(resourceBarClass(10, 100), 'bar-critical');
+  assert.equal(resourceBarClass(25, 100), 'bar-warning');
+  assert.equal(resourceBarClass(50, 100), 'bar-fair');
+  assert.equal(resourceBarClass(75, 100), 'bar-full');
+  assert.equal(resourceBarClass(100, 100), 'bar-full');
+  assert.equal(resourceBarClass(500, 100), 'bar-full');
 });

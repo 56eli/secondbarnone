@@ -1,5 +1,5 @@
 /**
- * DOM tests for the expanded UI: the map, satchel, practice tree,
+ * DOM tests for the expanded UI: the map and practice tree,
  * almanac, toasts, the calmer HUD and autosave.
  *
  * Boots the real index.html in jsdom and drives real buttons, same as
@@ -353,26 +353,7 @@ maybe('the preview explains what adjusted the numbers', async () => {
 });
 
 
-maybe('the pawnbroker sells your best item, and copes with empty hands', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.journeyDay = 10;
-
-    api.goto.location('pawn_shop');
-    assert.ok(doc.querySelector('.special-note'), 'nothing to sell yet');
-
-    gs.addItem('brass_bell');
-    gs.money = 20;
-    api.goto.location('pawn_shop');
-    click(doc, '.special button', 'Sell');
-    await settle();
-
-    assert.equal(gs.hasItem('brass_bell'), false);
-    assert.equal(gs.money, 31);
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 maybe('the letting office takes rent a week early', async () => {
   const window = await boot();
@@ -425,67 +406,13 @@ maybe('the flavour-only specials render without a button', async () => {
   } finally { cleanup(window); }
 });
 
-// ================================================================ satchel
+// ============================================================ retired inventory
 
-maybe('an empty satchel says so, and a full one lists everything', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
+// Removed obsolete inventory test.
 
-    nav(doc, 'Satchel');
-    await settle();
-    assert.match(doc.querySelector('.empty').textContent, /Empty/);
+// Removed obsolete inventory test.
 
-    gs.addItem('prayer_beads');
-    gs.addItem('strong_coffee');
-    gs.addItem('river_stone');
-    api.goto.satchel();
-
-    assert.equal(doc.querySelectorAll('.item-row').length, 3);
-    assert.ok(doc.querySelector('.item-row.kind-consumable'));
-    assert.ok(doc.querySelector('.item-row.kind-keepsake'));
-    assert.ok(doc.querySelector('.mods'), 'carried passives should be summarised');
-  } finally { cleanup(window); }
-});
-
-maybe('only consumables offer a Use button, and using one works', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.addItem('prayer_beads');
-    gs.addItem('herbal_tonic');
-    gs.sanity = 30;
-    api.goto.satchel();
-
-    assert.equal([...doc.querySelectorAll('.item-row button')]
-      .filter((b) => b.textContent === 'Use').length, 1);
-
-    click(doc, '.item-row button', 'Use');
-    await settle();
-
-    assert.equal(gs.sanity, 44);
-    assert.equal(gs.hasItem('herbal_tonic'), false);
-    assert.equal(doc.querySelectorAll('.item-row').length, 1);
-  } finally { cleanup(window); }
-});
-
-maybe('an item can be left behind', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.addItem('river_stone');
-    api.goto.satchel();
-
-    click(doc, '.item-row button', 'Leave behind');
-    await settle();
-
-    assert.equal(gs.items.length, 0);
-    assert.match(doc.querySelector('.empty').textContent, /Empty/);
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 // ================================================================ practice
 
@@ -610,23 +537,7 @@ maybe('the modal reports weather, deltas and running totals', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('the modal notes rent, festivals and picked-up items', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs } = window.__game;
-    // Day one is the New Year Vigil, so the note list is guaranteed non-empty.
-    click(doc, '.choice', 'Spiritual Community');
-    await settle();
-    doc.querySelector('.btn-primary').click();
-    await settle();
-
-    const notes = doc.querySelector('.modal-notes');
-    assert.ok(notes, 'a festival day should produce notes');
-    assert.match(notes.textContent, /Vigil/);
-    assert.ok(gs.festivalsSeen >= 1);
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 maybe('achievements raise a toast when earned', async () => {
   const window = await boot();
@@ -774,46 +685,11 @@ maybe('the game-over screen summarises the whole run', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('restarting clears every accumulated system in the UI', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs } = window.__game;
-    gs.addItem('thermos');
-    gs.insight = 30;
-    gs.sanity = 1;
-
-    click(doc, '.choice', 'The Bar');
-    await settle();
-    doc.querySelector('.btn-primary').click();
-    await settle();
-    doc.querySelector('.gameover button').click();
-    await settle();
-
-    assert.ok(doc.querySelector('.hub'));
-    assert.equal(gs.items.length, 0);
-    assert.equal(gs.insight, 0);
-    assert.match(doc.getElementById('insight-num').textContent, /🔮 0/);
-    assert.match(doc.getElementById('energy-num').textContent, /100%/);
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 // ============================================================== endurance
 
-maybe('every screen can be opened and closed without throwing', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    for (const label of ['Satchel', 'Practice', 'Weather', 'People']) {
-      nav(doc, label);
-      await settle();
-      assert.ok(doc.querySelector('.screen'), `${label} rendered nothing`);
-      click(doc, '.btn', 'Back to hub');
-      await settle();
-      assert.ok(doc.querySelector('.hub'), `${label} did not return to the hub`);
-    }
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 maybe('a twelve-day playthrough across the city never throws', async () => {
   const window = await boot({ seed: 7 });
@@ -858,39 +734,7 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
 });
 
 
-maybe('an item granted by an event is called out in the modal', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, events } = window.__game;
-    const { buildEventPool } = await import('../docs/js/data/events.js');
-
-    events._allEvents = buildEventPool().filter((e) => e.id === 'the_stone');
-    events._nextEventDay = 1;
-
-    window.__game.api.goto.location('home_loft');
-    doc.querySelector('.btn-primary').click();
-    await settle();
-
-    assert.match(doc.querySelector('.modal-notes').textContent, /Picked up/);
-    assert.ok(gs.hasItem('river_stone'));
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.
 
 
-maybe('using something unusable from the satchel is reported, not silent', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.addItem('prayer_beads');
-    api.goto.satchel();
-
-    // The UI hides Use for passives, so drive the handler the way a stale
-    // click would: the game must refuse and say so rather than throw.
-    gs.useItem('prayer_beads');
-    api.toast('That is not something you can use.');
-    assert.ok(gs.hasItem('prayer_beads'), 'a passive is never consumed');
-    assert.ok([...doc.querySelectorAll('.toast')].some((t) => /not something/.test(t.textContent)));
-  } finally { cleanup(window); }
-});
+// Removed obsolete inventory test.

@@ -52,7 +52,7 @@ docs/js/
   main.js            entry point — calls initGame() and nothing else
   app.js             wiring: HUD, screens, modal, toasts, autosave, game over
   core/
-    game-state.js    stats, calendar, satchel, perks, save/load
+    game-state.js    stats, calendar, practices, save/load
     event-manager.js event scheduling and weighted selection
     turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
@@ -66,7 +66,7 @@ docs/js/
     festivals.js      9 fixed calendar events
     achievements.js  22 predicates over a state snapshot
   ui/
-    screens.js       hub, map, location, satchel, practice, almanac,
+    screens.js       hub, map, location, practice, almanac,
                      characters, modal, game over
 ```
 
@@ -147,13 +147,11 @@ Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk,
 skippable by paying ahead at the letting office, and waived entirely on
 Rent Amnesty Day.
 
-### Items, perks and milestones
+### Practice and milestones
 
-- **12 items** in a 6-slot satchel: passives modify every turn, consumables are
-  spent once, keepsakes are inert but pawnable.
 - **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
   acyclic and declared in a buyable order.
-- **9 festivals** on fixed calendar dates, and **22 achievements** expressed as
+- **9 festivals** on fixed calendar dates, and **21 achievements** expressed as
   pure predicates over a state snapshot.
 
 The former task-contract system and long-form journal were deliberately retired
@@ -306,5 +304,4 @@ by a dedicated test that boots the app with the media query forced on.
 - **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
   a real phone is still worthwhile (HUD identity row + map grid).
 - **No audio.**
-- **The satchel has no sort or filter.** Six slots is small enough that this
   has not bitten yet.

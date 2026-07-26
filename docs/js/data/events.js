@@ -62,8 +62,6 @@ function ev(id, title, description, category, rarity, sanityDelta, moneyDelta, w
     energyDelta: 0,
     reputationDelta: 0,
     insightDelta: 0,
-    /** Item id granted when the event fires. */
-    grantsItem: '',
     /**
      * Side character this event belongs to. Every event should name someone —
      * the modal shows their portrait so the city feels peopled, not abstract.
@@ -91,7 +89,7 @@ export function buildEventPool() {
       Category.COMMUNITY, Rarity.STANDARD, 8, 8, WEIGHT_STANDARD, 'spiritual_community', { character: 'siekamcebule' }),
     ev('healing_circle', 'Group Healing Circle',
       'The community gathers for a spontaneous healing circle. Their shared warmth restores your faith in humanity, and Susan presses a bottle of tonic into your hand on the way out.',
-      Category.SPIRITUAL, Rarity.STANDARD, 12, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'susan', grantsItem: 'herbal_tonic' }),
+      Category.SPIRITUAL, Rarity.STANDARD, 12, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'susan' }),
     ev('wise_elder', 'Wise Elder Visit',
       'An elder from a nearby community visits and shares ancient wisdom. You feel renewed purpose and direction.',
       Category.SPIRITUAL, Rarity.STANDARD, 10, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'simon' }),
@@ -131,7 +129,7 @@ export function buildEventPool() {
     // ---- Standard ----
     ev('unexpected_tips', 'Unexpected Tips',
       'The bar was busy tonight. A group celebrating a birthday left generous tips, and Barret lets you keep Kaj’s handwritten tip sign for the next shift.',
-      Category.BAR, Rarity.STANDARD, 0, 8, WEIGHT_STANDARD, 'bar', { character: 'barret', grantsItem: 'tip_jar' }),
+      Category.BAR, Rarity.STANDARD, 0, 8, WEIGHT_STANDARD, 'bar', { character: 'barret' }),
     ev('slow_night', 'Slow Night',
       'A quiet night at the bar. Only a handful of regulars nursing their drinks. Earnings are lower than expected.',
       Category.BAR, Rarity.STANDARD, 0, -5, WEIGHT_STANDARD, 'bar', { character: 'matt' }),
@@ -188,7 +186,7 @@ export function buildEventPool() {
     ev('the_stone', 'A Flat River Stone',
       'You picked it up without deciding to. It fits the thumb exactly, and you find you have kept it.',
       Category.DISCOVERY, Rarity.STANDARD, 3, 0, WEIGHT_STANDARD, '',
-      { requiredTag: 'quiet', grantsItem: 'river_stone' , character: 'joar' }),
+      { requiredTag: 'quiet' , character: 'joar' }),
     ev('unwelcome_quiet', 'Too Much Quiet',
       'With nothing to do, everything you have been outrunning caught up and sat down opposite you.',
       Category.SPIRITUAL, Rarity.STANDARD, -7, 0, WEIGHT_STANDARD, '',
@@ -206,7 +204,7 @@ export function buildEventPool() {
     ev('found_boots', 'Left Out for Anyone',
       'A pair of resoled boots on a wall with a note: TAKE THESE, THEY ARE GOOD. They are your size.',
       Category.DISCOVERY, Rarity.RARE_HELPFUL, 4, 0, WEIGHT_RARE_HELPFUL, '',
-      { requiredTag: 'outdoor', grantsItem: 'good_boots' , character: 'mateo' }),
+      { requiredTag: 'outdoor' , character: 'mateo' }),
 
     // ---- Markets ----
     ev('good_pitch', 'A Good Pitch',
@@ -254,7 +252,7 @@ export function buildEventPool() {
     ev('the_notebook', 'A Notebook, Abandoned',
       'Half sermon notes, half stock orders, left on the reference desk. You recognise the problem immediately.',
       Category.DISCOVERY, Rarity.RARE_HELPFUL, 3, 0, WEIGHT_RARE_HELPFUL, '',
-      { requiredTag: 'study', grantsItem: 'notebook', insightDelta: 2 , character: 'lou' }),
+      { requiredTag: 'study', insightDelta: 2 , character: 'lou' }),
 
     // ---- Night ----
     ev('four_am', 'Four in the Morning',
@@ -274,7 +272,7 @@ export function buildEventPool() {
     ev('the_bell', 'The Bell in the Ruins',
       'Wedged behind a fallen stone, small and brass and still perfectly in tune. Nobody was coming back for it.',
       Category.DISCOVERY, Rarity.RARE_HELPFUL, 6, 0, WEIGHT_RARE_HELPFUL, '',
-      { requiredTag: 'pilgrimage', grantsItem: 'brass_bell', insightDelta: 2 , character: 'geo' }),
+      { requiredTag: 'pilgrimage', insightDelta: 2 , character: 'geo' }),
 
     // ---- Rivals ----
     ev('sato_offer', 'Sato Makes an Offer',

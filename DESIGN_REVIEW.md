@@ -22,7 +22,7 @@ feature was cut merely to make the interface sparse.
   screens), strengthened his name weight, and retained the current weather in
   the same glanceable top row.
 - Rebuilt the hub around a single heading, two primary daily destinations and
-  one quieter City route. Satchel, Practice, Weather & milestones, and People
+  one quieter City route. Practice, Weather & milestones, and People
   now sit in one compact `Keep close` row.
 - Added a read-only **daily focus cue**. It calmly calls attention to low
   sanity, energy, money or imminent rent without choosing a destination for

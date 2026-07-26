@@ -2,14 +2,13 @@
  * GameState — stats, calendar, history and everything the run accumulates.
  *
  * Originally a 1:1 port of scripts/game_state.gd with two stats. It now also
- * owns energy, reputation and insight, the satchel, the perk set, earned
+ * owns energy, reputation and insight, the perk set, earned
  * achievements and the per-run weather seed.
  *
  * Still strictly DOM-free: everything here is testable headlessly.
  */
 
 import { createAllProfiles } from '../data/characters.js';
-import { aggregateModifiers, getItem, ItemKind } from '../data/items.js';
 import { aggregatePerks, canBuyPerk, getPerk } from '../data/perks.js';
 import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
@@ -52,9 +51,6 @@ export const START_INSIGHT = 0;
 
 /** Soft win: hold the community this many journey days without breaking. */
 export const ENDURANCE_GOAL_DAYS = 100;
-
-/** Satchel size. Items beyond this cannot be picked up. */
-export const SATCHEL_CAPACITY = 6;
 
 /** Offset so journey day 1 maps to Thursday (Jan 1, 2026). Mon=0 … Sun=6. */
 export const START_WEEKDAY_OFFSET = 3;
@@ -113,7 +109,6 @@ export class GameState {
     this.rentPaidCount = 0;
     this.recentHistory = [];
 
-    this.items = [];
     this.perks = new Set();
     this.achievements = new Set();
     this.visitedLocations = new Set();
@@ -210,77 +205,14 @@ export class GameState {
     return weatherForDay(this.journeyDay, this.weatherSeed, this.getSeason());
   }
 
-  /** Tags shut down by today's weather, unless a rain shell says otherwise. */
+  /** Tags shut down by today's weather. */
   getClosedTags() {
-    if (this.getItemModifiers().weatherShield > 0) return [];
     return closedTags(this.getWeather());
   }
 
   /** Today's festival, or null. */
   getFestival() {
     return festivalOn(this.monthIndex, this.dayOfMonth);
-  }
-
-  // ---------------- items ----------------
-
-  getItemModifiers() {
-    return aggregateModifiers(this.items);
-  }
-
-  hasItem(id) {
-    return this.items.includes(id);
-  }
-
-  get satchelFull() {
-    return this.items.length >= SATCHEL_CAPACITY;
-  }
-
-  /** @returns {boolean} false if unknown, duplicate or the satchel is full. */
-  addItem(id) {
-    if (!getItem(id)) return false;
-    if (this.hasItem(id)) return false;
-    if (this.satchelFull) return false;
-    this.items.push(id);
-    this.emit('inventory_changed', [...this.items]);
-    return true;
-  }
-
-  removeItem(id) {
-    const i = this.items.indexOf(id);
-    if (i < 0) return false;
-    this.items.splice(i, 1);
-    this.emit('inventory_changed', [...this.items]);
-    return true;
-  }
-
-  /** Consume a consumable. @returns {object|null} the applied effect. */
-  useItem(id) {
-    const item = getItem(id);
-    if (!item || !this.hasItem(id)) return null;
-    if (item.kind !== ItemKind.CONSUMABLE || !item.use) return null;
-    this.applyDeltas(item.use);
-    this.removeItem(id);
-    return { ...item.use };
-  }
-
-  /** Sell an item at the pawnbroker. @returns {number} money received. */
-  sellItem(id) {
-    const item = getItem(id);
-    if (!item || !this.hasItem(id)) return 0;
-    this.removeItem(id);
-    this.money = clamp(this.money + item.value, 0, MONEY_HARD_CEILING);
-    this._statsChanged();
-    return item.value;
-  }
-
-  /** The most valuable thing carried — what the pawnbroker asks for first. */
-  mostValuableItem() {
-    let best = null;
-    for (const id of this.items) {
-      const item = getItem(id);
-      if (item && (!best || item.value > best.value)) best = item;
-    }
-    return best;
   }
 
   // ---------------- perks ----------------
@@ -336,11 +268,10 @@ export class GameState {
     });
   }
 
-  /** Overnight energy recovery, boosted by Second Wind and a thermos. */
+  /** Overnight energy recovery, boosted by Second Wind. */
   recoverEnergy() {
     const perks = this.getPerkEffects();
-    const items = this.getItemModifiers();
-    const amount = ENERGY_RECOVERY + perks.restBonus * 0.5 + items.energyPerTurn;
+    const amount = ENERGY_RECOVERY + perks.restBonus * 0.5;
     this.energy = clamp(this.energy + amount, 0, MAX_ENERGY);
     return amount;
   }
@@ -491,7 +422,6 @@ export class GameState {
       reputation: this.reputation,
       insight: this.insight,
       perks: this.perks,
-      items: this.items,
       visitedLocations: this.visitedLocations,
       totalLocations: LOCATIONS.length,
       rentPaidCount: this.rentPaidCount,
@@ -597,7 +527,6 @@ export class GameState {
       rentPrepaidUntilDay: this.rentPrepaidUntilDay,
       rentPaidCount: this.rentPaidCount,
       recentHistory: [...this.recentHistory],
-      items: [...this.items],
       perks: [...this.perks],
       achievements: [...this.achievements],
       visitedLocations: [...this.visitedLocations],
@@ -636,7 +565,6 @@ export class GameState {
     this.rentPaidCount = num(data.rentPaidCount, 0);
     this.recentHistory = arr(data.recentHistory).slice(0, 5);
 
-    this.items = arr(data.items).filter((id) => getItem(id));
     this.perks = new Set(arr(data.perks).filter((id) => getPerk(id)));
     this.achievements = new Set(arr(data.achievements));
     this.visitedLocations = new Set(arr(data.visitedLocations));

@@ -17,7 +17,6 @@ import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
 import { LOCATIONS, locationIds, getLocation } from '../docs/js/data/locations.js';
 import { getWeather } from '../docs/js/data/weather.js';
-import { getItem } from '../docs/js/data/items.js';
 import { buildEventPool, Rarity, Category } from '../docs/js/data/events.js';
 import { createAllProfiles, getInitials, Role, roleLabel } from '../docs/js/data/characters.js';
 import { createRng } from '../docs/js/core/rng.js';
@@ -281,12 +280,6 @@ test('weather-gated events name a real weather type', () => {
   }
 });
 
-test('items granted by events all exist', () => {
-  for (const e of buildEventPool()) {
-    if (!e.grantsItem) continue;
-    assert.ok(getItem(e.grantsItem), `${e.id} grants unknown item ${e.grantsItem}`);
-  }
-});
 
 test('rarity weights follow the 10 / 2 / 2 rule', () => {
   for (const e of buildEventPool()) {

@@ -8,14 +8,13 @@
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
 import {
-  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, SATCHEL_CAPACITY,
+  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS,
 } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
 import {
   LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
 } from '../data/locations.js';
-import { getItem, ItemKind } from '../data/items.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { forecast } from '../data/weather.js';
@@ -116,7 +115,7 @@ function backRow(onBack, ...extra) {
 
 export function renderHub(gs, handlers) {
   const {
-    onVisit, onCharacters, onMap, onSatchel, onPerks, onAlmanac,
+    onVisit, onCharacters, onMap, onPerks, onAlmanac,
   } = handlers;
   const weather = gs.getWeather();
   const festival = gs.getFestival();
@@ -161,7 +160,6 @@ export function renderHub(gs, handlers) {
 
     el('div', { class: 'hub-tools', 'aria-label': 'Journey tools' },
       el('span', { class: 'tool-label', text: 'Keep close' }),
-      el('button', { class: 'btn btn-small', onclick: onSatchel, text: `🎒 Satchel ${gs.items.length}/${SATCHEL_CAPACITY}` }),
       el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice ${gs.insight}` }),
       el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Weather & milestones' }),
       el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 People' })),
@@ -180,7 +178,6 @@ export function renderMap(gs, { onVisit, onBack }) {
     reputation: gs.reputation,
     weekday: gs.getWeekdayIndex(),
     perks: gs.perks,
-    items: gs.items,
     closedTags: gs.getClosedTags(),
   };
 
@@ -218,7 +215,7 @@ export function renderMap(gs, { onVisit, onBack }) {
 
   return el('div', { class: 'screen map-screen' },
     el('h2', { class: 'screen-title', text: 'The City' }),
-    el('p', { class: 'screen-sub', text: 'Effects shown include today’s weather, any festival, your perks and whatever is in the satchel.' }),
+    el('p', { class: 'screen-sub', text: 'Effects shown include today’s weather, festivals, and your practice.' }),
     ...districts,
     backRow(onBack));
 }
@@ -282,19 +279,6 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
 
 /** Extra interaction offered by a handful of locations. */
 function renderSpecial(gs, location, onSpecial) {
-  if (location.special === 'sell_item') {
-    const item = gs.mostValuableItem();
-    if (!item) {
-      return el('p', { class: 'special-note', text: 'Verrier looks at your empty hands and says nothing, kindly.' });
-    }
-    return el('div', { class: 'special' },
-      el('p', { text: `Verrier turns your ${item.name} over twice and names a figure.` }),
-      el('button', {
-        class: 'btn btn-small',
-        text: `Sell ${item.emoji} ${item.name} for ${item.value}`,
-        onclick: () => onSpecial('sell_item', item.id),
-      }));
-  }
   if (location.special === 'prepay_rent') {
     const cost = gs.rentDue();
     const covered = gs.rentPrepaidUntilDay > gs.journeyDay;
@@ -314,9 +298,7 @@ function renderSpecial(gs, location, onSpecial) {
   if (location.special === 'long_trip') {
     return el('p', { class: 'special-note', text: 'Three days, counted as one. They will not let you leave early.' });
   }
-  if (location.special === 'gift_item') {
-    return el('p', { class: 'special-note', text: 'People leave things in the crate behind the stall. Sometimes worth taking.' });
-  }
+
   return null;
 }
 
@@ -340,40 +322,6 @@ function startParticles(container) {
   for (let i = 0; i < 6; i++) setTimeout(spawn, i * 320);
   const id = setInterval(() => { container.isConnected ? spawn() : clearInterval(id); }, 850);
   return () => clearInterval(id);
-}
-
-// --------------------------------------------------------------- satchel
-
-export function renderSatchel(gs, { onUse, onDrop, onBack }) {
-  const rows = gs.items.map((id) => {
-    const item = getItem(id);
-    return el('div', { class: `item-row kind-${item.kind}` },
-      el('span', { class: 'item-emoji', text: item.emoji }),
-      el('div', { class: 'item-meta' },
-        el('div', { class: 'item-name', text: item.name }),
-        el('div', { class: 'item-desc', text: item.desc }),
-        el('div', { class: 'item-kind', text: `${item.kind} · worth ${item.value}` })),
-      el('div', { class: 'item-actions' },
-        item.kind === ItemKind.CONSUMABLE
-          ? el('button', { class: 'btn btn-small', text: 'Use', onclick: () => onUse(id) })
-          : null,
-        el('button', { class: 'btn btn-small btn-quiet', text: 'Leave behind', onclick: () => onDrop(id) })));
-  });
-
-  const mods = gs.getItemModifiers();
-  const active = Object.entries(mods).filter(([, v]) => v !== 0);
-
-  return el('div', { class: 'screen' },
-    el('h2', { class: 'screen-title', text: '🎒 The Satchel' }),
-    el('p', { class: 'screen-sub', text: `${gs.items.length} of ${SATCHEL_CAPACITY} carried. Passive items work while carried; consumables are used once.` }),
-    rows.length > 0
-      ? el('div', { class: 'item-list' }, ...rows)
-      : el('p', { class: 'empty', text: 'Empty. You travel light, whether you meant to or not.' }),
-    active.length > 0
-      ? el('div', { class: 'mods' }, el('h3', { text: 'While carried' }),
-        el('ul', {}, ...active.map(([k, v]) => el('li', { text: `${k}: ${fmtDelta(v)}` }))))
-      : null,
-    backRow(onBack));
 }
 
 // ----------------------------------------------------------------- perks
@@ -577,7 +525,7 @@ export function renderGameOver(gs, message, { onRestart }) {
 export function renderResultModal(result, gs, { onContinue }) {
   const {
     actionDesc, event, rentCharged, deltas, weather, festival,
-    achievements, grantedItem, exhaustion,
+    achievements, exhaustion,
   } = result;
 
   const eventChar = event?.character ? findCharacter(gs, event.character) : null;
@@ -599,10 +547,6 @@ export function renderResultModal(result, gs, { onContinue }) {
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
   if (exhaustion) notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
-  if (grantedItem) {
-    const item = getItem(grantedItem);
-    notes.push(`${item.emoji} Picked up: ${item.name}.`);
-  }
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },

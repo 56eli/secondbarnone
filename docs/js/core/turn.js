@@ -5,7 +5,7 @@
  * before the random event, so an event can still pull you back from the brink
  * that rent pushed you toward.
  *
- *   1. the location action, modified by weather, festival, perks and items
+ *   1. the location action, modified by weather, festival and perks
  *   2. exhaustion penalty
  *   3. Sunday rent
  *   4. the scheduled random event
@@ -63,15 +63,10 @@ export function computeDayEffects(gs, locationId) {
 
   // --- weather ---
   const weather = gs.getWeather();
-  const shielded = gs.getItemModifiers().weatherShield > 0;
   for (const tag of location.tags) {
     const mod = weather.tagEffects[tag];
     if (!mod) continue;
-    // A rain shell cancels the bad half of the weather, never the good half.
-    const applied = {};
-    for (const [k, v] of Object.entries(mod)) {
-      applied[k] = shielded && v < 0 ? 0 : v;
-    }
+    const applied = { ...mod };
     accumulate(total, applied);
     if (Object.values(applied).some((v) => v !== 0)) {
       reasons.push(`${weather.emoji} ${weather.name}`);
@@ -110,9 +105,6 @@ export function computeDayEffects(gs, locationId) {
   if (location.tags.includes(Tag.REST)) {
     perkBundle.energy += perks.restBonus;
   }
-  if (location.tags.includes(Tag.PILGRIMAGE)) {
-    perkBundle.energy += gs.getItemModifiers().travelEnergyDiscount;
-  }
   if (base.reputation > 0) {
     perkBundle.reputation += perks.reputationBonus;
   }
@@ -124,17 +116,6 @@ export function computeDayEffects(gs, locationId) {
     reasons.push('Perks');
   }
 
-  // --- carried items ---
-  const items = gs.getItemModifiers();
-  const itemBundle = zero();
-  itemBundle.sanity += items.sanityPerTurn;
-  itemBundle.energy += items.energyPerTurn;
-  itemBundle.insight += items.insightPerTurn;
-  if (location.tags.includes(Tag.WORK)) itemBundle.money += items.moneyPerWorkTurn;
-  if (KEYS.some((k) => itemBundle[k] !== 0)) {
-    accumulate(total, itemBundle);
-    reasons.push('Satchel');
-  }
 
   return { base, total, reasons: [...new Set(reasons)] };
 }
@@ -159,7 +140,7 @@ export function scaleEventDeltas(event, perks) {
  * @returns {{actionDesc:string, event:object|null, rentCharged:number,
  *            gameOver:boolean, deltas:object, reasons:string[],
  *            achievements:object[],
- *            grantedItem:string|null, exhaustion:number,
+ *            exhaustion:number,
  *            sanityDelta:number, moneyDelta:number,
  *            prevSanity:number, prevMoney:number, weather:object,
  *            festival:object|null}}
@@ -188,7 +169,6 @@ export function resolveTurn(gs, eventManager, locationId) {
 
   // 4 — scheduled event
   let event = null;
-  let grantedItem = null;
   if (!gs.gameOver) {
     event = eventManager.selectEvent(
       gs.journeyDay,
@@ -199,7 +179,6 @@ export function resolveTurn(gs, eventManager, locationId) {
     );
     if (event) {
       gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
-      if (event.grantsItem && gs.addItem(event.grantsItem)) grantedItem = event.grantsItem;
     }
   }
 
@@ -240,7 +219,6 @@ export function resolveTurn(gs, eventManager, locationId) {
     deltas,
     reasons,
     achievements,
-    grantedItem,
     exhaustion,
     weather,
     festival,
