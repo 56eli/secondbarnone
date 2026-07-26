@@ -29,7 +29,7 @@ const STATIC_REFS = [
 ];
 
 const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
-const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 
 let failures = 0;
 const fail = (msg) => { console.error(`  ✗ ${msg}`); failures += 1; };

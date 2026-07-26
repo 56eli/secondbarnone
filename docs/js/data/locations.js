@@ -100,7 +100,7 @@ export const LOCATIONS = [
   loc({
     id: 'home_loft',
     host: 'leon',
-    name: 'The Belleville Studio',
+    name: 'Home Loft',
     emoji: '🛏️',
     district: District.HOME,
     desc: 'Two rooms above a shuttered print shop. A mattress, a kettle, a window that rattles. It is not much, but the door locks and nobody needs anything from you here.',
@@ -115,7 +115,7 @@ export const LOCATIONS = [
   loc({
     id: 'rooftop',
     host: 'yume',
-    name: 'Belleville Rooftop',
+    name: 'Rooftop',
     emoji: '🌃',
     district: District.HOME,
     desc: 'Tar paper, a folding chair, and the whole grid of streetlights laid out below. The city sounds like a held breath from up here.',
@@ -130,7 +130,7 @@ export const LOCATIONS = [
   loc({
     id: 'free_clinic',
     host: 'susan',
-    name: 'The Belleville Clinic',
+    name: 'Community Clinic',
     emoji: '🩺',
     district: District.HOME,
     desc: 'A converted storefront with mismatched chairs and a permanent queue. Two nurses, one doctor, and whoever else turns up willing to work.',
@@ -162,7 +162,7 @@ export const LOCATIONS = [
   loc({
     id: 'river_walk',
     host: 'joar',
-    name: 'Canal Saint-Martin Walk',
+    name: 'Canal Walk',
     emoji: '🌊',
     district: District.RIVERSIDE,
     desc: 'Iron footbridges, plane trees and dark water under the Canal Saint-Martin. A walk here makes Paris feel briefly small enough to cross on foot.',
@@ -178,7 +178,7 @@ export const LOCATIONS = [
   loc({
     id: 'community_garden',
     host: 'brock_lee',
-    name: 'Jardin des Buttes-Chaumont',
+    name: 'Community Garden',
     emoji: '🌱',
     district: District.RIVERSIDE,
     desc: 'Twelve raised beds on a lot the council forgot. Tomatoes, chard, one determined fig tree, and an unwritten rota everybody follows.',
@@ -193,7 +193,7 @@ export const LOCATIONS = [
   loc({
     id: 'farmers_market',
     host: 'ahyeon',
-    name: 'Marché des Enfants Rouges',
+    name: 'Saturday Market',
     emoji: '🥬',
     district: District.RIVERSIDE,
     desc: 'Saturday trestle tables under a leaking awning. The community sells honey, jam and meditation cushions nobody has the heart to price properly.',
@@ -208,7 +208,7 @@ export const LOCATIONS = [
   loc({
     id: 'bathhouse',
     host: 'renata',
-    name: 'The Hammam of the 10th',
+    name: 'Bathhouse',
     emoji: '♨️',
     district: District.RIVERSIDE,
     desc: 'Edwardian tile, water at three temperatures, and a strict rule of silence enforced by a woman who has never explained her name.',
@@ -225,7 +225,7 @@ export const LOCATIONS = [
   loc({
     id: 'night_market',
     host: 'cheezl',
-    name: 'Rue Oberkampf Night Market',
+    name: 'Night Market',
     emoji: '🏮',
     district: District.OLD_TOWN,
     desc: 'Six streets of grills, generators and paper lanterns, running from dusk until the police pretend to notice.',
@@ -285,7 +285,7 @@ export const LOCATIONS = [
   loc({
     id: 'radio_station',
     host: 'hawkinstv',
-    name: 'Radio Belleville',
+    name: 'Radio Station',
     emoji: '📻',
     district: District.OLD_TOWN,
     desc: 'A studio in a converted bedroom above a kebab shop, broadcasting to maybe four hundred people who all know each other.',
@@ -333,7 +333,7 @@ export const LOCATIONS = [
   loc({
     id: 'sato_studio',
     host: 'sato',
-    name: 'Sato\u2019s Saint-Germain Studio',
+    name: 'Sato\u2019s Studio',
     emoji: '🕯️',
     district: District.UPTOWN,
     desc: 'Blonde wood, filtered water, a price list in a serif font. Sato keeps offering you a guest class and keeps meaning it.',
@@ -348,7 +348,7 @@ export const LOCATIONS = [
   loc({
     id: 'alex_cocktail_bar',
     host: 'alex',
-    name: 'Vermillion, Saint-Germain',
+    name: 'Vermillion',
     emoji: '🍸',
     district: District.UPTOWN,
     desc: 'Clarified milk punch, a nine-page menu, and a doorman. Alex pays better than Barret and never lets you forget it.',

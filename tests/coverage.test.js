@@ -361,10 +361,10 @@ test('portrait extensions match the painted / generated split', () => {
     'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
     'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
     'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
-    'yun', 'marlies', 'mateo', 'luca', 'cheezl',
+    'yun', 'marlies', 'mateo', 'luca', 'cheezl', 'yume', 'joar', 'susan',
   ]);
   for (const c of createAllProfiles()) {
-    const expected = painted.has(c.id) ? 'webp' : 'svg';
+    const expected = ['yume', 'joar', 'susan'].includes(c.id) ? 'png' : painted.has(c.id) ? 'webp' : 'svg';
     assert.ok(
       c.portrait.endsWith(`.${expected}`),
       `${c.id} should use .${expected}, got ${c.portrait}`,

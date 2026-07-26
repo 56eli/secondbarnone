@@ -575,7 +575,7 @@ test('every character has full biography text', () => {
     const minRel = c.role === Role.PROTAGONIST ? 4 : 10;
     assert.ok(c.relationship.length >= minRel, `${c.id} relationship too short`);
     assert.ok(c.location.length > 0, `${c.id} location`);
-    assert.match(c.portrait, /^assets\/portraits\/.+\.(webp|svg)$/, `${c.id} portrait path`);
+    assert.match(c.portrait, /^assets\/portraits\/.+\.(webp|svg|png)$/, `${c.id} portrait path`);
   }
 });
 
