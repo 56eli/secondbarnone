@@ -22,10 +22,11 @@ export function roleLabel(role) {
   }
 }
 
-/** Characters whose portrait is a painted raster image (now WebP). */
+/** Characters whose portrait is a painted raster image (WebP, circular, vignette). */
 const WEBP_PORTRAITS = new Set([
   'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-  'kaden', 'sato', 'alex',
+  'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
+  'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
 ]);
 
 function portraitFor(id) {

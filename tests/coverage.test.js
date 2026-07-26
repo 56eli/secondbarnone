@@ -365,7 +365,8 @@ test('stats stay clamped through a long adversarial event sequence', () => {
 test('portrait extensions match the painted / generated split', () => {
   const painted = new Set([
     'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-    'kaden', 'sato', 'alex',
+    'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
+    'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
   ]);
   for (const c of createAllProfiles()) {
     const expected = painted.has(c.id) ? 'webp' : 'svg';
