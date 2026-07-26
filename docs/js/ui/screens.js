@@ -1,10 +1,25 @@
 /**
- * Screen renderers. Each returns a DOM element; main.js swaps them into
- * #content, replacing Godot's ContentHost + PackedScene instantiation.
+ * Screen renderers. Each returns a DOM element; app.js swaps them into
+ * #content.
+ *
+ * Rule for this file: it may read state, but it must never mutate it. Every
+ * mutation goes back through a callback so that the rules stay in core/.
  */
 
 import { getInitials, Role, roleLabel } from '../data/characters.js';
-import { MAX_STAT, SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS } from '../core/game-state.js';
+import {
+  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, SATCHEL_CAPACITY,
+} from '../core/game-state.js';
+import { computeDayEffects } from '../core/turn.js';
+import {
+  LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
+} from '../data/locations.js';
+import { getItem, ItemKind } from '../data/items.js';
+import { PERKS, getPerk } from '../data/perks.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
+import { contractsOfferedAt, getContract } from '../data/contracts.js';
+import { forecast } from '../data/weather.js';
+import { upcomingFestivals } from '../data/festivals.js';
 
 /** Small DOM helper. */
 export function el(tag, attrs = {}, ...children) {
@@ -24,6 +39,33 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+/** Signed number for display: 0 renders as an em dash. */
+export function fmtDelta(n) {
+  const v = Math.round(n);
+  if (v === 0) return '—';
+  return `${v > 0 ? '+' : ''}${v}`;
+}
+
+const STAT_META = [
+  ['sanity', '🧘', 'Sanity'],
+  ['money', '💰', 'Money'],
+  ['energy', '⚡', 'Energy'],
+  ['reputation', '🤝', 'Rep'],
+  ['insight', '🔮', 'Insight'],
+];
+
+/** A compact row of +N / −N chips for a delta bundle. */
+export function effectChips(bundle, cls = 'chips') {
+  const chips = STAT_META
+    .filter(([key]) => Math.round(bundle[key] ?? 0) !== 0)
+    .map(([key, emoji]) => {
+      const v = Math.round(bundle[key]);
+      return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, `${emoji} ${fmtDelta(v)}`);
+    });
+  if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
+  return el('div', { class: cls }, ...chips);
+}
+
 /** Portrait <img> with graceful fallback to an initials chip. */
 function avatar(profile, cls = 'avatar') {
   const initials = getInitials(profile.name);
@@ -35,64 +77,149 @@ function avatar(profile, cls = 'avatar') {
     decoding: 'async',
     draggable: 'false',
   });
-  // If the file is missing, swap in an initials chip (mirrors the
-  // TextureRect / fallback-Label pair in character_profiles.gd).
   img.addEventListener('error', () => {
     img.replaceWith(el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials));
   }, { once: true });
   return img;
 }
 
+/** Standard back button used by every sub-screen. */
+function backRow(onBack, ...extra) {
+  return el('div', { class: 'action-row' },
+    el('button', { class: 'btn', text: '← Back to hub', onclick: onBack }),
+    ...extra);
+}
+
 // ------------------------------------------------------------------ hub
 
-export function renderHub(gs, { onVisit, onCharacters }) {
+export function renderHub(gs, handlers) {
+  const {
+    onVisit, onCharacters, onMap, onSatchel, onPerks,
+    onContracts, onJournal, onAlmanac,
+  } = handlers;
+
+  const weather = gs.getWeather();
+  const festival = gs.getFestival();
+
   const historyItems = gs.recentHistory.length
     ? el('ul', {}, ...gs.recentHistory.map((h) => el('li', { text: h })))
     : el('p', { class: 'empty', text: 'Nothing yet — your journey begins today.' });
 
+  // The two founding locations always have a shortcut; everything else is
+  // reached through the map, so the hub does not become a wall of buttons.
+  const quick = ['spiritual_community', 'bar'].map((id) => {
+    const location = getLocation(id);
+    const { total } = computeDayEffects(gs, id);
+    return el('button', { class: 'choice', onclick: () => onVisit(id) },
+      el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+      effectChips(total, 'chips choice-eff'));
+  });
+
+  const contractStrip = gs.activeContracts.length > 0
+    ? el('div', { class: 'contract-strip' },
+      ...gs.activeContracts.map((record) => {
+        const contract = getContract(record.id);
+        const left = record.expiresOn - gs.journeyDay;
+        return el('div', { class: 'contract-pill' },
+          `${contract.emoji} ${contract.name} — ${record.progress}/${record.need}`,
+          el('span', { class: `contract-days${left <= 2 ? ' urgent' : ''}`, text: ` · ${left}d left` }));
+      }))
+    : null;
+
   return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.svg')" },
     el('h2', { class: 'screen-title', text: 'Where will you spend today?' }),
     el('p', { class: 'hub-meta', text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}` }),
+
+    el('p', { class: 'hub-weather' },
+      el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` }),
+      ` ${weather.line}`),
+
+    festival
+      ? el('p', { class: 'festival-banner', text: `${festival.emoji} ${festival.name} — ${festival.line}` })
+      : null,
+
     el('p', { class: 'hub-mood', text: `${gs.getSeason()} — ${gs.getMood()}` }),
 
-    el('div', { class: 'choices' },
-      el('button', { class: 'choice', onclick: () => onVisit('spiritual_community') },
-        el('span', { class: 'choice-name', text: '🧘 Spiritual Community' }),
-        el('span', { class: 'choice-eff', text: `+${SANITY_GAIN} Sanity · −${MONEY_LOSS} Money` })),
-      el('button', { class: 'choice', onclick: () => onVisit('bar') },
-        el('span', { class: 'choice-name', text: '🍻 The Bar' }),
-        el('span', { class: 'choice-eff', text: `+${MONEY_GAIN} Money · −${SANITY_LOSS} Sanity` })),
-      el('button', { class: 'choice', onclick: onCharacters },
-        el('span', { class: 'choice-name', text: '👥 Characters' }),
-        el('span', { class: 'choice-eff', text: 'Meet the people in Léon’s life' })),
-    ),
+    contractStrip,
+
+    el('div', { class: 'choices' }, ...quick,
+      el('button', { class: 'choice choice-map', onclick: onMap },
+        el('span', { class: 'choice-name', text: '🗺️ The City' }),
+        el('span', { class: 'choice-eff', text: 'Twenty-two places, if you can get to them' }))),
+
+    el('div', { class: 'hub-nav' },
+      el('button', { class: 'btn btn-small', onclick: onSatchel, text: `🎒 Satchel (${gs.items.length}/${SATCHEL_CAPACITY})` }),
+      el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice (${gs.insight})` }),
+      el('button', { class: 'btn btn-small', onclick: onContracts, text: `📜 Commitments (${gs.activeContracts.length})` }),
+      el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Almanac' }),
+      el('button', { class: 'btn btn-small', onclick: onJournal, text: '📔 Journal' }),
+      el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 Characters' })),
 
     el('div', { class: 'history' }, el('h3', { text: 'Recent history' }), historyItems),
   );
 }
 
+// ------------------------------------------------------------------- map
+
+export function renderMap(gs, { onVisit, onBack }) {
+  const snap = {
+    journeyDay: gs.journeyDay,
+    reputation: gs.reputation,
+    weekday: gs.getWeekdayIndex(),
+    perks: gs.perks,
+    items: gs.items,
+    closedTags: gs.getClosedTags(),
+  };
+
+  const districts = DISTRICT_ORDER.map((district) => {
+    const here = LOCATIONS.filter((l) => l.district === district);
+    if (here.length === 0) return null;
+
+    const cards = here.map((location) => {
+      const { unlocked, reason } = evaluateUnlock(location, snap);
+      const { total } = computeDayEffects(gs, location.id);
+      const visited = gs.visitedLocations.has(location.id);
+
+      const card = el('button', {
+        class: `loc-card${unlocked ? '' : ' locked'}${visited ? ' visited' : ''}`,
+        disabled: !unlocked,
+        'data-location': location.id,
+      },
+      el('span', { class: 'loc-name', text: `${location.emoji} ${location.name}` }),
+      unlocked
+        ? effectChips(total, 'chips loc-chips')
+        : el('span', { class: 'loc-lock', text: `🔒 ${reason}` }),
+      el('span', { class: 'loc-tags', text: location.tags.join(' · ') }));
+
+      if (unlocked) card.addEventListener('click', () => onVisit(location.id));
+      return card;
+    });
+
+    const open = here.filter((l) => evaluateUnlock(l, snap).unlocked).length;
+    return el('section', { class: 'district' },
+      el('h3', { class: 'district-title' }, district,
+        el('span', { class: 'district-count', text: ` ${open}/${here.length} open` })),
+      el('div', { class: 'loc-grid' }, ...cards));
+  }).filter(Boolean);
+
+  return el('div', { class: 'screen map-screen' },
+    el('h2', { class: 'screen-title', text: 'The City' }),
+    el('p', { class: 'screen-sub', text: 'Effects shown include today’s weather, any festival, your perks and whatever is in the satchel.' }),
+    ...districts,
+    backRow(onBack));
+}
+
 // ------------------------------------------------------------- location
 
-const LOCATIONS = {
-  spiritual_community: {
-    title: 'Spiritual Community',
-    desc: 'A peaceful sanctuary for meditation, connection, and spiritual growth. Soft candlelight flickers as the scent of incense fills the air.',
-    action: `🧘 Meditate & Connect (+${SANITY_GAIN} Sanity, −${MONEY_LOSS} Money)`,
-    bg: 'assets/backgrounds/spiritual_community.webp',
-  },
-  bar: {
-    title: 'The Bar',
-    desc: 'A dimly lit bar with worn wooden counters and amber glow. The clink of glasses and murmur of conversation fill the warm, smoky air.',
-    action: `🍻 Work a Shift (+${MONEY_GAIN} Money, −${SANITY_LOSS} Sanity)`,
-    bg: 'assets/backgrounds/bar.webp',
-  },
-};
-
-export function renderLocation(locationId, { onAction, onBack }) {
-  const cfg = LOCATIONS[locationId];
+export function renderLocation(gs, locationId, { onAction, onBack, onAcceptContract, onSpecial }) {
+  const location = getLocation(locationId);
+  const { total, reasons } = computeDayEffects(gs, locationId);
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
-  const actionBtn = el('button', { class: 'btn btn-primary', text: cfg.action });
+  const actionBtn = el('button', {
+    class: 'btn btn-primary',
+    text: `${location.emoji} ${location.actionLabel}`,
+  });
   const backBtn = el('button', { class: 'btn', text: '← Back to hub' });
 
   actionBtn.addEventListener('click', () => {
@@ -102,10 +229,37 @@ export function renderLocation(locationId, { onAction, onBack }) {
   });
   backBtn.addEventListener('click', () => onBack());
 
-  const node = el('div', { class: 'screen location', style: `background-image:url('${cfg.bg}')` },
+  // Contract offers available here and not already taken.
+  const offers = contractsOfferedAt(locationId, gs.journeyDay)
+    .filter((c) => !gs.isContractActive(c.id) && !gs.completedContracts.includes(c.id))
+    .map((contract) => el('div', { class: 'offer' },
+      el('div', { class: 'offer-head', text: `${contract.emoji} ${contract.name}` }),
+      el('p', { class: 'offer-desc', text: contract.desc }),
+      el('p', { class: 'offer-terms', text: `${contract.need} qualifying days within ${contract.days} days` }),
+      effectChips(contract.reward, 'chips offer-reward'),
+      el('button', {
+        class: 'btn btn-small',
+        text: 'Take it on',
+        onclick: () => onAcceptContract(contract.id),
+      })));
+
+  // Location specials: the pawnbroker, the letting office, and so on.
+  const special = renderSpecial(gs, location, onSpecial);
+
+  const node = el('div', { class: 'screen location', style: location.bg ? `background-image:url('${location.bg}')` : '' },
     particles,
-    el('h2', { class: 'screen-title', text: cfg.title }),
-    el('p', { class: 'screen-sub', text: cfg.desc }),
+    el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
+    el('p', { class: 'screen-sub', text: location.desc }),
+
+    el('div', { class: 'preview' },
+      el('h3', { text: "Today, here" }),
+      effectChips(total, 'chips preview-chips'),
+      reasons.length > 0
+        ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
+        : null),
+
+    special,
+    offers.length > 0 ? el('div', { class: 'offers' }, el('h3', { text: 'On offer' }), ...offers) : null,
     el('div', { class: 'action-row' }, actionBtn, backBtn),
   );
 
@@ -113,7 +267,47 @@ export function renderLocation(locationId, { onAction, onBack }) {
   return node;
 }
 
-/** Floating motes — the CSS equivalent of location_base.gd's spawner. */
+/** Extra interaction offered by a handful of locations. */
+function renderSpecial(gs, location, onSpecial) {
+  if (location.special === 'sell_item') {
+    const item = gs.mostValuableItem();
+    if (!item) {
+      return el('p', { class: 'special-note', text: 'Verrier looks at your empty hands and says nothing, kindly.' });
+    }
+    return el('div', { class: 'special' },
+      el('p', { text: `Verrier turns your ${item.name} over twice and names a figure.` }),
+      el('button', {
+        class: 'btn btn-small',
+        text: `Sell ${item.emoji} ${item.name} for ${item.value}`,
+        onclick: () => onSpecial('sell_item', item.id),
+      }));
+  }
+  if (location.special === 'prepay_rent') {
+    const cost = gs.rentDue();
+    const covered = gs.rentPrepaidUntilDay > gs.journeyDay;
+    return el('div', { class: 'special' },
+      el('p', {
+        text: covered
+          ? `You are paid up to journey day ${gs.rentPrepaidUntilDay}.`
+          : 'You can settle a week ahead and buy yourself a quiet Sunday.',
+      }),
+      el('button', {
+        class: 'btn btn-small',
+        disabled: gs.money < cost,
+        text: `Pay a week ahead (${cost} money)`,
+        onclick: () => onSpecial('prepay_rent'),
+      }));
+  }
+  if (location.special === 'long_trip') {
+    return el('p', { class: 'special-note', text: 'Three days, counted as one. They will not let you leave early.' });
+  }
+  if (location.special === 'gift_item') {
+    return el('p', { class: 'special-note', text: 'People leave things in the crate behind the stall. Sometimes worth taking.' });
+  }
+  return null;
+}
+
+/** Floating motes. */
 function startParticles(container) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
   const spawn = () => {
@@ -135,9 +329,165 @@ function startParticles(container) {
   return () => clearInterval(id);
 }
 
+// --------------------------------------------------------------- satchel
+
+export function renderSatchel(gs, { onUse, onDrop, onBack }) {
+  const rows = gs.items.map((id) => {
+    const item = getItem(id);
+    return el('div', { class: `item-row kind-${item.kind}` },
+      el('span', { class: 'item-emoji', text: item.emoji }),
+      el('div', { class: 'item-meta' },
+        el('div', { class: 'item-name', text: item.name }),
+        el('div', { class: 'item-desc', text: item.desc }),
+        el('div', { class: 'item-kind', text: `${item.kind} · worth ${item.value}` })),
+      el('div', { class: 'item-actions' },
+        item.kind === ItemKind.CONSUMABLE
+          ? el('button', { class: 'btn btn-small', text: 'Use', onclick: () => onUse(id) })
+          : null,
+        el('button', { class: 'btn btn-small btn-quiet', text: 'Leave behind', onclick: () => onDrop(id) })));
+  });
+
+  const mods = gs.getItemModifiers();
+  const active = Object.entries(mods).filter(([, v]) => v !== 0);
+
+  return el('div', { class: 'screen' },
+    el('h2', { class: 'screen-title', text: '🎒 The Satchel' }),
+    el('p', { class: 'screen-sub', text: `${gs.items.length} of ${SATCHEL_CAPACITY} carried. Passive items work while carried; consumables are used once.` }),
+    rows.length > 0
+      ? el('div', { class: 'item-list' }, ...rows)
+      : el('p', { class: 'empty', text: 'Empty. You travel light, whether you meant to or not.' }),
+    active.length > 0
+      ? el('div', { class: 'mods' }, el('h3', { text: 'While carried' }),
+        el('ul', {}, ...active.map(([k, v]) => el('li', { text: `${k}: ${fmtDelta(v)}` }))))
+      : null,
+    backRow(onBack));
+}
+
+// ----------------------------------------------------------------- perks
+
+export function renderPerks(gs, { onBuy, onBack }) {
+  const rows = PERKS.map((perk) => {
+    const owned = gs.hasPerk(perk.id);
+    const check = gs.canBuy(perk.id);
+    return el('div', { class: `perk-row${owned ? ' owned' : ''}${!owned && !check.ok ? ' blocked' : ''}` },
+      el('span', { class: 'perk-emoji', text: perk.emoji }),
+      el('div', { class: 'perk-meta' },
+        el('div', { class: 'perk-name', text: perk.name }),
+        el('div', { class: 'perk-desc', text: perk.desc }),
+        perk.requires.length > 0
+          ? el('div', { class: 'perk-req', text: `after ${perk.requires.map((r) => getPerk(r).name).join(', ')}` })
+          : null),
+      owned
+        ? el('span', { class: 'perk-owned', text: '✓ learned' })
+        : el('button', {
+          class: 'btn btn-small',
+          disabled: !check.ok,
+          title: check.ok ? '' : check.reason,
+          text: `${perk.cost} 🔮`,
+          onclick: () => onBuy(perk.id),
+        }));
+  });
+
+  return el('div', { class: 'screen' },
+    el('h2', { class: 'screen-title', text: '🔮 Practice' }),
+    el('p', { class: 'screen-sub', text: `Quiet days give insight. Insight buys habits that stay bought. You have ${gs.insight}.` }),
+    el('div', { class: 'perk-list' }, ...rows),
+    backRow(onBack));
+}
+
+// ------------------------------------------------------------- contracts
+
+export function renderContracts(gs, { onBack }) {
+  const active = gs.activeContracts.map((record) => {
+    const contract = getContract(record.id);
+    const left = record.expiresOn - gs.journeyDay;
+    const pct = Math.min(100, (record.progress / record.need) * 100);
+    return el('div', { class: 'contract-card' },
+      el('div', { class: 'contract-head', text: `${contract.emoji} ${contract.name}` }),
+      el('p', { class: 'contract-desc', text: contract.desc }),
+      el('div', { class: 'contract-bar' },
+        el('div', { class: 'contract-fill', style: `width:${pct}%` })),
+      el('div', { class: 'contract-foot' },
+        `${record.progress}/${record.need} days · ${left} day${left === 1 ? '' : 's'} remaining`),
+      effectChips(contract.reward, 'chips'));
+  });
+
+  const done = gs.completedContracts.map((id) => {
+    const contract = getContract(id);
+    return el('li', { text: `${contract.emoji} ${contract.name}` });
+  });
+  const failed = gs.failedContracts.map((id) => {
+    const contract = getContract(id);
+    return el('li', { text: `${contract.emoji} ${contract.name}` });
+  });
+
+  return el('div', { class: 'screen' },
+    el('h2', { class: 'screen-title', text: '📜 Commitments' }),
+    el('p', { class: 'screen-sub', text: 'Up to three at a time. Offers turn up at the places that need the help.' }),
+    active.length > 0
+      ? el('div', { class: 'contract-list' }, ...active)
+      : el('p', { class: 'empty', text: 'Nothing promised to anybody. Restful, in its way.' }),
+    done.length > 0 ? el('div', { class: 'mods' }, el('h3', { text: 'Kept' }), el('ul', {}, ...done)) : null,
+    failed.length > 0 ? el('div', { class: 'mods' }, el('h3', { text: 'Let slip' }), el('ul', {}, ...failed)) : null,
+    backRow(onBack));
+}
+
+// --------------------------------------------------------------- almanac
+
+export function renderAlmanac(gs, { onBack }) {
+  const days = forecast(gs.journeyDay, gs.weatherSeed, gs.getSeason(), 4);
+  const festivals = upcomingFestivals(gs.monthIndex, gs.dayOfMonth, 3);
+  const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
+  const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
+
+  return el('div', { class: 'screen' },
+    el('h2', { class: 'screen-title', text: '📖 The Almanac' }),
+    el('p', { class: 'screen-sub', text: 'Weather is not luck. It is written down, and you can read ahead.' }),
+
+    el('h3', { class: 'section-h', text: 'Forecast' }),
+    el('div', { class: 'forecast' }, ...days.map(({ day, weather }, i) => el('div', { class: `fc${i === 0 ? ' today' : ''}` },
+      el('div', { class: 'fc-day', text: i === 0 ? 'Today' : `Day ${day}` }),
+      el('div', { class: 'fc-emoji', text: weather.emoji }),
+      el('div', { class: 'fc-name', text: weather.name }),
+      weather.closes.length > 0 ? el('div', { class: 'fc-closes', text: `closes ${weather.closes.join(', ')}` }) : null))),
+
+    el('h3', { class: 'section-h', text: 'Coming up' }),
+    el('ul', { class: 'fest-list' }, ...festivals.map((f) => el('li', {},
+      el('strong', { text: `${f.emoji} ${f.name}` }),
+      ` — ${f.line}`))),
+
+    el('h3', { class: 'section-h', text: `Achievements (${earned.length}/${ACHIEVEMENTS.length})` }),
+    el('div', { class: 'ach-grid' },
+      ...earned.map((a) => el('div', { class: 'ach earned', title: a.desc },
+        el('span', { class: 'ach-emoji', text: a.emoji }),
+        el('span', { class: 'ach-name', text: a.name }))),
+      ...pending.map((a) => el('div', { class: 'ach', title: a.desc },
+        el('span', { class: 'ach-emoji', text: '·' }),
+        el('span', { class: 'ach-name', text: a.name })))),
+
+    backRow(onBack));
+}
+
+// --------------------------------------------------------------- journal
+
+export function renderJournal(gs, { onBack }) {
+  const entries = [...gs.journal].reverse().slice(0, 60);
+  const list = entries.length > 0
+    ? el('ol', { class: 'journal-list' }, ...entries.map((e) => el('li', {},
+      el('span', { class: 'j-day', text: `Day ${e.day}` }),
+      el('span', { class: 'j-where', text: ` ${e.locationName}` }),
+      el('span', { class: 'j-line', text: e.line ? ` — ${e.line}` : '' }))))
+    : el('p', { class: 'empty', text: 'No days written down yet.' });
+
+  return el('div', { class: 'screen' },
+    el('h2', { class: 'screen-title', text: '📔 Journal' }),
+    el('p', { class: 'screen-sub', text: `${gs.journal.length} day${gs.journal.length === 1 ? '' : 's'} recorded. Most recent first.` }),
+    list,
+    backRow(onBack));
+}
+
 // ------------------------------------------------------------ characters
 
-/** Order roles so the story-important people sit at the top of the list. */
 const ROLE_ORDER = [Role.PROTAGONIST, Role.ARCH_NEMESIS, Role.RIVAL, Role.SIDE_CHARACTER];
 
 const GROUP_TITLES = {
@@ -167,7 +517,6 @@ export function renderCharacters(profiles, { onBack }) {
     );
   };
 
-  /** Build one clickable row. */
   const allRows = [];
   const makeRow = (p) => {
     const row = el('button', {
@@ -188,7 +537,6 @@ export function renderCharacters(profiles, { onBack }) {
     return row;
   };
 
-  // Group by role, preserving declaration order within each group.
   const list = el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' });
   const groups = [];
   for (const role of ROLE_ORDER) {
@@ -235,14 +583,21 @@ export function renderCharacters(profiles, { onBack }) {
     el('p', { class: 'screen-sub', text: 'The people who orbit Léon’s two worlds.' }),
     el('div', { class: 'char-toolbar' }, search, count),
     el('div', { class: 'char-layout' }, list, detail),
-    el('div', { class: 'action-row' },
-      el('button', { class: 'btn', text: '← Back to hub', onclick: onBack })),
-  );
+    backRow(onBack));
 }
 
 // ------------------------------------------------------------- game over
 
 export function renderGameOver(gs, message, { onRestart }) {
+  const stats = [
+    ['Days survived', gs.journeyDay],
+    ['Places visited', `${gs.visitedLocations.size} / ${LOCATIONS.length}`],
+    ['Commitments kept', gs.completedContracts.length],
+    ['Perks learned', gs.perks.size],
+    ['Achievements', `${gs.achievements.size} / ${ACHIEVEMENTS.length}`],
+    ['Reputation', Math.round(gs.reputation)],
+  ];
+
   return el('div', { class: 'screen gameover' },
     el('h2', { text: 'The Balance Broke' }),
     el('p', { text: message }),
@@ -250,34 +605,47 @@ export function renderGameOver(gs, message, { onRestart }) {
       class: 'summary',
       text: `You lasted ${gs.journeyDay} day${gs.journeyDay === 1 ? '' : 's'}, ending on ${gs.getDateDisplay()}.`,
     }),
+    el('dl', { class: 'run-stats' },
+      ...stats.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: String(v) })])),
     el('button', { class: 'btn btn-primary', text: 'Begin again', onclick: onRestart }));
 }
 
 // ----------------------------------------------------------------- modal
 
 export function renderResultModal(result, gs, { onContinue }) {
-  const { actionDesc, event, rentCharged, sanityDelta, moneyDelta } = result;
-
-  const fmt = (n) => `${n >= 0 ? '+' : ''}${Math.round(n)}`;
+  const {
+    actionDesc, event, rentCharged, deltas, weather, festival,
+    completedContracts, achievements, grantedItem, exhaustion,
+  } = result;
 
   const eventBlock = event
     ? el('div', { class: 'event-block' },
-        el('span', { class: `rarity-tag rarity-${event.rarity}`, text: rarityLabel(event.rarity) }),
-        el('p', { class: 'event-title', text: event.title }),
-        el('p', { text: event.description }))
+      el('span', { class: `rarity-tag rarity-${event.rarity}`, text: rarityLabel(event.rarity) }),
+      el('p', { class: 'event-title', text: event.title }),
+      el('p', { text: event.description }))
     : null;
 
-  const rentNote = rentCharged
-    ? el('p', { class: 'screen-sub', style: 'margin:10px 0 0', text: '📅 Sunday rent came due — 18 money.' })
-    : null;
+  const notes = [];
+  if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
+  if (exhaustion) notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
+  if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
+  if (grantedItem) {
+    const item = getItem(grantedItem);
+    notes.push(`${item.emoji} Picked up: ${item.name}.`);
+  }
+  for (const c of completedContracts) notes.push(`✅ Commitment kept: ${c.name}.`);
+  for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },
     el('h3', { text: 'End of Day' }),
+    el('p', { class: 'modal-weather', text: `${weather.emoji} ${weather.name}` }),
     el('p', { text: actionDesc }),
-    rentNote,
+    notes.length > 0
+      ? el('ul', { class: 'modal-notes' }, ...notes.map((n) => el('li', { text: n })))
+      : null,
     eventBlock,
-    el('div', { class: 'modal-stats' },
-      `Sanity ${Math.round(gs.sanity)}/${MAX_STAT} (${fmt(sanityDelta)})  ·  Money ${Math.round(gs.money)}/${MAX_STAT} (${fmt(moneyDelta)})`),
+    el('div', { class: 'modal-stats' }, effectChips(deltas, 'chips')),
+    el('div', { class: 'modal-totals', text: `Sanity ${Math.round(gs.sanity)}/${MAX_STAT} · Money ${Math.round(gs.money)}/${MAX_STAT} · Energy ${Math.round(gs.energy)}/${MAX_ENERGY} · Rep ${Math.round(gs.reputation)}/${MAX_REPUTATION} · Insight ${gs.insight}` }),
     el('div', { class: 'modal-actions' },
       el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue })),
   );
@@ -290,3 +658,9 @@ export function renderResultModal(result, gs, { onContinue }) {
 function rarityLabel(rarity) {
   return { standard: 'Common', rare_helpful: 'Rare · Helpful', rare_hurtful: 'Rare · Hurtful' }[rarity] ?? '';
 }
+
+/** Small transient toast, used for achievements and saves. */
+export function renderToast(text) {
+  return el('div', { class: 'toast', role: 'status', text });
+}
+

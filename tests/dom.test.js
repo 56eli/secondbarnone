@@ -85,7 +85,7 @@ maybe('game boots and renders the hub', async () => {
     assert.ok(doc.querySelector('.hub'), 'hub screen should render');
     assert.match(doc.getElementById('hud-date').textContent, /Thursday, January 1, 2026/);
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
-    assert.equal(doc.querySelectorAll('.choice').length, 3, 'three hub choices');
+    assert.equal(doc.querySelectorAll('.choice').length, 3, 'two locations plus the map');
   } finally { cleanup(window); }
 });
 
@@ -160,7 +160,7 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
@@ -179,7 +179,7 @@ maybe('characters are grouped with antagonists near the top', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     const groups = [...doc.querySelectorAll('.char-group')].map((g) => g.textContent);
@@ -194,7 +194,7 @@ maybe('searching filters the character list', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     const search = doc.querySelector('.char-search');
@@ -222,7 +222,7 @@ maybe('the arch nemesis and rivals have full profiles', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     doc.querySelector('.char-row.role-arch_nemesis').click();
@@ -237,7 +237,7 @@ maybe('back from characters returns to the hub', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
@@ -249,7 +249,7 @@ maybe('portrait images point at files that exist', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     const { existsSync } = await import('node:fs');
@@ -424,7 +424,7 @@ maybe('a missing portrait falls back to an initials chip', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-nav button')].find((b) => b.textContent.includes('Characters')).click();
     await settle();
 
     const img = doc.querySelector('.char-row img');

@@ -194,10 +194,13 @@ test('an unknown location id leaves stats untouched', () => {
   assert.equal(gs.lastLocationVisited, 'not_a_place');
 });
 
-test('resolveTurn on an unknown location produces empty copy and no history label', () => {
-  const gs = new GameState();
+test('resolveTurn on an unknown location produces empty copy and no location label', () => {
+  const gs = new GameState({ seed: 77 });
   const em = new EventManager(createRng(3));
   em.initialize(gs.getCharacterNames());
+  // Push the next event well out of reach so the history line is only ever
+  // built from the location part, which is what this test is about.
+  em._nextEventDay = 9999;
 
   const result = resolveTurn(gs, em, 'nowhere');
   assert.equal(result.actionDesc, '');
@@ -253,9 +256,11 @@ test('resolveTurn skips event selection when the game is already over', () => {
 test('an empty eligible pool schedules the next event without firing', () => {
   const em = new EventManager(createRng(11));
   em.initialize([]);
-  // No event has requiredLocation 'void', so the pool is always empty.
+  // Force every event to require a location that does not exist, so the pool
+  // is guaranteed empty and the "nothing eligible" branch is the one taken.
+  em._allEvents = buildEventPool().map((e) => ({ ...e, requiredLocation: 'void' }));
   for (let day = 1; day <= 60; day++) {
-    assert.equal(em.selectEvent(day, day % 7, 'void', 0), null);
+    assert.equal(em.selectEvent(day, day % 7, 'nowhere', 0), null);
   }
 });
 
@@ -326,16 +331,16 @@ test('an event with a minimumDay does not fire before it', () => {
 test('rent is skipped when the calendar has already charged that day', () => {
   const gs = new GameState();
   for (let i = 0; i < 3; i++) gs.advanceDay();   // Sunday
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
 
   // Same Sunday, second attempt.
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), 0);
 
   // Next Sunday charges again.
   for (let i = 0; i < 7; i++) gs.advanceDay();
   assert.equal(gs.getWeekdayName(), 'Sunday');
   const before = gs.money;
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.money, Math.max(before - RENT_AMOUNT, 0));
 });
 
@@ -345,7 +350,7 @@ test('resetGame clears the rent guard so Sunday charges again', () => {
   gs.applyRentIfSunday();
   gs.resetGame();
   for (let i = 0; i < 3; i++) gs.advanceDay();
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
 });
 
 test('stats stay clamped through a long adversarial event sequence', () => {
