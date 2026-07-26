@@ -24,7 +24,7 @@ export function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-/** Portrait <img> with graceful fallback to initials. */
+/** Portrait <img> with graceful fallback to an initials chip. */
 function avatar(profile, cls = 'avatar') {
   const initials = getInitials(profile.name);
   const img = el('img', {
@@ -33,6 +33,7 @@ function avatar(profile, cls = 'avatar') {
     alt: `${profile.name} portrait`,
     loading: 'lazy',
     decoding: 'async',
+    draggable: 'false',
   });
   // If the file is missing, swap in an initials chip (mirrors the
   // TextureRect / fallback-Label pair in character_profiles.gd).
