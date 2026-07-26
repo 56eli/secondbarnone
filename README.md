@@ -10,9 +10,9 @@ districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
 know. Weather is written down four days in advance and closes the outdoor ones.
-Insight buys perks, contracts ask you to plan a week, and the satchel holds six
-things at a time. Survive **100 days** and the run acknowledges it — without
-forcing you to stop.
+Insight buys perks, the satchel holds six things at a time, and a gentle
+daily focus cue makes the next decision easier to read. Survive **100 days**
+and the run acknowledges it — without forcing you to stop.
 
 **Play:** https://56eli.github.io/secondbarnone/
 
@@ -27,9 +27,9 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 | | Godot version | This version |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~2.5 MB** |
+| Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **332** |
+| Automated tests | 0 | **312** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -52,7 +52,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 332 tests
+npm test                # 312 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -61,7 +61,7 @@ npm run check           # tests + asset integrity
 Current coverage — `npm run coverage:check`:
 
 ```
-all files    99.72 line | 94.34 branch | 97.92 funcs
+all files    99.78 line | 94.04 branch | 98.64 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
@@ -83,7 +83,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
     main.js                entry point (three lines)
     app.js                 wiring: HUD, screens, modal, autosave, game over
     core/
-      game-state.js        stats, calendar, satchel, perks, contracts, save/load
+      game-state.js        stats, calendar, satchel, perks, save/load
       event-manager.js     scheduling, weighted selection
       turn.js              one turn, resolved in order
       rng.js               seedable RNG
@@ -91,7 +91,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       characters.js        78 characters
       locations.js         22 locations (each with a host)
       events.js            64 events (each with a character)
-      weather.js / items.js / perks.js / contracts.js
+      weather.js / items.js / perks.js
       festivals.js / achievements.js
     ui/screens.js          hub, map, location, satchel, practice, …
   assets/                  optimised WebP + SVG
@@ -105,8 +105,8 @@ tests/
 
 78 characters. Léon is the protagonist; **Kaden** is the arch nemesis; **Sato**
 and **Alex** are rivals with multi-beat arcs. The remaining 74 are side
-characters. Every location and every event points at one of them, so the city
-feels peopled rather than abstract.
+characters. Every location has a host with their own small-talk list, and **51 of 64 events**
+are tied to side characters, so the city feels peopled rather than abstract.
 
 Léon's portrait and name sit in the HUD on every screen.
 
@@ -116,7 +116,7 @@ Léon's portrait and name sit in the HUD on every screen.
 |---|---|---|---|
 | **Sanity** | 50 | 100% | Gauge. 0 ends the run. |
 | **Energy** | 100 | 100% | Gauge. Exhaustion costs sanity. |
-| **Reputation** | 10 | 100% | Gauge. Gates places and contracts. |
+| **Reputation** | 10 | 100% | Gauge. Gates places. |
 | **Money** | 50 | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100. |
 | **Insight** | 0 | uncapped | Spent on perks. |
 
@@ -140,11 +140,11 @@ Ten things that make the city feel like a home:
 
 1. **Léon is always on screen** — portrait + name in the HUD.
 2. **Every location has a host** you will likely see there.
-3. **Every event belongs to a side character**, with their face on the result.
+3. **Most events belong to side characters** — 51 of 64 — with their face on the result.
 4. **Daily greetings** that change with weekday and season.
-5. **Notice board on the hub** so contracts are discoverable without hunting.
-6. **Painted portraits** for core cast + several community regulars.
-7. **Location backgrounds** for the places you actually spend time.
+5. **Host small talk** gives every location a familiar voice without turning it into a biography page.
+6. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
+7. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
 8. **Soft 100-day endurance goal** — a reason to keep a long run going.
 9. **Uncapped money** — tips stack; broke still kills the run.
 10. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
@@ -160,5 +160,3 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - No audio.
-- Five locations still share the generic hub treatment for backgrounds
-  (soup kitchen, flea market, pawn shop, open mic, letting office).

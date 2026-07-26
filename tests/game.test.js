@@ -204,7 +204,7 @@ test('history keeps only the five most recent entries, newest first', () => {
   assert.equal(gs.recentHistory[4], 'entry 3');
 });
 
-// ------------------------------------------------------- season/mood
+// ------------------------------------------------------ season / focus
 
 test('season maps from month index', () => {
   const gs = new GameState();
@@ -215,16 +215,16 @@ test('season maps from month index', () => {
   }
 });
 
-test('mood reflects combined stat pressure', () => {
+test('daily focus cue reflects combined stat pressure without prescribing a destination', () => {
   const gs = new GameState();
   gs.sanity = 10; gs.money = 10;
-  assert.match(gs.getMood(), /precarious/);
+  assert.match(gs.getDailyNudge().label, /gently/i);
   gs.sanity = 10; gs.money = 50;
-  assert.match(gs.getMood(), /fraying/);
+  assert.match(gs.getDailyNudge().label, /room/i);
   gs.sanity = 50; gs.money = 10;
-  assert.match(gs.getMood(), /bills/);
+  assert.match(gs.getDailyNudge().label, /wallet/i);
   gs.sanity = 90; gs.money = 90;
-  assert.match(gs.getMood(), /balanced/);
+  assert.match(gs.getDailyNudge().label, /No rush/i);
 });
 
 // ------------------------------------------------------------- events

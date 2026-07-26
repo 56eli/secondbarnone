@@ -2,8 +2,8 @@
  * GameState — stats, calendar, history and everything the run accumulates.
  *
  * Originally a 1:1 port of scripts/game_state.gd with two stats. It now also
- * owns energy, reputation and insight, the satchel, the perk set, active
- * contracts, earned achievements and the per-run weather seed.
+ * owns energy, reputation and insight, the satchel, the perk set, earned
+ * achievements and the per-run weather seed.
  *
  * Still strictly DOM-free: everything here is testable headlessly.
  */
@@ -15,7 +15,6 @@ import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
-import { getContract, startContract, qualifies } from '../data/contracts.js';
 
 /** Cap for gauge stats (sanity / energy / reputation). Money is uncapped. */
 export const MAX_STAT = 100.0;
@@ -44,7 +43,7 @@ export const ENERGY_RECOVERY = 16.0;
 /** Below this, actions bite harder (see `exhaustionPenalty`). */
 export const EXHAUSTION_THRESHOLD = 25.0;
 
-/** Fourth resource: standing in the neighbourhood. Gates places and contracts. */
+/** Fourth resource: standing in the neighbourhood. Gates places. */
 export const MAX_REPUTATION = 100.0;
 export const START_REPUTATION = 10.0;
 
@@ -75,7 +74,8 @@ export const MONTH_NAMES = [
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** localStorage key for the save slot. */
-export const SAVE_KEY = 'secondbarnone.save.v3';
+export const SAVE_KEY = 'secondbarnone.save.v4';
+const LEGACY_SAVE_KEY = 'secondbarnone.save.v3';
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -112,15 +112,11 @@ export class GameState {
     this.rentPrepaidUntilDay = 0;
     this.rentPaidCount = 0;
     this.recentHistory = [];
-    this.journal = [];
 
     this.items = [];
     this.perks = new Set();
     this.achievements = new Set();
     this.visitedLocations = new Set();
-    this.activeContracts = [];
-    this.completedContracts = [];
-    this.failedContracts = [];
     this.nightDays = 0;
     this.festivalsSeen = 0;
     this.pendingAchievements = [];
@@ -185,7 +181,6 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
-    this.expireContracts();
     this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
     this._statsChanged();
   }
@@ -484,65 +479,6 @@ export class GameState {
       ?? { id: 'leon', name: 'Léon', portrait: 'assets/portraits/leon.webp', role: 'protagonist' };
   }
 
-  // ---------------- contracts ----------------
-
-  /** @returns {boolean} false if already running, already done, or three active. */
-  acceptContract(id) {
-    const contract = getContract(id);
-    if (!contract) return false;
-    if (this.activeContracts.some((c) => c.id === id)) return false;
-    if (this.completedContracts.includes(id)) return false;
-    if (this.activeContracts.length >= 3) return false;
-    this.activeContracts.push(startContract(contract, this.journeyDay));
-    this.emit('contracts_changed', [...this.activeContracts]);
-    return true;
-  }
-
-  isContractActive(id) {
-    return this.activeContracts.some((c) => c.id === id);
-  }
-
-  /**
-   * Credit a day's work to every contract it qualifies for.
-   * @returns {object[]} contracts completed by this day
-   */
-  creditContracts(locationId) {
-    const location = getLocation(locationId);
-    const finished = [];
-    for (const record of [...this.activeContracts]) {
-      const contract = getContract(record.id);
-      if (!qualifies(contract, location)) continue;
-      record.progress += 1;
-      if (record.progress >= record.need) {
-        this.activeContracts = this.activeContracts.filter((c) => c !== record);
-        this.completedContracts.push(record.id);
-        this.applyDeltas(contract.reward);
-        if (contract.reward.item) this.addItem(contract.reward.item);
-        finished.push(contract);
-      }
-    }
-    if (finished.length > 0) this.emit('contracts_changed', [...this.activeContracts]);
-    return finished;
-  }
-
-  /** Drop contracts whose deadline has passed and apply their penalty. */
-  expireContracts() {
-    const expired = this.activeContracts.filter((c) => this.journeyDay > c.expiresOn);
-    if (expired.length === 0) return [];
-    this.activeContracts = this.activeContracts.filter((c) => this.journeyDay <= c.expiresOn);
-    const out = [];
-    for (const record of expired) {
-      const contract = getContract(record.id);
-      this.failedContracts.push(record.id);
-      if (contract) {
-        this.applyDeltas(contract.penalty);
-        out.push(contract);
-      }
-    }
-    this.emit('contracts_changed', [...this.activeContracts]);
-    return out;
-  }
-
   // ---------------- achievements ----------------
 
   /** Snapshot handed to achievement predicates. */
@@ -558,7 +494,6 @@ export class GameState {
       items: this.items,
       visitedLocations: this.visitedLocations,
       totalLocations: LOCATIONS.length,
-      contractsCompleted: this.completedContracts.length,
       rentPaidCount: this.rentPaidCount,
       nightDays: this.nightDays,
       festivalsSeen: this.festivalsSeen,
@@ -587,15 +522,6 @@ export class GameState {
     this.emit('history_updated', entry);
   }
 
-  /** Full, unbounded run log for the journal screen. */
-  addJournal(entry) {
-    this.journal.push({
-      day: this.journeyDay,
-      date: this.getDateDisplay(),
-      ...entry,
-    });
-    if (this.journal.length > 400) this.journal.shift();
-  }
 
   getSeason() {
     const m = this.monthIndex;
@@ -606,19 +532,32 @@ export class GameState {
     return 'Unknown';
   }
 
-  getMood() {
-    const s = this.sanity;
-    const m = this.money;
-    if (this.energy <= 0) return 'You are running on absolutely nothing.';
-    if (s < 25 && m < 25) return 'Everything feels precarious. The walls are closing in.';
-    if (s < 25) return 'Your spirit is fraying. You need to return to the community.';
-    if (m < 25) return 'The bills are piling up. Financial pressure weighs heavily.';
-    if (this.isExhausted) return 'You are upright, solvent, and completely out of road.';
-    if (s > 80 && m > 80) return 'Life feels balanced and full of possibility.';
-    if (s > 80) return 'Your spirit soars. The community work is deeply fulfilling.';
-    if (m > 150) return 'The wallet is heavy. The soul still asks what the money is for.';
-    if (m > 80) return 'Financially comfortable, but the soul needs tending too.';
-    return 'You are managing. Not thriving, but surviving.';
+
+  /**
+   * A gentle, informational focus cue for the hub. It never chooses for the
+   * player; it just makes a looming need easier to notice at a glance.
+   */
+  getDailyNudge() {
+    if (this.sanity < 25 && this.money < 25) {
+      return { emoji: '🫶', label: 'Take it gently', text: 'Both your head and wallet are under pressure. One careful day is enough.' };
+    }
+    if (this.sanity < 25) {
+      return { emoji: '🫧', label: 'A little room', text: 'Your sanity is low. A quieter plan may help you come back to yourself.' };
+    }
+    if (this.energy < EXHAUSTION_THRESHOLD) {
+      return { emoji: '🫖', label: 'Pace yourself', text: 'Your energy is running thin. Small, restorative plans still count.' };
+    }
+    if (this.isRentDue()) {
+      return { emoji: '🧾', label: 'Sunday rent', text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.` };
+    }
+    if (this.money < 25) {
+      return { emoji: '🪙', label: 'Keep an eye on the wallet', text: 'Money is low. A paid day can make the next choice less urgent.' };
+    }
+    const daysToSunday = (6 - this.getWeekdayIndex() + 7) % 7;
+    if (daysToSunday > 0 && daysToSunday <= 2 && this.rentPrepaidUntilDay < this.journeyDay + daysToSunday) {
+      return { emoji: '📅', label: 'Looking ahead', text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.` };
+    }
+    return { emoji: '🏠', label: 'No rush', text: 'Nothing is on fire. Choose the kind of day you can return from.' };
   }
 
   /** Friend-event name pool — everyone except the protagonist. */
@@ -637,7 +576,7 @@ export class GameState {
   /** Plain JSON-safe snapshot of the whole run. */
   toJSON() {
     return {
-      v: 3,
+      v: 4,
       sanity: this.sanity,
       money: this.money,
       energy: this.energy,
@@ -658,14 +597,10 @@ export class GameState {
       rentPrepaidUntilDay: this.rentPrepaidUntilDay,
       rentPaidCount: this.rentPaidCount,
       recentHistory: [...this.recentHistory],
-      journal: [...this.journal],
       items: [...this.items],
       perks: [...this.perks],
       achievements: [...this.achievements],
       visitedLocations: [...this.visitedLocations],
-      activeContracts: this.activeContracts.map((c) => ({ ...c })),
-      completedContracts: [...this.completedContracts],
-      failedContracts: [...this.failedContracts],
       nightDays: this.nightDays,
       festivalsSeen: this.festivalsSeen,
       weatherSeed: this.weatherSeed,
@@ -674,7 +609,7 @@ export class GameState {
 
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
-    if (!data || typeof data !== 'object' || data.v !== 3) return false;
+    if (!data || typeof data !== 'object' || ![3, 4].includes(data.v)) return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
@@ -700,22 +635,11 @@ export class GameState {
     this.rentPrepaidUntilDay = num(data.rentPrepaidUntilDay, 0);
     this.rentPaidCount = num(data.rentPaidCount, 0);
     this.recentHistory = arr(data.recentHistory).slice(0, 5);
-    this.journal = arr(data.journal);
 
     this.items = arr(data.items).filter((id) => getItem(id));
     this.perks = new Set(arr(data.perks).filter((id) => getPerk(id)));
     this.achievements = new Set(arr(data.achievements));
     this.visitedLocations = new Set(arr(data.visitedLocations));
-    this.activeContracts = arr(data.activeContracts)
-      .filter((c) => c && getContract(c.id))
-      .map((c) => ({
-        id: c.id,
-        progress: num(c.progress, 0),
-        need: num(c.need, 1),
-        expiresOn: num(c.expiresOn, this.journeyDay),
-      }));
-    this.completedContracts = arr(data.completedContracts);
-    this.failedContracts = arr(data.failedContracts);
     this.nightDays = num(data.nightDays, 0);
     this.festivalsSeen = num(data.festivalsSeen, 0);
     this.weatherSeed = num(data.weatherSeed, 0);
@@ -750,7 +674,9 @@ export const saveStore = {
   load(gs, storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
-      const raw = storage.getItem(SAVE_KEY);
+      // Keep v3 runs playable; task and journal fields are intentionally ignored
+      // as part of the calmer v4 state shape.
+      const raw = storage.getItem(SAVE_KEY) ?? storage.getItem(LEGACY_SAVE_KEY);
       if (!raw) return false;
       return gs.loadFrom(JSON.parse(raw));
     } catch {
@@ -761,6 +687,7 @@ export const saveStore = {
     if (!storage) return false;
     try {
       storage.removeItem(SAVE_KEY);
+      storage.removeItem(LEGACY_SAVE_KEY);
       return true;
     } catch {
       return false;
@@ -769,7 +696,7 @@ export const saveStore = {
   has(storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
-      return storage.getItem(SAVE_KEY) !== null;
+      return storage.getItem(SAVE_KEY) !== null || storage.getItem(LEGACY_SAVE_KEY) !== null;
     } catch {
       return false;
     }

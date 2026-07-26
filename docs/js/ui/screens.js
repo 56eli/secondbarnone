@@ -6,7 +6,7 @@
  * mutation goes back through a callback so that the rules stay in core/.
  */
 
-import { getInitials, Role, roleLabel } from '../data/characters.js';
+import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
 import {
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, SATCHEL_CAPACITY,
   ENDURANCE_GOAL_DAYS,
@@ -18,7 +18,6 @@ import {
 import { getItem, ItemKind } from '../data/items.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { contractsOfferedAt, getContract, CONTRACTS } from '../data/contracts.js';
 import { forecast } from '../data/weather.js';
 import { upcomingFestivals } from '../data/festivals.js';
 
@@ -117,102 +116,59 @@ function backRow(onBack, ...extra) {
 
 export function renderHub(gs, handlers) {
   const {
-    onVisit, onCharacters, onMap, onSatchel, onPerks,
-    onContracts, onJournal, onAlmanac, onAcceptContract,
+    onVisit, onCharacters, onMap, onSatchel, onPerks, onAlmanac,
   } = handlers;
-
   const weather = gs.getWeather();
   const festival = gs.getFestival();
+  const nudge = typeof gs.getDailyNudge === 'function' ? gs.getDailyNudge() : null;
 
   const historyItems = gs.recentHistory.length
     ? el('ul', {}, ...gs.recentHistory.map((h) => el('li', { text: h })))
     : el('p', { class: 'empty', text: 'Nothing yet — your journey begins today.' });
 
-  // The two founding locations always have a shortcut; everything else is
-  // reached through the map, so the hub does not become a wall of buttons.
+  // The two founding places are the primary choices. The city remains one
+  // clear route outward instead of competing with a wall of feature buttons.
   const quick = ['spiritual_community', 'bar'].map((id) => {
     const location = getLocation(id);
     const { total } = computeDayEffects(gs, id);
-    return el('button', { class: 'choice', onclick: () => onVisit(id) },
+    return el('button', { class: 'choice choice-primary', onclick: () => onVisit(id) },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+      el('span', { class: 'choice-action', text: location.actionLabel }),
       effectChips(total, 'chips choice-eff'));
   });
-
-  const contractStrip = gs.activeContracts.length > 0
-    ? el('div', { class: 'contract-strip' },
-      ...gs.activeContracts.map((record) => {
-        const contract = getContract(record.id);
-        const left = record.expiresOn - gs.journeyDay;
-        return el('div', { class: 'contract-pill' },
-          `${contract.emoji} ${contract.name} — ${record.progress}/${record.need}`,
-          el('span', { class: `contract-days${left <= 2 ? ' urgent' : ''}`, text: ` · ${left}d left` }));
-      }))
-    : null;
-
-  // Notice board: contracts available anywhere the player has unlocked access,
-  // so a player who never visits the clinic still learns the rota exists.
-  const taken = new Set([
-    ...gs.activeContracts.map((c) => c.id),
-    ...gs.completedContracts,
-    ...gs.failedContracts,
-  ]);
-  const boardOffers = CONTRACTS
-    .filter((c) => gs.journeyDay >= c.minDay && !taken.has(c.id))
-    .slice(0, 4);
-
-  const noticeBoard = boardOffers.length > 0 && onAcceptContract
-    ? el('div', { class: 'notice-board' },
-      el('h3', { text: '📌 Notice board' }),
-      el('p', { class: 'notice-sub', text: 'Word travels. You do not have to be there to hear about the work.' }),
-      ...boardOffers.map((contract) => {
-        const where = getLocation(contract.offeredAt);
-        return el('div', { class: 'notice-row' },
-          el('div', { class: 'notice-meta' },
-            el('div', { class: 'notice-name', text: `${contract.emoji} ${contract.name}` }),
-            el('div', { class: 'notice-where', text: where ? `at ${where.name}` : '' }),
-            el('div', { class: 'notice-terms', text: `${contract.need} days within ${contract.days}` })),
-          el('button', {
-            class: 'btn btn-small',
-            text: 'Take it on',
-            onclick: () => onAcceptContract(contract.id),
-          }));
-      }))
-    : null;
 
   const greeting = typeof gs.getGreeting === 'function' ? gs.getGreeting() : '';
 
   return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.svg')" },
-    el('h2', { class: 'screen-title', text: 'Where will you spend today?' }),
-    el('p', { class: 'hub-meta', text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}` }),
+    el('div', { class: 'hub-heading' },
+      el('div', {},
+        el('p', { class: 'eyebrow', text: 'Today’s choice' }),
+        el('h2', { class: 'screen-title', text: 'Where will you spend today?' }),
+        el('p', { class: 'hub-meta', text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}` })),
+      el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` })),
     greeting ? el('p', { class: 'hub-greeting', text: greeting }) : null,
-
-    el('p', { class: 'hub-weather' },
-      el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` }),
-      ` ${weather.line}`),
-
+    nudge ? el('aside', { class: 'daily-nudge', 'aria-label': nudge.label },
+      el('span', { class: 'nudge-emoji', text: nudge.emoji }),
+      el('div', {}, el('strong', { text: nudge.label }), el('span', { text: nudge.text }))) : null,
     festival
       ? el('p', { class: 'festival-banner', text: `${festival.emoji} ${festival.name} — ${festival.line}` })
       : null,
 
-    el('p', { class: 'hub-mood', text: `${gs.getSeason()} — ${gs.getMood()}` }),
-
-    noticeBoard,
-    contractStrip,
-
     el('div', { class: 'choices' }, ...quick,
       el('button', { class: 'choice choice-map', onclick: onMap },
         el('span', { class: 'choice-name', text: '🗺️ The City' }),
-        el('span', { class: 'choice-eff', text: 'Twenty-two places, if you can get to them' }))),
+        el('span', { class: 'choice-eff', text: 'See every place that is open to you' }))),
 
-    el('div', { class: 'hub-nav' },
-      el('button', { class: 'btn btn-small', onclick: onSatchel, text: `🎒 Satchel (${gs.items.length}/${SATCHEL_CAPACITY})` }),
-      el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice (${gs.insight})` }),
-      el('button', { class: 'btn btn-small', onclick: onContracts, text: `📜 Commitments (${gs.activeContracts.length})` }),
-      el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Almanac' }),
-      el('button', { class: 'btn btn-small', onclick: onJournal, text: '📔 Journal' }),
-      el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 Characters' })),
+    el('div', { class: 'hub-tools', 'aria-label': 'Journey tools' },
+      el('span', { class: 'tool-label', text: 'Keep close' }),
+      el('button', { class: 'btn btn-small', onclick: onSatchel, text: `🎒 Satchel ${gs.items.length}/${SATCHEL_CAPACITY}` }),
+      el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice ${gs.insight}` }),
+      el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Weather & milestones' }),
+      el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 People' })),
 
-    el('div', { class: 'history' }, el('h3', { text: 'Recent history' }), historyItems),
+    el('details', { class: 'history' },
+      el('summary', { text: `Recent days${gs.recentHistory.length ? ` (${gs.recentHistory.length})` : ''}` }),
+      historyItems),
   );
 }
 
@@ -269,7 +225,7 @@ export function renderMap(gs, { onVisit, onBack }) {
 
 // ------------------------------------------------------------- location
 
-export function renderLocation(gs, locationId, { onAction, onBack, onAcceptContract, onSpecial }) {
+export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
   const location = getLocation(locationId);
   const { total, reasons } = computeDayEffects(gs, locationId);
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
@@ -287,31 +243,20 @@ export function renderLocation(gs, locationId, { onAction, onBack, onAcceptContr
   });
   backBtn.addEventListener('click', () => onBack());
 
-  // Contract offers available here and not already taken.
-  const offers = contractsOfferedAt(locationId, gs.journeyDay)
-    .filter((c) => !gs.isContractActive(c.id) && !gs.completedContracts.includes(c.id))
-    .map((contract) => el('div', { class: 'offer' },
-      el('div', { class: 'offer-head', text: `${contract.emoji} ${contract.name}` }),
-      el('p', { class: 'offer-desc', text: contract.desc }),
-      el('p', { class: 'offer-terms', text: `${contract.need} qualifying days within ${contract.days} days` }),
-      effectChips(contract.reward, 'chips offer-reward'),
-      el('button', {
-        class: 'btn btn-small',
-        text: 'Take it on',
-        onclick: () => onAcceptContract(contract.id),
-      })));
 
   // Location specials: the pawnbroker, the letting office, and so on.
   const special = renderSpecial(gs, location, onSpecial);
 
   const host = findCharacter(gs, location.host);
+  // Hosts speak in their own voice here. Full biographies remain on the People
+  // screen, so a location can stay about the day rather than become a dossier.
   const hostBanner = host
-    ? el('div', { class: 'host-banner' },
+    ? el('aside', { class: 'host-banner', 'aria-label': `A word from ${host.name}` },
       avatar(host, 'avatar host-avatar-lg'),
-      el('div', {},
-        el('div', { class: 'host-label', text: 'You will likely see' }),
+      el('div', { class: 'host-meeting' },
+        el('div', { class: 'host-label', text: 'Here today' }),
         el('div', { class: 'host-name-lg', text: host.name }),
-        el('div', { class: 'host-rel', text: host.relationship || host.location || '' })))
+        el('blockquote', { class: 'small-talk', text: `“${smallTalkFor(host.id, gs.journeyDay)}”` })))
     : null;
 
   const node = el('div', { class: 'screen location', style: location.bg ? `background-image:url('${location.bg}')` : '' },
@@ -328,7 +273,6 @@ export function renderLocation(gs, locationId, { onAction, onBack, onAcceptContr
         : null),
 
     special,
-    offers.length > 0 ? el('div', { class: 'offers' }, el('h3', { text: 'On offer' }), ...offers) : null,
     el('div', { class: 'action-row' }, actionBtn, backBtn),
   );
 
@@ -464,43 +408,6 @@ export function renderPerks(gs, { onBuy, onBack }) {
     backRow(onBack));
 }
 
-// ------------------------------------------------------------- contracts
-
-export function renderContracts(gs, { onBack }) {
-  const active = gs.activeContracts.map((record) => {
-    const contract = getContract(record.id);
-    const left = record.expiresOn - gs.journeyDay;
-    const pct = Math.min(100, (record.progress / record.need) * 100);
-    return el('div', { class: 'contract-card' },
-      el('div', { class: 'contract-head', text: `${contract.emoji} ${contract.name}` }),
-      el('p', { class: 'contract-desc', text: contract.desc }),
-      el('div', { class: 'contract-bar' },
-        el('div', { class: 'contract-fill', style: `width:${pct}%` })),
-      el('div', { class: 'contract-foot' },
-        `${record.progress}/${record.need} days · ${left} day${left === 1 ? '' : 's'} remaining`),
-      effectChips(contract.reward, 'chips'));
-  });
-
-  const done = gs.completedContracts.map((id) => {
-    const contract = getContract(id);
-    return el('li', { text: `${contract.emoji} ${contract.name}` });
-  });
-  const failed = gs.failedContracts.map((id) => {
-    const contract = getContract(id);
-    return el('li', { text: `${contract.emoji} ${contract.name}` });
-  });
-
-  return el('div', { class: 'screen' },
-    el('h2', { class: 'screen-title', text: '📜 Commitments' }),
-    el('p', { class: 'screen-sub', text: 'Up to three at a time. Offers turn up at the places that need the help.' }),
-    active.length > 0
-      ? el('div', { class: 'contract-list' }, ...active)
-      : el('p', { class: 'empty', text: 'Nothing promised to anybody. Restful, in its way.' }),
-    done.length > 0 ? el('div', { class: 'mods' }, el('h3', { text: 'Kept' }), el('ul', {}, ...done)) : null,
-    failed.length > 0 ? el('div', { class: 'mods' }, el('h3', { text: 'Let slip' }), el('ul', {}, ...failed)) : null,
-    backRow(onBack));
-}
-
 // --------------------------------------------------------------- almanac
 
 export function renderAlmanac(gs, { onBack }) {
@@ -534,24 +441,6 @@ export function renderAlmanac(gs, { onBack }) {
         el('span', { class: 'ach-emoji', text: '·' }),
         el('span', { class: 'ach-name', text: a.name })))),
 
-    backRow(onBack));
-}
-
-// --------------------------------------------------------------- journal
-
-export function renderJournal(gs, { onBack }) {
-  const entries = [...gs.journal].reverse().slice(0, 60);
-  const list = entries.length > 0
-    ? el('ol', { class: 'journal-list' }, ...entries.map((e) => el('li', {},
-      el('span', { class: 'j-day', text: `Day ${e.day}` }),
-      el('span', { class: 'j-where', text: ` ${e.locationName}` }),
-      el('span', { class: 'j-line', text: e.line ? ` — ${e.line}` : '' }))))
-    : el('p', { class: 'empty', text: 'No days written down yet.' });
-
-  return el('div', { class: 'screen' },
-    el('h2', { class: 'screen-title', text: '📔 Journal' }),
-    el('p', { class: 'screen-sub', text: `${gs.journal.length} day${gs.journal.length === 1 ? '' : 's'} recorded. Most recent first.` }),
-    list,
     backRow(onBack));
 }
 
@@ -661,7 +550,6 @@ export function renderGameOver(gs, message, { onRestart }) {
   const stats = [
     ['Days survived', gs.journeyDay],
     ['Places visited', `${gs.visitedLocations.size} / ${LOCATIONS.length}`],
-    ['Commitments kept', gs.completedContracts.length],
     ['Perks learned', gs.perks.size],
     ['Achievements', `${gs.achievements.size} / ${ACHIEVEMENTS.length}`],
     ['Reputation', Math.round(gs.reputation)],
@@ -689,7 +577,7 @@ export function renderGameOver(gs, message, { onRestart }) {
 export function renderResultModal(result, gs, { onContinue }) {
   const {
     actionDesc, event, rentCharged, deltas, weather, festival,
-    completedContracts, achievements, grantedItem, exhaustion,
+    achievements, grantedItem, exhaustion,
   } = result;
 
   const eventChar = event?.character ? findCharacter(gs, event.character) : null;
@@ -715,7 +603,6 @@ export function renderResultModal(result, gs, { onContinue }) {
     const item = getItem(grantedItem);
     notes.push(`${item.emoji} Picked up: ${item.name}.`);
   }
-  for (const c of completedContracts) notes.push(`✅ Commitment kept: ${c.name}.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 
   const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },

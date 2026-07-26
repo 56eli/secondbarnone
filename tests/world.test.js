@@ -1,6 +1,6 @@
 /**
- * Tests for the expanded world: locations, weather, items, perks, contracts,
- * festivals and achievements.
+ * Tests for the expanded world: locations, weather, items, perks, festivals
+ * and achievements.
  *
  * Everything in `docs/js/data/` is pure data plus pure helpers, so all of it
  * is deterministic and all of it is asserted here rather than sampled.
@@ -24,15 +24,12 @@ import {
   PERKS, getPerk, perkIds, canBuyPerk, aggregatePerks,
 } from '../docs/js/data/perks.js';
 import {
-  CONTRACTS, getContract, contractsOfferedAt, qualifies, startContract,
-} from '../docs/js/data/contracts.js';
-import {
   FESTIVALS, getFestival, festivalOn, upcomingFestivals,
 } from '../docs/js/data/festivals.js';
 import {
   ACHIEVEMENTS, getAchievement, evaluateAchievements,
 } from '../docs/js/data/achievements.js';
-import { createAllProfiles } from '../docs/js/data/characters.js';
+import { createAllProfiles, Role, SMALL_TALK, smallTalkFor } from '../docs/js/data/characters.js';
 import { buildEventPool } from '../docs/js/data/events.js';
 
 // ============================================================== locations
@@ -101,9 +98,8 @@ test('no location is a free lunch', () => {
   }
 });
 
-test('locations with a bg point at a webp under assets/', () => {
+test('every location has a dedicated webp background under assets/', () => {
   for (const l of LOCATIONS) {
-    if (!l.bg) continue;
     assert.match(l.bg, /^assets\/backgrounds\/[a-z0-9_]+\.webp$/, `${l.id} bg ${l.bg}`);
   }
 });
@@ -433,87 +429,6 @@ test('owning every perk never produces a nonsensical aggregate', () => {
   assert.ok(all.rentRelief < 18, 'rent relief must not make rent free');
 });
 
-// ============================================================== contracts
-
-test('contracts are unique and well-formed', () => {
-  const ids = CONTRACTS.map((c) => c.id);
-  assert.equal(new Set(ids).size, ids.length);
-  assert.ok(CONTRACTS.length >= 8);
-  for (const c of CONTRACTS) {
-    assert.ok(c.need > 0, `${c.id} need`);
-    assert.ok(c.days > c.need, `${c.id} deadline is impossible`);
-    assert.ok(c.desc.length > 30, `${c.id} desc`);
-    assert.ok(Object.keys(c.reward).length > 0, `${c.id} reward`);
-    assert.ok(Object.keys(c.penalty).length > 0, `${c.id} penalty`);
-    assert.ok(c.requireTag || c.requireLocation, `${c.id} has no requirement`);
-  }
-});
-
-test('every contract is offered at a real location', () => {
-  const ids = new Set(locationIds());
-  for (const c of CONTRACTS) assert.ok(ids.has(c.offeredAt), `${c.id} offered at ${c.offeredAt}`);
-});
-
-test('every contract requirement can actually be met somewhere', () => {
-  for (const c of CONTRACTS) {
-    const possible = LOCATIONS.filter((l) => qualifies(c, l));
-    assert.ok(possible.length > 0, `${c.id} can never be progressed`);
-  }
-});
-
-test('contract rewards only grant items that exist', () => {
-  for (const c of CONTRACTS) {
-    if (!c.reward.item) continue;
-    assert.ok(getItem(c.reward.item), `${c.id} grants unknown item ${c.reward.item}`);
-  }
-});
-
-test('contract penalties are all costs, never gifts', () => {
-  for (const c of CONTRACTS) {
-    for (const [k, v] of Object.entries(c.penalty)) {
-      assert.ok(v < 0, `${c.id} penalty ${k} is ${v}`);
-    }
-  }
-});
-
-test('contractsOfferedAt filters by location and minimum day', () => {
-  const early = contractsOfferedAt('spiritual_community', 1).map((c) => c.id);
-  assert.deepEqual(early, ['winter_fuel']);
-
-  const later = contractsOfferedAt('spiritual_community', 20).map((c) => c.id).sort();
-  assert.deepEqual(later, ['ninety_day_sit', 'winter_fuel']);
-
-  assert.deepEqual(contractsOfferedAt('rooftop', 99), []);
-});
-
-test('qualifies matches by tag or by exact location and is null-safe', () => {
-  const barBooks = getContract('barrets_books');
-  assert.equal(qualifies(barBooks, getLocation('bar')), true);
-  assert.equal(qualifies(barBooks, getLocation('night_market')), false);
-
-  const winterFuel = getContract('winter_fuel');
-  assert.equal(qualifies(winterFuel, getLocation('bar')), true, 'bar is tagged work');
-  assert.equal(qualifies(winterFuel, getLocation('rooftop')), false);
-
-  assert.equal(qualifies(null, getLocation('bar')), false);
-  assert.equal(qualifies(barBooks, null), false);
-});
-
-test('qualifies returns false for a contract with no requirement at all', () => {
-  const shapeless = { id: 'x', requireTag: null, requireLocation: null };
-  assert.equal(qualifies(shapeless, getLocation('bar')), false);
-});
-
-test('startContract produces a fresh record dated from today', () => {
-  const c = getContract('quiet_month');
-  const record = startContract(c, 20);
-  assert.deepEqual(record, { id: 'quiet_month', progress: 0, need: c.need, expiresOn: 20 + c.days });
-});
-
-test('getContract refuses unknown ids', () => {
-  assert.equal(getContract('nope'), null);
-});
-
 // ============================================================== festivals
 
 test('festivals sit on unique, real calendar dates', () => {
@@ -595,7 +510,6 @@ const blankSnapshot = () => ({
   items: [],
   visitedLocations: new Set(),
   totalLocations: LOCATIONS.length,
-  contractsCompleted: 0,
   rentPaidCount: 0,
   nightDays: 0,
   festivalsSeen: 0,
@@ -625,7 +539,7 @@ test('every achievement has a snapshot that earns it', () => {
     student: { perks: new Set(perkIds().slice(0, 3)) },
     adept: { perks: new Set(perkIds().slice(0, 6)) },
     collector: { items: itemIds().slice(0, 5) },
-    dependable: { contractsCompleted: 3 },
+    neighbour: { reputation: 30 },
     pilgrim: { visitedLocations: new Set(['mountain_retreat']) },
     weathered: { weatherId: 'storm', locationTags: ['work'] },
     night_shift: { nightDays: 5 },
@@ -681,6 +595,24 @@ test('every location has a host who is a real character', () => {
   }
 });
 
+test('every location host has several deterministic character-specific small-talk lines', () => {
+  for (const location of LOCATIONS) {
+    const lines = SMALL_TALK[location.host];
+    assert.ok(lines, `${location.id} host ${location.host} needs small talk`);
+    assert.ok(lines.length >= 3, `${location.host} needs a list of lines`);
+    assert.equal(smallTalkFor(location.host, 3), smallTalkFor(location.host, 3), 'same visit is stable');
+    assert.ok(lines.includes(smallTalkFor(location.host, 1)), `${location.host} line comes from their list`);
+  }
+  assert.equal(smallTalkFor('nobody', 1), 'It is good to see you.');
+});
+
+test('retired task rewards remain discoverable through ordinary events', () => {
+  const grants = new Set(buildEventPool().map((event) => event.grantsItem).filter(Boolean));
+  for (const item of ['tip_jar', 'herbal_tonic', 'good_boots']) {
+    assert.ok(grants.has(item), `${item} must remain discoverable`);
+  }
+});
+
 test('every event is tied to a real character', () => {
   const ids = new Set(createAllProfiles().map((c) => c.id));
   const pool = buildEventPool();
@@ -689,6 +621,14 @@ test('every event is tied to a real character', () => {
     assert.ok(e.character, `${e.id} has no character`);
     assert.ok(ids.has(e.character), `${e.id} → ${e.character}`);
   }
+});
+
+test('at least half of all events belong to side characters', () => {
+  const profiles = new Map(createAllProfiles().map((person) => [person.id, person]));
+  const pool = buildEventPool();
+  const sideEvents = pool.filter((event) => profiles.get(event.character)?.role === Role.SIDE_CHARACTER);
+  assert.ok(sideEvents.length * 2 >= pool.length,
+    `${sideEvents.length}/${pool.length} events are side-character events`);
 });
 
 test('Sato and Alex each have multi-beat arcs', () => {
@@ -705,7 +645,7 @@ test('hundred_days and war_chest achievements exist and fire', () => {
   const earned = evaluateAchievements({
     journeyDay: 100, sanity: 50, money: 150, energy: 50, reputation: 10,
     insight: 0, perks: new Set(), items: [], visitedLocations: new Set(),
-    totalLocations: 22, contractsCompleted: 0, rentPaidCount: 0,
+    totalLocations: 22, rentPaidCount: 0,
     nightDays: 0, festivalsSeen: 0, weatherId: 'clear', locationTags: [],
   }, new Set());
   const ids = earned.map((a) => a.id);

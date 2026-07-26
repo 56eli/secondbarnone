@@ -7,11 +7,12 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 332 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 312 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
-> and every event a character. Léon stays in the HUD. Soft win at day 100.
+> with small talk; 51 of 64 events belong to side characters. Léon stays prominent
+> in the HUD. Weather stays calm and useful. Soft win at day 100.
 
 ---
 
@@ -30,9 +31,9 @@ As plain ES modules the source *is* the build:
 
 | | Godot | Current |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~940 KB** |
+| Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **321** |
+| Automated tests | 0 | **312** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -51,23 +52,22 @@ docs/js/
   main.js            entry point — calls initGame() and nothing else
   app.js             wiring: HUD, screens, modal, toasts, autosave, game over
   core/
-    game-state.js    stats, calendar, satchel, perks, contracts, save/load
+    game-state.js    stats, calendar, satchel, perks, save/load
     event-manager.js event scheduling and weighted selection
     turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
     characters.js    78 character profiles
     locations.js     22 locations across 5 districts
-    events.js        58 event definitions
+    events.js        64 event definitions
     weather.js        9 weather types, derived per day
     items.js         12 carryable items
     perks.js         10 perks in a prerequisite tree
-    contracts.js      8 multi-day commitments
     festivals.js      9 fixed calendar events
-    achievements.js  20 predicates over a state snapshot
+    achievements.js  22 predicates over a state snapshot
   ui/
-    screens.js       hub, map, location, satchel, practice, commitments,
-                     almanac, journal, characters, modal, game over
+    screens.js       hub, map, location, satchel, practice, almanac,
+                     characters, modal, game over
 ```
 
 Every module under `data/` is pure data plus pure helpers, which is why the
@@ -109,7 +109,7 @@ list, so a handler may safely unsubscribe mid-dispatch.
 | **Sanity** | 50 | 100 | Reaching 0 ends the run |
 | **Money** | 50 | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100 |
 | **Energy** | 100 | 100 | Recovers overnight; running low costs sanity |
-| **Reputation** | 10 | 100 | Gates locations and contracts |
+| **Reputation** | 10 | 100 | Gates locations |
 | **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
 
 The two founding locations keep their original numbers exactly — Spiritual
@@ -123,8 +123,7 @@ at empty. `Second Wind` widens the threshold and softens the fall.
 
 **22 locations across 5 districts.** Each carries tags (`quiet`, `night`,
 `market`, `pilgrimage`, …) which are the join key for the whole game: weather
-modifies by tag, perks bonus by tag, events gate by tag, and contracts count
-qualifying days by tag.
+modifies by tag, perks bonus by tag, and events gate by tag.
 
 Locations unlock on journey day, reputation, weekday, or a required perk/item.
 A fresh run can reach three places; a long, well-regarded one can reach all 22.
@@ -148,22 +147,25 @@ Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk,
 skippable by paying ahead at the letting office, and waived entirely on
 Rent Amnesty Day.
 
-### Items, perks and contracts
+### Items, perks and milestones
 
 - **12 items** in a 6-slot satchel: passives modify every turn, consumables are
   spent once, keepsakes are inert but pawnable.
 - **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
   acyclic and declared in a buyable order.
-- **8 contracts** — N qualifying days inside a deadline. Three at a time.
-  Meeting one pays; missing one costs reputation. This is what makes a run
-  about planning a week rather than a day.
-- **9 festivals** on fixed calendar dates, and **20 achievements** expressed as
+- **9 festivals** on fixed calendar dates, and **22 achievements** expressed as
   pure predicates over a state snapshot.
+
+The former task-contract system and long-form journal were deliberately retired
+so the run remains about one readable daily choice. The hub retains five concise
+history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**64 events.** Gated by location id, by location tag, by weather, or by a
-minimum day — enforced by test, so no event can fire anywhere at any time.
+**64 events.** **51 (79.7%)** belong to side characters, exceeding the
+50% catalogue floor enforced by test. Events are gated by location id, by
+location tag, by weather, or by a minimum day — so no event can fire anywhere
+at any time.
 Kaden finally has his own arc: four events that escalate the rent pressure
 from refiled paperwork to a buyout offer on very good paper.
 
@@ -178,10 +180,9 @@ the last four events filtered out of the pool to avoid repetition.
 2. the exhaustion penalty
 3. Sunday rent
 4. the scheduled random event, scaled by perks
-5. contract credit
-6. achievements
-7. the game-over check
-8. one history line and one journal entry
+5. achievements
+6. the game-over check
+7. one concise history line
 
 Order still matters: rent lands before the event, so an event can pull a player
 back from the brink that rent pushed them toward.
@@ -230,16 +231,16 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**11 painted portraits** (Léon, six community and bar regulars, plus the three
-antagonists) rendered as WebP at 512px.
+**26 painted portraits** of Léon, the major antagonists, and community and bar
+regulars, rendered as WebP at 512px.
 
-**10 painted location backgrounds** for the rooftop, river walk, community
-garden, bathhouse, night market, library, cocktail bar, memorial garden,
-temple ruins and mountain retreat — WebP at 1000px, 33–108 KB each. Background
-paths are derived from the location catalogue by `scripts/check-assets.js`, so
-adding a location cannot silently ship a broken image path.
+**22 location backgrounds** now cover every playable location. The five
+new environmental scenes (soup kitchen, flea market, pawn shop, open mic and
+letting office) are optimized WebP at 1000px. Background paths are derived
+from the location catalogue by `scripts/check-assets.js`, so adding a location
+cannot silently ship a broken image path.
 
-**67 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
+**52 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
 the same id always produces the same face, so regenerating never churns the
 diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
 hash of the id. Under 1 KB each, versus ~2 MB for a painted portrait. Bots
@@ -256,11 +257,11 @@ prunes orphans in one pass.
 
 ## Testing
 
-**321 tests** across six files.
+**312 tests** across six files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Six test files | **332** | Rules, catalogues, systems, DOM, UI, coverage edges |
+| Six test files | **312** | Rules, catalogues, systems, DOM, UI, coverage edges |
 
 The data tests are written as invariants over the whole catalogue rather than
 spot checks, which is how they earn their keep — they caught three real design
@@ -277,7 +278,7 @@ core/*            ~99-100 across the board
 data/*            ~99-100 across the board
 ui/screens.js      99.55 line | 94.15 branch |  98.59 funcs
 ────────────────────────────────────────────────────────────
-all files          99.87 line | 96.83 branch |  98.44 funcs
+all files          99.78 line | 94.04 branch |  98.64 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -305,7 +306,5 @@ by a dedicated test that boots the app with the media query forced on.
 - **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
   a real phone is still worthwhile (HUD identity row + map grid).
 - **No audio.**
-- **Five locations** still lack dedicated painted backgrounds (soup kitchen,
-  flea market, pawn shop, open mic, letting office).
 - **The satchel has no sort or filter.** Six slots is small enough that this
   has not bitten yet.

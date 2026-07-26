@@ -90,8 +90,8 @@ export function buildEventPool() {
       'A potluck dinner brings everyone together. Full bellies, full hearts, and generous donations appear in the bowl.',
       Category.COMMUNITY, Rarity.STANDARD, 8, 8, WEIGHT_STANDARD, 'spiritual_community', { character: 'siekamcebule' }),
     ev('healing_circle', 'Group Healing Circle',
-      'The community gathers for a spontaneous healing circle. Their shared warmth restores your faith in humanity.',
-      Category.SPIRITUAL, Rarity.STANDARD, 12, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'susan' }),
+      'The community gathers for a spontaneous healing circle. Their shared warmth restores your faith in humanity, and Susan presses a bottle of tonic into your hand on the way out.',
+      Category.SPIRITUAL, Rarity.STANDARD, 12, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'susan', grantsItem: 'herbal_tonic' }),
     ev('wise_elder', 'Wise Elder Visit',
       'An elder from a nearby community visits and shares ancient wisdom. You feel renewed purpose and direction.',
       Category.SPIRITUAL, Rarity.STANDARD, 10, 0, WEIGHT_STANDARD, 'spiritual_community', { character: 'simon' }),
@@ -130,8 +130,8 @@ export function buildEventPool() {
     // ===================== The Bar =====================
     // ---- Standard ----
     ev('unexpected_tips', 'Unexpected Tips',
-      'The bar was busy tonight. A group celebrating a birthday left generous tips, and your jar is pleasantly full.',
-      Category.BAR, Rarity.STANDARD, 0, 8, WEIGHT_STANDARD, 'bar', { character: 'barret' }),
+      'The bar was busy tonight. A group celebrating a birthday left generous tips, and Barret lets you keep Kaj’s handwritten tip sign for the next shift.',
+      Category.BAR, Rarity.STANDARD, 0, 8, WEIGHT_STANDARD, 'bar', { character: 'barret', grantsItem: 'tip_jar' }),
     ev('slow_night', 'Slow Night',
       'A quiet night at the bar. Only a handful of regulars nursing their drinks. Earnings are lower than expected.',
       Category.BAR, Rarity.STANDARD, 0, -5, WEIGHT_STANDARD, 'bar', { character: 'matt' }),
@@ -328,7 +328,7 @@ export function buildEventPool() {
       Category.RIVAL, Rarity.RARE_HURTFUL, -10, -6, WEIGHT_RARE_HURTFUL, '',
       { requiredTag: 'community', minimumDay: 16, character: 'sato', reputationDelta: -5 }),
     ev('sato_truce', 'Tea, Not Terms',
-      'Sato brings tea and no contract. For twenty minutes you are just two people who care about the same thing differently.',
+      'Sato brings tea and no agenda. For twenty minutes you are just two people who care about the same thing differently.',
       Category.RIVAL, Rarity.RARE_HELPFUL, 12, 0, WEIGHT_RARE_HELPFUL, '',
       { requiredTag: 'rival', minimumDay: 22, character: 'sato', reputationDelta: 4, insightDelta: 2 }),
 
