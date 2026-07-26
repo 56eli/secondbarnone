@@ -105,12 +105,12 @@ maybe('visiting the bar renders the location screen', async () => {
   try {
     const doc = window.document;
     const barBtn = [...doc.querySelectorAll('.choice')]
-      .find((b) => b.textContent.includes('The Bar'));
+      .find((b) => b.textContent.includes('Le Dernier Verre'));
     barBtn.click();
     await settle();
 
     assert.ok(doc.querySelector('.location'), 'location screen should render');
-    assert.match(doc.querySelector('.screen-title').textContent, /The Bar/);
+    assert.match(doc.querySelector('.screen-title').textContent, /Le Dernier Verre/);
     assert.ok(doc.querySelector('.btn-primary'), 'action button present');
   } finally { cleanup(window); }
 });
@@ -119,7 +119,7 @@ maybe('performing an action opens the result modal and updates stats', async () 
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     doc.querySelector('.btn-primary').click();
@@ -140,7 +140,7 @@ maybe('continuing from the modal advances the day and returns to the hub', async
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -267,7 +267,7 @@ maybe('the action button cannot be double-fired', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     const btn = doc.querySelector('.btn-primary');
@@ -291,7 +291,7 @@ maybe('game over renders and restart resets the run', async () => {
 
     // Force a losing position, then take one more shift.
     gs.sanity = 1;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -316,7 +316,7 @@ maybe('leaving a location without acting returns to the hub unchanged', async ()
     const { gs } = window.__game;
     const before = { s: gs.sanity, m: gs.money, d: gs.journeyDay };
 
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
@@ -332,7 +332,7 @@ maybe('the hub shows history after a completed turn', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -342,7 +342,7 @@ maybe('the hub shows history after a completed turn', async () => {
 
     const history = doc.querySelector('.history');
     assert.ok(history, 'history block should render');
-    assert.match(history.textContent, /Visited the Spiritual Community/);
+    assert.match(history.textContent, /Visited La Maison Calme/);
   } finally { cleanup(window); }
 });
 
@@ -350,7 +350,7 @@ maybe('clicking the modal backdrop dismisses it like Continue', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -369,7 +369,7 @@ maybe('stat deltas are shown in the HUD after a turn', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -410,7 +410,7 @@ maybe('running out of money ends the run', async () => {
 
     // Visiting the community costs money; leave just less than the cost.
     gs.money = 1;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -443,7 +443,7 @@ maybe('particles are suppressed when reduced motion is preferred', async () => {
   const window = await boot({ reducedMotion: true });
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     const container = doc.querySelector('.particles');
@@ -456,7 +456,7 @@ maybe('particles spawn when motion is allowed', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     await new Promise((r) => setTimeout(r, 900));
 
@@ -473,7 +473,7 @@ maybe('a ten-turn playthrough never throws', async () => {
       if (doc.querySelector('.gameover')) break;
 
       const choice = [...doc.querySelectorAll('.choice')]
-        .find((b) => b.textContent.includes(i % 2 ? 'The Bar' : 'Spiritual'));
+        .find((b) => b.textContent.includes(i % 2 ? 'Le Dernier Verre' : 'La Maison'));
       if (!choice) break;
       choice.click();
       await settle();

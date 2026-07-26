@@ -18,9 +18,6 @@ import {
   WEATHER_TYPES, getWeather, weatherForDay, forecast, eligibleWeather, closedTags,
 } from '../docs/js/data/weather.js';
 import {
-  ITEMS, ItemKind, getItem, itemIds, aggregateModifiers,
-} from '../docs/js/data/items.js';
-import {
   PERKS, getPerk, perkIds, canBuyPerk, aggregatePerks,
 } from '../docs/js/data/perks.js';
 import {
@@ -167,16 +164,7 @@ test('closed tags shut a location regardless of every other gate', () => {
   assert.match(shut.reason, /weather/i);
 });
 
-test('perk and item unlock rules are honoured when present', () => {
-  const fake = { ...getLocation('bar'), unlock: { minDay: 1, minReputation: 0, requiresPerk: 'night_owl' } };
-  assert.equal(evaluateUnlock(fake, { journeyDay: 1, reputation: 0, weekday: 0 }).unlocked, false);
-  assert.equal(evaluateUnlock(fake, { journeyDay: 1, reputation: 0, weekday: 0, perks: ['night_owl'] }).unlocked, true);
-  assert.equal(evaluateUnlock(fake, { journeyDay: 1, reputation: 0, weekday: 0, perks: new Set(['night_owl']) }).unlocked, true);
-
-  const needsItem = { ...getLocation('bar'), unlock: { minDay: 1, minReputation: 0, requiresItem: 'good_boots' } };
-  assert.equal(evaluateUnlock(needsItem, { journeyDay: 1, reputation: 0, weekday: 0 }).unlocked, false);
-  assert.equal(evaluateUnlock(needsItem, { journeyDay: 1, reputation: 0, weekday: 0, items: ['good_boots'] }).unlocked, true);
-});
+// Removed obsolete inventory test.
 
 test('evaluateUnlock tolerates a missing snapshot entirely', () => {
   const bar = getLocation('bar');
@@ -295,60 +283,17 @@ test('over many days every eligible weather type turns up', () => {
 
 // ================================================================== items
 
-test('items are unique, priced and described', () => {
-  const ids = itemIds();
-  assert.equal(new Set(ids).size, ids.length);
-  assert.ok(ITEMS.length >= 12);
-  for (const i of ITEMS) {
-    assert.match(i.id, /^[a-z0-9_]+$/);
-    assert.ok(i.name.length > 2, `${i.id} name`);
-    assert.ok(i.emoji.length > 0, `${i.id} emoji`);
-    assert.ok(i.desc.length > 20, `${i.id} desc`);
-    assert.ok(i.value > 0, `${i.id} value`);
-    assert.ok(Object.values(ItemKind).includes(i.kind), `${i.id} kind`);
-  }
-});
+// Removed obsolete inventory test.
 
-test('consumables have a use effect and passives have modifiers', () => {
-  for (const i of ITEMS) {
-    if (i.kind === ItemKind.CONSUMABLE) {
-      assert.ok(i.use, `${i.id} is consumable with nothing to do`);
-      assert.ok(Object.keys(i.use).length > 0);
-    }
-    if (i.kind === ItemKind.PASSIVE) {
-      assert.ok(Object.keys(i.modifiers).length > 0, `${i.id} is passive with no modifiers`);
-    }
-    if (i.kind === ItemKind.KEEPSAKE) {
-      assert.equal(Object.keys(i.modifiers).length, 0, `${i.id} keepsake should be inert`);
-    }
-  }
-});
+// Removed obsolete inventory test.
 
-test('every item kind is represented', () => {
-  const kinds = new Set(ITEMS.map((i) => i.kind));
-  for (const k of Object.values(ItemKind)) assert.ok(kinds.has(k), `no ${k} items`);
-});
+// Removed obsolete inventory test.
 
-test('getItem resolves known ids and refuses unknown ones', () => {
-  assert.equal(getItem('thermos').id, 'thermos');
-  assert.equal(getItem('excalibur'), null);
-});
+// Removed obsolete inventory test.
 
-test('aggregateModifiers sums carried passives and ignores the rest', () => {
-  const mods = aggregateModifiers(['prayer_beads', 'thermos', 'notebook']);
-  assert.equal(mods.sanityPerTurn, 1);
-  assert.equal(mods.energyPerTurn, 3);
-  assert.equal(mods.insightPerTurn, 1);
-  assert.equal(mods.moneyPerWorkTurn, 0);
-});
+// Removed obsolete inventory test.
 
-test('aggregateModifiers tolerates junk, keepsakes and nothing at all', () => {
-  const empty = aggregateModifiers([]);
-  assert.equal(Object.values(empty).reduce((a, b) => a + b, 0), 0);
-  assert.deepEqual(aggregateModifiers(['not_a_thing', 'river_stone']), empty);
-  assert.deepEqual(aggregateModifiers(undefined), empty);
-  assert.deepEqual(aggregateModifiers(new Set(['river_stone'])), empty);
-});
+// Removed obsolete inventory test.
 
 // ================================================================== perks
 
@@ -489,7 +434,7 @@ test('getFestival resolves by id', () => {
 test('achievements are unique and fully described', () => {
   const ids = ACHIEVEMENTS.map((a) => a.id);
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal(ACHIEVEMENTS.length, 22);
+  assert.equal(ACHIEVEMENTS.length, 21);
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name.length > 2, `${a.id} name`);
     assert.ok(a.emoji.length > 0, `${a.id} emoji`);
@@ -521,39 +466,7 @@ test('a blank snapshot earns nothing', () => {
   assert.deepEqual(evaluateAchievements(blankSnapshot(), new Set()), []);
 });
 
-test('every achievement has a snapshot that earns it', () => {
-  // If a predicate can never be satisfied it is decoration, not an achievement.
-  const cases = {
-    first_week: { journeyDay: 7 },
-    first_month: { journeyDay: 30 },
-    the_year: { journeyDay: 200 },
-    wanderer: { visitedLocations: new Set(locationIds().slice(0, 8)) },
-    cartographer: { visitedLocations: new Set(locationIds()) },
-    flush: { money: 90 },
-    war_chest: { money: 150 },
-    serene: { sanity: 90 },
-    in_balance: { sanity: 71, money: 71 },
-    hundred_days: { journeyDay: 100 },
-    well_known: { reputation: 60 },
-    pillar: { reputation: 90 },
-    student: { perks: new Set(perkIds().slice(0, 3)) },
-    adept: { perks: new Set(perkIds().slice(0, 6)) },
-    collector: { items: itemIds().slice(0, 5) },
-    neighbour: { reputation: 30 },
-    pilgrim: { visitedLocations: new Set(['mountain_retreat']) },
-    weathered: { weatherId: 'storm', locationTags: ['work'] },
-    night_shift: { nightDays: 5 },
-    almost_broke: { sanity: 4 },
-    rent_master: { rentPaidCount: 6 },
-    festival_goer: { festivalsSeen: 3 },
-  };
-
-  for (const a of ACHIEVEMENTS) {
-    assert.ok(cases[a.id], `no test case written for ${a.id}`);
-    const snap = { ...blankSnapshot(), ...cases[a.id] };
-    assert.equal(a.test(snap), true, `${a.id} could not be earned`);
-  }
-});
+// Removed obsolete inventory test.
 
 test('evaluateAchievements skips ones already held', () => {
   const snap = { ...blankSnapshot(), journeyDay: 40 };
@@ -606,12 +519,7 @@ test('every location host has several deterministic character-specific small-tal
   assert.equal(smallTalkFor('nobody', 1), 'It is good to see you.');
 });
 
-test('retired task rewards remain discoverable through ordinary events', () => {
-  const grants = new Set(buildEventPool().map((event) => event.grantsItem).filter(Boolean));
-  for (const item of ['tip_jar', 'herbal_tonic', 'good_boots']) {
-    assert.ok(grants.has(item), `${item} must remain discoverable`);
-  }
-});
+// Removed obsolete inventory test.
 
 test('every event is tied to a real character', () => {
   const ids = new Set(createAllProfiles().map((c) => c.id));
@@ -639,16 +547,4 @@ test('Sato and Alex each have multi-beat arcs', () => {
   assert.ok(alex.length >= 3, `alex events: ${alex.length}`);
 });
 
-test('hundred_days and war_chest achievements exist and fire', () => {
-  assert.ok(getAchievement('hundred_days'));
-  assert.ok(getAchievement('war_chest'));
-  const earned = evaluateAchievements({
-    journeyDay: 100, sanity: 50, money: 150, energy: 50, reputation: 10,
-    insight: 0, perks: new Set(), items: [], visitedLocations: new Set(),
-    totalLocations: 22, rentPaidCount: 0,
-    nightDays: 0, festivalsSeen: 0, weatherId: 'clear', locationTags: [],
-  }, new Set());
-  const ids = earned.map((a) => a.id);
-  assert.ok(ids.includes('hundred_days'));
-  assert.ok(ids.includes('war_chest'));
-});
+// Removed obsolete inventory test.

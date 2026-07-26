@@ -32,11 +32,11 @@ export const Tag = Object.freeze({
 });
 
 export const District = Object.freeze({
-  RIVERSIDE: 'Riverside',
-  OLD_TOWN: 'Old Town',
-  HOME: 'Home Quarter',
-  UPTOWN: 'Uptown',
-  OUTSKIRTS: 'Outskirts',
+  RIVERSIDE: 'Canal Saint-Martin',
+  OLD_TOWN: 'Le Marais',
+  HOME: 'Belleville',
+  UPTOWN: 'Saint-Germain',
+  OUTSKIRTS: 'Paris Edges',
 });
 
 /** Districts in the order the map screen shows them. */
@@ -70,37 +70,37 @@ export const LOCATIONS = [
   loc({
     id: 'spiritual_community',
     host: 'geo',
-    name: 'Spiritual Community',
+    name: 'La Maison Calme',
     emoji: '🧘',
     district: District.RIVERSIDE,
-    desc: 'A peaceful sanctuary for meditation, connection, and spiritual growth. Soft candlelight flickers as the scent of incense fills the air.',
+    desc: 'A former locksmith’s atelier near Canal Saint-Martin, softened by candles, floor cushions and rain ticking at the tall windows. Here, connection feels possible without becoming a performance.',
     actionLabel: 'Meditate & Connect',
     actionDesc: 'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
-    historyLabel: 'Visited the Spiritual Community',
+    historyLabel: 'Visited La Maison Calme',
     tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.INDOOR],
     effects: eff(15, -10, -12, 2, 1),
-    bg: 'assets/backgrounds/spiritual_community.webp',
+    bg: 'assets/backgrounds/paris_spiritual_community.webp',
   }),
   loc({
     id: 'bar',
     host: 'barret',
-    name: 'The Bar',
+    name: 'Le Dernier Verre',
     emoji: '🍻',
     district: District.OLD_TOWN,
-    desc: 'A dimly lit bar with worn wooden counters and amber glow. The clink of glasses and murmur of conversation fill the warm, smoky air.',
+    desc: 'A narrow Belleville bar with a zinc counter, amber lamps and wet pavement beyond the door. Glasses clink beneath the low, forgiving murmur of the neighbourhood.',
     actionLabel: 'Work a Shift',
     actionDesc: 'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
-    historyLabel: 'Worked at the Bar',
+    historyLabel: 'Worked at Le Dernier Verre',
     tags: [Tag.WORK, Tag.NIGHT, Tag.INDOOR, Tag.SOCIAL],
     effects: eff(-12, 12, -20, 0, 0),
-    bg: 'assets/backgrounds/bar.webp',
+    bg: 'assets/backgrounds/paris_bar.webp',
   }),
 
   // --------------------------------------------------------- Home Quarter
   loc({
     id: 'home_loft',
     host: 'leon',
-    name: 'The Loft',
+    name: 'The Belleville Studio',
     emoji: '🛏️',
     district: District.HOME,
     desc: 'Two rooms above a shuttered print shop. A mattress, a kettle, a window that rattles. It is not much, but the door locks and nobody needs anything from you here.',
@@ -115,7 +115,7 @@ export const LOCATIONS = [
   loc({
     id: 'rooftop',
     host: 'yume',
-    name: 'The Rooftop',
+    name: 'Belleville Rooftop',
     emoji: '🌃',
     district: District.HOME,
     desc: 'Tar paper, a folding chair, and the whole grid of streetlights laid out below. The city sounds like a held breath from up here.',
@@ -130,7 +130,7 @@ export const LOCATIONS = [
   loc({
     id: 'free_clinic',
     host: 'susan',
-    name: 'The Free Clinic',
+    name: 'The Belleville Clinic',
     emoji: '🩺',
     district: District.HOME,
     desc: 'A converted storefront with mismatched chairs and a permanent queue. Two nurses, one doctor, and whoever else turns up willing to work.',
@@ -145,7 +145,7 @@ export const LOCATIONS = [
   loc({
     id: 'soup_kitchen',
     host: 'siekamcebule',
-    name: 'The Soup Kitchen',
+    name: 'La Cantine Solidaire',
     emoji: '🍲',
     district: District.HOME,
     desc: 'Basement of the old union hall. Two hundred covers a night, industrial pots, and a radio nobody is allowed to change.',
@@ -162,10 +162,10 @@ export const LOCATIONS = [
   loc({
     id: 'river_walk',
     host: 'joar',
-    name: 'The River Walk',
+    name: 'Canal Saint-Martin Walk',
     emoji: '🌊',
     district: District.RIVERSIDE,
-    desc: 'A cracked towpath following the water out past the boatyards. Herons, joggers, and the smell of cold silt.',
+    desc: 'Iron footbridges, plane trees and dark water under the Canal Saint-Martin. A walk here makes Paris feel briefly small enough to cross on foot.',
     actionLabel: 'Walk the Towpath',
     actionDesc: 'You walked until the thinking stopped and only the walking was left.',
     historyLabel: 'Walked the river path',
@@ -173,12 +173,12 @@ export const LOCATIONS = [
     // Restorative, and still a whole day not earning — plus the coffee at the turn.
     effects: eff(8, -2, 6, 0, 0),
     unlock: { minDay: 2 },
-    bg: 'assets/backgrounds/river_walk.webp',
+    bg: 'assets/backgrounds/paris_canal.webp',
   }),
   loc({
     id: 'community_garden',
     host: 'brock_lee',
-    name: 'The Community Garden',
+    name: 'Jardin des Buttes-Chaumont',
     emoji: '🌱',
     district: District.RIVERSIDE,
     desc: 'Twelve raised beds on a lot the council forgot. Tomatoes, chard, one determined fig tree, and an unwritten rota everybody follows.',
@@ -193,7 +193,7 @@ export const LOCATIONS = [
   loc({
     id: 'farmers_market',
     host: 'ahyeon',
-    name: 'The Farmers Market',
+    name: 'Marché des Enfants Rouges',
     emoji: '🥬',
     district: District.RIVERSIDE,
     desc: 'Saturday trestle tables under a leaking awning. The community sells honey, jam and meditation cushions nobody has the heart to price properly.',
@@ -203,13 +203,12 @@ export const LOCATIONS = [
     tags: [Tag.MARKET, Tag.OUTDOOR, Tag.COMMUNITY, Tag.WORK],
     effects: eff(2, 8, -10, 2, 0),
     unlock: { minDay: 3 },
-    special: 'gift_item',
     bg: 'assets/backgrounds/farmers_market.webp',
   }),
   loc({
     id: 'bathhouse',
     host: 'renata',
-    name: 'The Old Bathhouse',
+    name: 'The Hammam of the 10th',
     emoji: '♨️',
     district: District.RIVERSIDE,
     desc: 'Edwardian tile, water at three temperatures, and a strict rule of silence enforced by a woman who has never explained her name.',
@@ -226,7 +225,7 @@ export const LOCATIONS = [
   loc({
     id: 'night_market',
     host: 'cheezl',
-    name: 'The Night Market',
+    name: 'Rue Oberkampf Night Market',
     emoji: '🏮',
     district: District.OLD_TOWN,
     desc: 'Six streets of grills, generators and paper lanterns, running from dusk until the police pretend to notice.',
@@ -241,7 +240,7 @@ export const LOCATIONS = [
   loc({
     id: 'flea_market',
     host: 'baris',
-    name: 'The Flea Market',
+    name: 'Puces de Saint-Ouen',
     emoji: '🧺',
     district: District.OLD_TOWN,
     desc: 'Sunday tarpaulins over other people\u2019s history. Everything is negotiable and nothing is guaranteed to work.',
@@ -256,7 +255,7 @@ export const LOCATIONS = [
   loc({
     id: 'public_library',
     host: 'lou',
-    name: 'The Public Library',
+    name: 'Bibliothèque Forney',
     emoji: '📚',
     district: District.OLD_TOWN,
     desc: 'Third floor, east window, the reference section nobody has needed since 1997. The radiators tick. Nothing is asked of you.',
@@ -266,12 +265,12 @@ export const LOCATIONS = [
     tags: [Tag.STUDY, Tag.INDOOR, Tag.QUIET],
     effects: eff(5, 0, -8, 0, 3),
     unlock: { minDay: 4 },
-    bg: 'assets/backgrounds/public_library.webp',
+    bg: 'assets/backgrounds/paris_library.webp',
   }),
   loc({
     id: 'pawn_shop',
     host: 'stephen',
-    name: 'Verrier & Son, Pawnbrokers',
+    name: 'Verrier, Antiquaire',
     emoji: '💍',
     district: District.OLD_TOWN,
     desc: 'A grille, a scale, and a man who has heard every story twice. He is not unkind. He simply knows what things are worth.',
@@ -281,13 +280,12 @@ export const LOCATIONS = [
     tags: [Tag.MARKET, Tag.INDOOR, Tag.ADMIN],
     effects: eff(-6, 8, -6, 0, 0),
     unlock: { minDay: 6 },
-    special: 'sell_item',
     bg: 'assets/backgrounds/pawn_shop.webp',
   }),
   loc({
     id: 'radio_station',
     host: 'hawkinstv',
-    name: 'Pirate Radio 88.3',
+    name: 'Radio Belleville',
     emoji: '📻',
     district: District.OLD_TOWN,
     desc: 'A studio in a converted bedroom above a kebab shop, broadcasting to maybe four hundred people who all know each other.',
@@ -302,7 +300,7 @@ export const LOCATIONS = [
   loc({
     id: 'open_mic',
     host: 'klaudia',
-    name: 'The Open Mic',
+    name: 'Caveau des Poètes',
     emoji: '🎤',
     district: District.OLD_TOWN,
     desc: 'Back room of the Ferryman, Friday and Saturday only. Three poets, a mediocre guitarist, and a crowd that is generous on purpose.',
@@ -319,7 +317,7 @@ export const LOCATIONS = [
   loc({
     id: 'landlord_office',
     host: 'kaden',
-    name: 'The Letting Office',
+    name: 'Agence du Quartier',
     emoji: '📄',
     district: District.UPTOWN,
     desc: 'Grey carpet tiles, a ticket machine, and a laminated notice about respecting staff. Somewhere behind it all, Kaden\u2019s paperwork.',
@@ -335,7 +333,7 @@ export const LOCATIONS = [
   loc({
     id: 'sato_studio',
     host: 'sato',
-    name: 'Sato\u2019s Wellness Studio',
+    name: 'Sato\u2019s Saint-Germain Studio',
     emoji: '🕯️',
     district: District.UPTOWN,
     desc: 'Blonde wood, filtered water, a price list in a serif font. Sato keeps offering you a guest class and keeps meaning it.',
@@ -350,7 +348,7 @@ export const LOCATIONS = [
   loc({
     id: 'alex_cocktail_bar',
     host: 'alex',
-    name: 'Vermillion (Alex\u2019s Bar)',
+    name: 'Vermillion, Saint-Germain',
     emoji: '🍸',
     district: District.UPTOWN,
     desc: 'Clarified milk punch, a nine-page menu, and a doorman. Alex pays better than Barret and never lets you forget it.',
@@ -367,7 +365,7 @@ export const LOCATIONS = [
   loc({
     id: 'memorial_garden',
     host: 'marlies',
-    name: 'The Memorial Garden',
+    name: 'Père Lachaise Garden',
     emoji: '🕊️',
     district: District.OUTSKIRTS,
     desc: 'A walled acre behind the crematorium. Benches with names on them. The community tends the north beds for free.',
@@ -382,7 +380,7 @@ export const LOCATIONS = [
   loc({
     id: 'temple_ruins',
     host: 'iulian',
-    name: 'The Temple Ruins',
+    name: 'Saint-Denis Basilica Crypt',
     emoji: '⛩️',
     district: District.OUTSKIRTS,
     desc: 'An hour on the bus, then forty minutes uphill. Four standing walls, no roof, and an acoustic that makes one voice sound like several.',
@@ -397,7 +395,7 @@ export const LOCATIONS = [
   loc({
     id: 'mountain_retreat',
     host: 'geo',
-    name: 'The Mountain Retreat',
+    name: 'Fontainebleau Retreat',
     emoji: '🏔️',
     district: District.OUTSKIRTS,
     desc: 'Geo\u2019s teacher\u2019s teacher built it. Silent, freezing, three days minimum, and they will not take you unless somebody vouches.',
@@ -439,16 +437,15 @@ export function hasTag(location, tag) {
  *
  * @param {object} location
  * @param {{journeyDay:number, reputation:number, weekday:number,
- *          perks?:Set<string>|string[], items?:string[], closedTags?:string[]}} snap
+ *          perks?:Set<string>|string[], closedTags?:string[]}} snap
  * @returns {{unlocked:boolean, reason:string}}
  */
 export function evaluateUnlock(location, snap) {
   const {
     journeyDay = 1, reputation = 0, weekday = 0,
-    perks = [], items = [], closedTags = [],
+    perks = [], closedTags = [],
   } = snap ?? {};
   const perkSet = perks instanceof Set ? perks : new Set(perks);
-  const itemSet = items instanceof Set ? items : new Set(items);
   const u = location.unlock;
 
   if (journeyDay < u.minDay) {
@@ -459,9 +456,6 @@ export function evaluateUnlock(location, snap) {
   }
   if (u.requiresPerk && !perkSet.has(u.requiresPerk)) {
     return { unlocked: false, reason: `Needs the ${u.requiresPerk} perk` };
-  }
-  if (u.requiresItem && !itemSet.has(u.requiresItem)) {
-    return { unlocked: false, reason: `Needs ${u.requiresItem}` };
   }
   if (Array.isArray(u.weekdays) && u.weekdays.length > 0 && !u.weekdays.includes(weekday)) {
     return { unlocked: false, reason: 'Not on today of all days' };
