@@ -93,8 +93,9 @@ maybe('HUD reflects the starting stats', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    assert.match(doc.getElementById('sanity-num').textContent, /50 \/ 100/);
-    assert.match(doc.getElementById('money-num').textContent, /50 \/ 100/);
+    assert.match(doc.getElementById('sanity-num').textContent, /50%/);
+    assert.match(doc.getElementById('money-num').textContent, /^50$/);
+    assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
     assert.equal(doc.getElementById('sanity-bar').style.width, '50%');
   } finally { cleanup(window); }
 });
@@ -131,7 +132,7 @@ maybe('performing an action opens the result modal and updates stats', async () 
     // Bar shift: money 50 → 62, sanity 50 → 38 (before any event).
     const { gs } = window.__game;
     assert.ok(gs.money !== 50 || gs.sanity !== 50, 'stats should have moved');
-    assert.match(doc.getElementById('money-num').textContent, new RegExp(`${Math.round(gs.money)} / 100`));
+    assert.match(doc.getElementById('money-num').textContent, new RegExp(`^${Math.round(gs.money)}$`));
   } finally { cleanup(window); }
 });
 

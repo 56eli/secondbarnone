@@ -8,7 +8,8 @@
 
 import { getInitials, Role, roleLabel } from '../data/characters.js';
 import {
-  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, SATCHEL_CAPACITY,
+  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, SATCHEL_CAPACITY,
+  ENDURANCE_GOAL_DAYS,
 } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
 import {
@@ -17,7 +18,7 @@ import {
 import { getItem, ItemKind } from '../data/items.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { contractsOfferedAt, getContract } from '../data/contracts.js';
+import { contractsOfferedAt, getContract, CONTRACTS } from '../data/contracts.js';
 import { forecast } from '../data/weather.js';
 import { upcomingFestivals } from '../data/festivals.js';
 
@@ -68,10 +69,13 @@ export function effectChips(bundle, cls = 'chips') {
 
 /** Portrait <img> with graceful fallback to an initials chip. */
 function avatar(profile, cls = 'avatar') {
+  if (!profile) {
+    return el('div', { class: cls, 'aria-label': 'Unknown' }, '?');
+  }
   const initials = getInitials(profile.name);
   const img = el('img', {
     class: cls,
-    src: profile.portrait,
+    src: profile.portrait || `assets/portraits/${profile.id}.webp`,
     alt: `${profile.name} portrait`,
     loading: 'lazy',
     decoding: 'async',
@@ -81,6 +85,25 @@ function avatar(profile, cls = 'avatar') {
     img.replaceWith(el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials));
   }, { once: true });
   return img;
+}
+
+/** Look up a character profile by id from a GameState (or raw list). */
+function findCharacter(gsOrList, id) {
+  if (!id) return null;
+  const list = Array.isArray(gsOrList)
+    ? gsOrList
+    : (gsOrList?.characterProfiles || gsOrList?.getAllCharacters?.() || []);
+  return list.find((p) => p.id === id) || null;
+}
+
+/** Small "kept by …" chip used on location cards and the location screen. */
+function hostChip(gs, hostId, cls = 'host-chip') {
+  const host = findCharacter(gs, hostId);
+  if (!host) return null;
+  return el('div', { class: cls },
+    avatar(host, 'avatar host-avatar'),
+    el('span', { class: 'host-name', text: host.name }),
+  );
 }
 
 /** Standard back button used by every sub-screen. */
@@ -95,7 +118,7 @@ function backRow(onBack, ...extra) {
 export function renderHub(gs, handlers) {
   const {
     onVisit, onCharacters, onMap, onSatchel, onPerks,
-    onContracts, onJournal, onAlmanac,
+    onContracts, onJournal, onAlmanac, onAcceptContract,
   } = handlers;
 
   const weather = gs.getWeather();
@@ -126,9 +149,42 @@ export function renderHub(gs, handlers) {
       }))
     : null;
 
+  // Notice board: contracts available anywhere the player has unlocked access,
+  // so a player who never visits the clinic still learns the rota exists.
+  const taken = new Set([
+    ...gs.activeContracts.map((c) => c.id),
+    ...gs.completedContracts,
+    ...gs.failedContracts,
+  ]);
+  const boardOffers = CONTRACTS
+    .filter((c) => gs.journeyDay >= c.minDay && !taken.has(c.id))
+    .slice(0, 4);
+
+  const noticeBoard = boardOffers.length > 0 && onAcceptContract
+    ? el('div', { class: 'notice-board' },
+      el('h3', { text: '📌 Notice board' }),
+      el('p', { class: 'notice-sub', text: 'Word travels. You do not have to be there to hear about the work.' }),
+      ...boardOffers.map((contract) => {
+        const where = getLocation(contract.offeredAt);
+        return el('div', { class: 'notice-row' },
+          el('div', { class: 'notice-meta' },
+            el('div', { class: 'notice-name', text: `${contract.emoji} ${contract.name}` }),
+            el('div', { class: 'notice-where', text: where ? `at ${where.name}` : '' }),
+            el('div', { class: 'notice-terms', text: `${contract.need} days within ${contract.days}` })),
+          el('button', {
+            class: 'btn btn-small',
+            text: 'Take it on',
+            onclick: () => onAcceptContract(contract.id),
+          }));
+      }))
+    : null;
+
+  const greeting = typeof gs.getGreeting === 'function' ? gs.getGreeting() : '';
+
   return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.svg')" },
     el('h2', { class: 'screen-title', text: 'Where will you spend today?' }),
     el('p', { class: 'hub-meta', text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}` }),
+    greeting ? el('p', { class: 'hub-greeting', text: greeting }) : null,
 
     el('p', { class: 'hub-weather' },
       el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` }),
@@ -140,6 +196,7 @@ export function renderHub(gs, handlers) {
 
     el('p', { class: 'hub-mood', text: `${gs.getSeason()} — ${gs.getMood()}` }),
 
+    noticeBoard,
     contractStrip,
 
     el('div', { class: 'choices' }, ...quick,
@@ -186,6 +243,7 @@ export function renderMap(gs, { onVisit, onBack }) {
         'data-location': location.id,
       },
       el('span', { class: 'loc-name', text: `${location.emoji} ${location.name}` }),
+      hostChip(gs, location.host, 'host-chip compact'),
       unlocked
         ? effectChips(total, 'chips loc-chips')
         : el('span', { class: 'loc-lock', text: `🔒 ${reason}` }),
@@ -246,10 +304,21 @@ export function renderLocation(gs, locationId, { onAction, onBack, onAcceptContr
   // Location specials: the pawnbroker, the letting office, and so on.
   const special = renderSpecial(gs, location, onSpecial);
 
+  const host = findCharacter(gs, location.host);
+  const hostBanner = host
+    ? el('div', { class: 'host-banner' },
+      avatar(host, 'avatar host-avatar-lg'),
+      el('div', {},
+        el('div', { class: 'host-label', text: 'You will likely see' }),
+        el('div', { class: 'host-name-lg', text: host.name }),
+        el('div', { class: 'host-rel', text: host.relationship || host.location || '' })))
+    : null;
+
   const node = el('div', { class: 'screen location', style: location.bg ? `background-image:url('${location.bg}')` : '' },
     particles,
     el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
     el('p', { class: 'screen-sub', text: location.desc }),
+    hostBanner,
 
     el('div', { class: 'preview' },
       el('h3', { text: "Today, here" }),
@@ -580,7 +649,7 @@ export function renderCharacters(profiles, { onBack }) {
 
   return el('div', { class: 'screen' },
     el('h2', { class: 'screen-title', text: 'Characters' }),
-    el('p', { class: 'screen-sub', text: 'The people who orbit Léon’s two worlds.' }),
+    el('p', { class: 'screen-sub', text: 'The people who keep Léon’s city feeling like a home — every place has someone waiting.' }),
     el('div', { class: 'char-toolbar' }, search, count),
     el('div', { class: 'char-layout' }, list, detail),
     backRow(onBack));
@@ -598,9 +667,14 @@ export function renderGameOver(gs, message, { onRestart }) {
     ['Reputation', Math.round(gs.reputation)],
   ];
 
+  const title = gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS
+    ? 'A Long Road Ended'
+    : 'The Balance Broke';
+
   return el('div', { class: 'screen gameover' },
-    el('h2', { text: 'The Balance Broke' }),
+    el('h2', { text: title }),
     el('p', { text: message }),
+    gs.won ? el('p', { class: 'win-note', text: gs.winMessage || 'You reached one hundred days before the end.' }) : null,
     el('p', {
       class: 'summary',
       text: `You lasted ${gs.journeyDay} day${gs.journeyDay === 1 ? '' : 's'}, ending on ${gs.getDateDisplay()}.`,
@@ -618,14 +692,22 @@ export function renderResultModal(result, gs, { onContinue }) {
     completedContracts, achievements, grantedItem, exhaustion,
   } = result;
 
+  const eventChar = event?.character ? findCharacter(gs, event.character) : null;
   const eventBlock = event
     ? el('div', { class: 'event-block' },
       el('span', { class: `rarity-tag rarity-${event.rarity}`, text: rarityLabel(event.rarity) }),
-      el('p', { class: 'event-title', text: event.title }),
+      eventChar
+        ? el('div', { class: 'event-person' },
+          avatar(eventChar, 'avatar event-avatar'),
+          el('div', {},
+            el('p', { class: 'event-title', text: event.title }),
+            el('p', { class: 'event-who', text: eventChar.name })))
+        : el('p', { class: 'event-title', text: event.title }),
       el('p', { text: event.description }))
     : null;
 
   const notes = [];
+  if (result.justWon) notes.push(`🏅 ${result.winMessage || 'One hundred days. You held.'}`);
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
   if (exhaustion) notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
@@ -645,7 +727,7 @@ export function renderResultModal(result, gs, { onContinue }) {
       : null,
     eventBlock,
     el('div', { class: 'modal-stats' }, effectChips(deltas, 'chips')),
-    el('div', { class: 'modal-totals', text: `Sanity ${Math.round(gs.sanity)}/${MAX_STAT} · Money ${Math.round(gs.money)}/${MAX_STAT} · Energy ${Math.round(gs.energy)}/${MAX_ENERGY} · Rep ${Math.round(gs.reputation)}/${MAX_REPUTATION} · Insight ${gs.insight}` }),
+    el('div', { class: 'modal-totals', text: `Sanity ${Math.round((gs.sanity / MAX_STAT) * 100)}% · Money ${Math.round(gs.money)} · Energy ${Math.round((gs.energy / MAX_ENERGY) * 100)}% · Rep ${Math.round((gs.reputation / MAX_REPUTATION) * 100)}% · Insight ${gs.insight}` }),
     el('div', { class: 'modal-actions' },
       el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue })),
   );

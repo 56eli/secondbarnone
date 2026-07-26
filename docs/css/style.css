@@ -62,17 +62,58 @@ body {
 .hud-top {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
 
-.hud-title {
+.hud-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hud-portrait {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: 0 2px 10px rgba(201, 162, 39, 0.25);
+  background: #1a1a28;
+  flex: 0 0 44px;
+}
+
+.hud-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hud-name {
   font-size: 15px;
+  font-weight: 650;
+  color: #f0e9da;
+  letter-spacing: 0.2px;
+}
+
+.hud-title {
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
   color: var(--accent);
+  text-transform: lowercase;
+}
+
+.hud-meta-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .hud-date { font-size: 13px; color: var(--text); }
@@ -115,7 +156,14 @@ body {
 .bar-fill.money { background: linear-gradient(90deg, #b8912f, var(--money)); }
 .bar-fill.low { background: linear-gradient(90deg, #a33b3b, var(--danger)); }
 
-.stat-num { font-size: 12px; color: var(--text-dim); min-width: 58px; text-align: right; }
+.stat-num { font-size: 12px; color: var(--text-dim); min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Money is a wallet number; the bar is only a comfort meter. */
+.stat-row[data-stat="money"] .stat-num {
+  color: var(--money);
+  font-weight: 600;
+  min-width: 52px;
+}
 
 /* Floating +/- delta indicator */
 .delta {
@@ -897,3 +945,171 @@ footer a { color: #7d786f; }
 }
 
 .empty { color: var(--text-dim); font-size: 12.5px; }
+
+/* ============================================================
+   Homely pass — Léon in the HUD, hosts on locations, notice board,
+   event faces, greetings.
+   ============================================================ */
+
+.hub-greeting {
+  font-size: 13px;
+  color: #cfc6b0;
+  margin: 0 0 10px;
+  line-height: 1.55;
+  max-width: 58ch;
+}
+
+.notice-board {
+  background: rgba(16, 16, 26, 0.88);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.notice-board h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #f0e9da;
+}
+
+.notice-sub {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.notice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(42, 42, 61, 0.7);
+}
+
+.notice-name { font-size: 13px; font-weight: 600; color: #f0e9da; }
+.notice-where { font-size: 11.5px; color: var(--accent); margin-top: 2px; }
+.notice-terms { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 6px;
+  font-size: 12px;
+  color: #cfcabf;
+}
+
+.host-chip.compact { margin: 2px 0 4px; }
+
+.host-avatar {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  font-size: 9px;
+  border-color: #3a3a52;
+}
+
+.host-avatar-lg {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  font-size: 16px;
+  border-color: rgba(201, 162, 39, 0.45);
+}
+
+.host-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(12, 12, 22, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.host-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--text-dim);
+}
+
+.host-name-lg {
+  font-size: 15px;
+  font-weight: 650;
+  color: #f0e9da;
+}
+
+.host-rel {
+  font-size: 12px;
+  color: #bdb9b0;
+  margin-top: 2px;
+  line-height: 1.4;
+  max-width: 48ch;
+}
+
+.event-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.event-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-color: rgba(201, 162, 39, 0.4);
+}
+
+.event-who {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.win-note {
+  color: var(--accent) !important;
+  font-style: italic;
+  max-width: 44ch;
+  margin: 0 auto 14px !important;
+}
+
+/* Phone-width HUD: keep Léon visible, stack meta. */
+@media (max-width: 520px) {
+  body { padding: 10px; }
+
+  #hud { padding: 10px 12px; }
+
+  .hud-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-meta-right {
+    justify-content: flex-start;
+    font-size: 12px;
+  }
+
+  .stat-label { min-width: 100px; font-size: 12px; }
+
+  .stat-row {
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+  }
+
+  .loc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .choices {
+    grid-template-columns: 1fr;
+  }
+
+  #content { min-height: 360px; }
+}

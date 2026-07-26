@@ -7,8 +7,11 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 321 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 332 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
+>
+> Money is an uncapped wallet (still lethal at 0). Every location has a host
+> and every event a character. Léon stays in the HUD. Soft win at day 100.
 
 ---
 
@@ -32,8 +35,8 @@ As plain ES modules the source *is* the build:
 | Automated tests | 0 | **321** |
 | Coverage | — | **~99%** |
 
-The legacy `scripts/*.gd`, `scenes/*.tscn` and `project.godot` files remain in
-the repository for reference. They are not deployed and not maintained.
+Legacy Godot sources have been removed from this branch. The shipped game is
+the HTML/CSS/JS build under `docs/` only.
 
 ---
 
@@ -104,7 +107,7 @@ list, so a handler may safely unsubscribe mid-dispatch.
 | | Start | Max | What it is |
 |---|---|---|---|
 | **Sanity** | 50 | 100 | Reaching 0 ends the run |
-| **Money** | 50 | 100 | Reaching 0 ends the run |
+| **Money** | 50 | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100 |
 | **Energy** | 100 | 100 | Recovers overnight; running low costs sanity |
 | **Reputation** | 10 | 100 | Gates locations and contracts |
 | **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
@@ -159,7 +162,7 @@ Rent Amnesty Day.
 
 ### Events
 
-**58 events.** Gated by location id, by location tag, by weather, or by a
+**64 events.** Gated by location id, by location tag, by weather, or by a
 minimum day — enforced by test, so no event can fire anywhere at any time.
 Kaden finally has his own arc: four events that escalate the rent pressure
 from refiled paperwork to a buyout offer on very good paper.
@@ -257,12 +260,7 @@ prunes orphans in one pass.
 
 | File | Tests | Scope |
 |---|---|---|
-| `tests/game.test.js` | 56 | Original rules: calendar, stats, rent, events, characters |
-| `tests/world.test.js` | 69 | The data catalogues, asserted exhaustively rather than sampled |
-| `tests/systems.test.js` | 88 | Energy, satchel, perks, contracts, achievements, save/load, the turn |
-| `tests/dom.test.js` | 23 | The original UI journeys in jsdom |
-| `tests/ui.test.js` | 51 | Map, satchel, practice, commitments, almanac, journal, autosave |
-| `tests/coverage.test.js` | 34 | Edge cases: unseeded RNG, signal teardown, defensive branches |
+| Six test files | **332** | Rules, catalogues, systems, DOM, UI, coverage edges |
 
 The data tests are written as invariants over the whole catalogue rather than
 spot checks, which is how they earn their keep — they caught three real design
@@ -304,15 +302,10 @@ by a dedicated test that boots the app with the media query forced on.
 
 ## Known gaps
 
-- **Not verified in a real browser.** The UI is jsdom-verified; Chromium could
-  not be downloaded in the environment this was built in. Layout and animation
-  deserve a human eye on a real device — the map grid and the five-row HUD in
-  particular have not been seen at a phone width.
+- **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
+  a real phone is still worthwhile (HUD identity row + map grid).
 - **No audio.**
-- **Sato and Alex** now have events via the `rival` tag, but no arc of their
-  own the way Kaden has. Their locations exist; their stories do not yet.
-- **Contract offers are location-bound**, so a player who never visits the
-  clinic never learns the clinic rota exists. A notice board on the hub would
-  fix this.
+- **Five locations** still lack dedicated painted backgrounds (soup kitchen,
+  flea market, pawn shop, open mic, letting office).
 - **The satchel has no sort or filter.** Six slots is small enough that this
   has not bitten yet.

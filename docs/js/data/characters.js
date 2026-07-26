@@ -27,6 +27,8 @@ const WEBP_PORTRAITS = new Set([
   'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
   'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
   'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
+  // Newly painted portraits (homely cast expansion)
+  'yun', 'marlies', 'mateo', 'luca', 'cheezl',
 ]);
 
 function portraitFor(id) {
