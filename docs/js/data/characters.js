@@ -26,13 +26,13 @@ export function roleLabel(role) {
 const WEBP_PORTRAITS = new Set([
   'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
   'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
-  'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
+  'hawkinstv', 'ricolewis', 'emily', 'kate',
   // Newly painted portraits (homely cast expansion)
   'yun', 'marlies', 'mateo', 'luca', 'cheezl',
 ]);
 
 function portraitFor(id) {
-  const ext = WEBP_PORTRAITS.has(id) ? 'webp' : 'svg';
+  const ext = WEBP_PORTRAITS.has(id) ? 'webp' : ['yume', 'joar', 'susan'].includes(id) ? 'png' : 'svg';
   return `assets/portraits/${id}.${ext}`;
 }
 
