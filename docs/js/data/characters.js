@@ -691,3 +691,125 @@ export function getInitials(displayName) {
   // A whitespace-only or symbol-stripped name would otherwise render blank.
   return initials || '?';
 }
+
+/**
+ * Things a host can say when Léon arrives. These are deliberately separate
+ * from event copy and location descriptions: a visit is a small meeting, not
+ * a dossier. The day-based picker keeps a line stable while a screen rerenders
+ * and rotates it on future visits without consuming gameplay randomness.
+ */
+export const SMALL_TALK = Object.freeze({
+  geo: Object.freeze([
+    'The kettle is on. We can begin where the breath is.',
+    'No need to make the day impressive. Just make it honest.',
+    'You are allowed to arrive exactly as you are.',
+  ]),
+  barret: Object.freeze([
+    'Apron is clean. The rest of the night can sort itself out.',
+    'Good to see you, kid. There is a stool with your name on it.',
+    'We have got enough lemons and just enough patience. Let us work.',
+  ]),
+  leon: Object.freeze([
+    'The plants made it through the night. So did you.',
+    'A slow breakfast still counts as keeping things going.',
+    'The window is open a crack. The room can breathe.',
+  ]),
+  yume: Object.freeze([
+    'The sky is doing most of the decorating today.',
+    'I saved the quiet corner by the rail for you.',
+    'Up here the city sounds like it is thinking before it speaks.',
+  ]),
+  susan: Object.freeze([
+    'Drink some water before you tell me you are fine.',
+    'The kettle is working. That is already a good sign.',
+    'We will take this one person at a time.',
+  ]),
+  siekamcebule: Object.freeze([
+    'There is always enough for one more bowl.',
+    'Taste this before you salt it. It needs a second opinion.',
+    'Pull up a chair. Standing all day is not a personality.',
+  ]),
+  joar: Object.freeze([
+    'The river is cold, but it is not in a bad mood.',
+    'Walk until your thoughts stop trying to win.',
+    'I brought an extra thermos. Pretend this was planned.',
+  ]),
+  brock_lee: Object.freeze([
+    'The tomatoes are finally deciding what they want to be.',
+    'There is a job with your name on it, but it can wait five minutes.',
+    'Mind the mint. It has ambitions.',
+  ]),
+  ahyeon: Object.freeze([
+    'The honey jars are lined up like they have somewhere to be.',
+    'Take the good chair before somebody notices it is empty.',
+    'A little haggling is just conversation with numbers.',
+  ]),
+  renata: Object.freeze([
+    'The water will still be warm if you take your time.',
+    'Nothing important happens quickly in here.',
+    'Leave the clock outside. It does not know how to soak.',
+  ]),
+  cheezl: Object.freeze([
+    'The first grill is hot. That is the whole plan so far.',
+    'Eat something before midnight turns you into a philosopher.',
+    'The best stall is the one that smells like somebody is happy.',
+  ]),
+  baris: Object.freeze([
+    'Everything has a story. Most of them are negotiable.',
+    'If it works, it is vintage. If it does not, it is a project.',
+    'Keep your hands in your pockets until you know what you want.',
+  ]),
+  lou: Object.freeze([
+    'I put aside a book with your sort of weather in it.',
+    'The good table is free. The radiator is trying its best.',
+    'You do not have to finish anything today to be here.',
+  ]),
+  stephen: Object.freeze([
+    'No rush. The scale does not get impatient.',
+    'Things can be useful and sentimental. We can hold both truths.',
+    'I have heard worse weeks. Sit for a minute.',
+  ]),
+  hawkinstv: Object.freeze([
+    'The red light means we are live. The rest is just talking.',
+    'Someone out there needs to hear a human voice tonight.',
+    'I found the cable that crackles. We are practically professionals.',
+  ]),
+  klaudia: Object.freeze([
+    'The room is kind if you give it a chance.',
+    'You can borrow my first chord if the silence gets too loud.',
+    'Nobody remembers the perfect set. They remember the true one.',
+  ]),
+  kaden: Object.freeze([
+    'I brought the revised forms. No urgency, of course.',
+    'The waiting room is surprisingly comfortable today.',
+    'A signature is only a mark on paper. That is what makes it interesting.',
+  ]),
+  sato: Object.freeze([
+    'There is tea in the break room if you want the good kind.',
+    'Your class had a nice rhythm last week. Do not let it go to your head.',
+    'We can disagree without making a sport of it.',
+  ]),
+  alex: Object.freeze([
+    'The garnish tray is labelled now. Try not to look so pleased.',
+    'We are busy, not at war. Take the good ice.',
+    'Your hands remember the work. Trust them.',
+  ]),
+  marlies: Object.freeze([
+    'The roses do better when nobody rushes them.',
+    'There is a bench in the shade with your name on it. Not literally.',
+    'Some places ask you to speak softly. This is one of them.',
+  ]),
+  iulian: Object.freeze([
+    'The stones have waited longer than either of us.',
+    'Take the hill slowly. It will still be there at the top.',
+    'Listen for the wind under the arch. It knows the old tune.',
+  ]),
+});
+
+/** Return a host-specific line for the given journey day. */
+export function smallTalkFor(characterId, journeyDay = 1) {
+  const lines = SMALL_TALK[characterId];
+  if (!lines || lines.length === 0) return 'It is good to see you.';
+  const offset = [...characterId].reduce((sum, char) => sum + char.codePointAt(0), 0);
+  return lines[(Math.max(1, journeyDay) - 1 + offset) % lines.length];
+}

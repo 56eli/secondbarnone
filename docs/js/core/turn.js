@@ -9,10 +9,9 @@
  *   2. exhaustion penalty
  *   3. Sunday rent
  *   4. the scheduled random event
- *   5. contract credit
- *   6. achievements
- *   7. game-over check
- *   8. history + journal
+ *   5. achievements
+ *   6. game-over check
+ *   7. one concise history line
  *
  * Pure with respect to the DOM; every input is state or data.
  */
@@ -159,7 +158,7 @@ export function scaleEventDeltas(event, perks) {
  *
  * @returns {{actionDesc:string, event:object|null, rentCharged:number,
  *            gameOver:boolean, deltas:object, reasons:string[],
- *            completedContracts:object[], achievements:object[],
+ *            achievements:object[],
  *            grantedItem:string|null, exhaustion:number,
  *            sanityDelta:number, moneyDelta:number,
  *            prevSanity:number, prevMoney:number, weather:object,
@@ -204,35 +203,23 @@ export function resolveTurn(gs, eventManager, locationId) {
     }
   }
 
-  // 5 — contracts
-  const completedContracts = gs.creditContracts(locationId);
-
-  // 6 — achievements
+  // 5 — achievements
   const achievements = gs.checkAchievements();
 
-  // 6b — soft win (does not end the run)
+  // 5b — soft win (does not end the run)
   const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
 
-  // 7 — game over
+  // 6 — game over
   const gameOver = gs.checkGameOver();
 
-  // 8 — history + journal
+  // 7 — history
   const parts = [];
   if (location) parts.push(location.historyLabel);
   else if (LOCATION_COPY[locationId]) parts.push(LOCATION_COPY[locationId].historyLabel);
   if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
   if (event) parts.push(`Event: ${event.title}`);
-  for (const c of completedContracts) parts.push(`Completed: ${c.name}`);
   const line = parts.join(' / ');
   gs.addHistory(line);
-  gs.addJournal({
-    location: locationId,
-    locationName: location?.name ?? locationId,
-    weather: weather.id,
-    festival: festival?.id ?? null,
-    event: event?.id ?? null,
-    line,
-  });
 
   const deltas = {
     sanity: gs.sanity - prev.sanity,
@@ -252,7 +239,6 @@ export function resolveTurn(gs, eventManager, locationId) {
     winMessage: justWon ? gs.winMessage : '',
     deltas,
     reasons,
-    completedContracts,
     achievements,
     grantedItem,
     exhaustion,

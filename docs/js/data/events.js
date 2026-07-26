@@ -328,7 +328,7 @@ export function buildEventPool() {
       Category.RIVAL, Rarity.RARE_HURTFUL, -10, -6, WEIGHT_RARE_HURTFUL, '',
       { requiredTag: 'community', minimumDay: 16, character: 'sato', reputationDelta: -5 }),
     ev('sato_truce', 'Tea, Not Terms',
-      'Sato brings tea and no contract. For twenty minutes you are just two people who care about the same thing differently.',
+      'Sato brings tea and no agenda. For twenty minutes you are just two people who care about the same thing differently.',
       Category.RIVAL, Rarity.RARE_HELPFUL, 12, 0, WEIGHT_RARE_HELPFUL, '',
       { requiredTag: 'rival', minimumDay: 22, character: 'sato', reputationDelta: 4, insightDelta: 2 }),
 

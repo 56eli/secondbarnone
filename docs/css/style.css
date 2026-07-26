@@ -76,14 +76,14 @@ body {
 }
 
 .hud-portrait {
-  width: 44px;
-  height: 44px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--accent);
   box-shadow: 0 2px 10px rgba(201, 162, 39, 0.25);
   background: #1a1a28;
-  flex: 0 0 44px;
+  flex: 0 0 60px;
 }
 
 .hud-identity-text {
@@ -94,8 +94,8 @@ body {
 }
 
 .hud-name {
-  font-size: 15px;
-  font-weight: 650;
+  font-size: 17px;
+  font-weight: 700;
   color: #f0e9da;
   letter-spacing: 0.2px;
 }
@@ -236,12 +236,6 @@ h2.screen-title {
   margin-bottom: 4px;
 }
 
-.hub-mood {
-  font-style: italic;
-  color: #b9b4a8;
-  font-size: 13px;
-  margin-bottom: 18px;
-}
 
 .choices {
   display: grid;
@@ -596,8 +590,7 @@ footer a { color: #7d786f; }
 }
 
 /* ============================================================
-   Expansion styles — the city, satchel, practice, commitments,
-   almanac, journal, weather and toasts.
+   Expansion styles — the city, satchel, practice, almanac, weather and toasts.
    ============================================================ */
 
 :root {
@@ -630,18 +623,6 @@ footer a { color: #7d786f; }
 
 /* ---------------- hub additions ---------------- */
 
-.hub-weather { font-size: 12.5px; color: #b9b4a8; margin: 0 0 6px; line-height: 1.5; }
-
-.weather-badge {
-  display: inline-block;
-  font-size: 11.5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: #12121c;
-  color: var(--text);
-  margin-right: 6px;
-}
 
 .festival-banner {
   font-size: 12.5px;
@@ -654,40 +635,9 @@ footer a { color: #7d786f; }
   line-height: 1.5;
 }
 
-.contract-strip { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
-
-.contract-pill {
-  font-size: 11.5px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: #12121c;
-  color: #cfcabf;
-}
-
-.contract-days { color: var(--text-dim); }
-.contract-days.urgent { color: var(--danger); font-weight: 600; }
 
 .choice-map { border-style: dashed; }
 
-.hub-nav { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
-
-.btn-small { font-size: 12px; padding: 6px 11px; border-radius: 7px; }
-.btn-quiet { background: #16161f; color: var(--text-dim); }
-
-/* ---------------- the map ---------------- */
-
-.district { margin-bottom: 20px; }
-
-.district-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  color: var(--text-dim);
-  margin: 0 0 8px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 5px;
-}
 
 .district-count { color: #6a675f; text-transform: none; letter-spacing: 0; }
 
@@ -719,7 +669,7 @@ footer a { color: #7d786f; }
 .loc-tags { display: block; font-size: 10px; color: #5f5c56; margin-top: 6px; letter-spacing: 0.3px; }
 .loc-chips { margin-top: 5px; }
 
-/* ---------------- location preview & offers ---------------- */
+/* ---------------- location preview ---------------- */
 
 .preview {
   background: rgba(12, 12, 22, 0.72);
@@ -752,31 +702,10 @@ footer a { color: #7d786f; }
 
 .special p { margin: 0 0 9px; font-size: 12.5px; }
 
-.offers h3 {
-  margin: 0 0 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
-
-.offer {
-  background: rgba(12, 12, 22, 0.78);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  padding: 11px 13px;
-  margin-bottom: 9px;
-}
-
-.offer-head { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
-.offer-desc { font-size: 12.5px; color: #c5c0b6; margin: 0 0 6px; line-height: 1.5; }
-.offer-terms { font-size: 11.5px; color: var(--text-dim); margin: 0 0 7px; }
-.offer-reward { margin-bottom: 9px; }
 
 /* ---------------- satchel & perks ---------------- */
 
-.item-list, .perk-list, .contract-list { display: flex; flex-direction: column; gap: 8px; }
+.item-list, .perk-list { display: flex; flex-direction: column; gap: 8px; }
 
 .item-row, .perk-row {
   display: flex;
@@ -807,33 +736,6 @@ footer a { color: #7d786f; }
 .mods ul { margin: 0; padding-left: 18px; }
 .mods li { font-size: 12px; color: #bdb9b0; margin-bottom: 3px; }
 
-/* ---------------- contracts ---------------- */
-
-.contract-card {
-  background: #12121c;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-
-.contract-head { font-size: 14px; font-weight: 600; color: #f0e9da; margin-bottom: 4px; }
-.contract-desc { font-size: 12.5px; color: #c5c0b6; margin: 0 0 9px; line-height: 1.5; }
-
-.contract-bar {
-  height: 7px;
-  background: #0c0c16;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.contract-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #b8912f, var(--accent));
-  transition: width 400ms ease;
-}
-
-.contract-foot { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; }
 
 /* ---------------- almanac ---------------- */
 
@@ -884,13 +786,6 @@ footer a { color: #7d786f; }
 .ach-emoji { font-size: 15px; }
 .ach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ---------------- journal ---------------- */
-
-.journal-list { margin: 0; padding-left: 22px; max-height: 460px; overflow-y: auto; }
-.journal-list li { font-size: 12.5px; color: #bdb9b0; margin-bottom: 6px; line-height: 1.5; }
-.j-day { color: var(--accent); font-weight: 600; }
-.j-where { color: #e8e6e0; }
-.j-line { color: var(--text-dim); }
 
 /* ---------------- modal additions ---------------- */
 
@@ -959,40 +854,101 @@ footer a { color: #7d786f; }
   max-width: 58ch;
 }
 
-.notice-board {
-  background: rgba(16, 16, 26, 0.88);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
+.hub-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 7px;
 }
 
-.notice-board h3 {
+.eyebrow {
   margin: 0 0 4px;
-  font-size: 13px;
-  color: #f0e9da;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--accent);
+  text-transform: uppercase;
 }
 
-.notice-sub {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: var(--text-dim);
+.hub-heading .weather-badge { margin-top: 3px; white-space: nowrap; }
+
+.daily-nudge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border-left: 3px solid #766542;
+  border-radius: 7px;
+  background: rgba(17, 17, 28, 0.75);
+  color: #cfcabf;
+  font-size: 12.5px;
   line-height: 1.45;
 }
 
-.notice-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid rgba(42, 42, 61, 0.7);
+.daily-nudge strong, .daily-nudge span { display: block; }
+.daily-nudge strong { color: #eee6d7; font-size: 12px; margin-bottom: 1px; }
+.nudge-emoji { font-size: 17px; line-height: 1.2; }
+
+.choice-primary {
+  min-height: 122px;
+  padding: 17px 18px;
+  border-top: 3px solid var(--accent);
+  background: linear-gradient(160deg, #282438, #181826);
 }
 
-.notice-name { font-size: 13px; font-weight: 600; color: #f0e9da; }
-.notice-where { font-size: 11.5px; color: var(--accent); margin-top: 2px; }
-.notice-terms { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.choice-action {
+  display: block;
+  margin: 2px 0 8px;
+  color: #cfc6b0;
+  font-size: 12px;
+}
+
+.choice-map {
+  align-self: stretch;
+  border-style: dashed;
+  background: rgba(19, 19, 30, 0.72);
+}
+
+.hub-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(42, 42, 61, 0.72);
+}
+
+.tool-label {
+  margin-right: 3px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.history { margin-top: 2px; }
+.history summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.35px;
+}
+.history[open] summary { margin-bottom: 9px; color: #d3cec3; }
+
+.small-talk {
+  margin: 5px 0 0;
+  color: #d9d1bc;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.48;
+}
+
+
 
 .host-chip {
   display: inline-flex;
@@ -1045,13 +1001,6 @@ footer a { color: #7d786f; }
   color: #f0e9da;
 }
 
-.host-rel {
-  font-size: 12px;
-  color: #bdb9b0;
-  margin-top: 2px;
-  line-height: 1.4;
-  max-width: 48ch;
-}
 
 .event-person {
   display: flex;
@@ -1085,6 +1034,12 @@ footer a { color: #7d786f; }
   body { padding: 10px; }
 
   #hud { padding: 10px 12px; }
+
+  .hud-portrait {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
 
   .hud-top {
     flex-direction: column;

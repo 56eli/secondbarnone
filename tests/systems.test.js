@@ -1,6 +1,6 @@
 /**
  * Tests for the expanded runtime: energy, reputation, insight, the satchel,
- * perks, contracts, achievements, save/load and the widened turn resolver.
+ * perks, achievements, save/load and the widened turn resolver.
  *
  * All headless. Weather is seeded per-GameState so every assertion about a
  * specific day's sky is reproducible.
@@ -21,7 +21,6 @@ import { createRng } from '../docs/js/core/rng.js';
 import { LOCATIONS, getLocation, locationIds } from '../docs/js/data/locations.js';
 import { getItem, ItemKind } from '../docs/js/data/items.js';
 import { getPerk, perkIds } from '../docs/js/data/perks.js';
-import { getContract } from '../docs/js/data/contracts.js';
 import { buildEventPool } from '../docs/js/data/events.js';
 import { weatherForDay } from '../docs/js/data/weather.js';
 
@@ -125,12 +124,12 @@ test('Second Wind widens the exhaustion threshold but also softens the fall', ()
   assert.equal(gs.isExhausted, true);
 });
 
-test('the mood line reflects exhaustion', () => {
+test('the daily focus cue reflects exhaustion', () => {
   const gs = fresh();
   gs.energy = 0;
-  assert.match(gs.getMood(), /nothing/i);
+  assert.match(gs.getDailyNudge().label, /Pace/i);
   gs.energy = EXHAUSTION_THRESHOLD - 1;
-  assert.match(gs.getMood(), /out of road/i);
+  assert.match(gs.getDailyNudge().text, /energy/i);
 });
 
 // ==================================================== reputation & insight
@@ -542,15 +541,13 @@ test('a turn at every location leaves the state valid', () => {
   }
 });
 
-test('a turn records the visit and the journal entry', () => {
+test('a turn records the visit and a concise hub history line', () => {
   const gs = fresh();
   resolveTurn(gs, quietManager(), 'home_loft');
   assert.ok(gs.visitedLocations.has('home_loft'));
   assert.equal(gs.lastLocationVisited, 'home_loft');
-  assert.equal(gs.journal.length, 1);
-  assert.equal(gs.journal[0].location, 'home_loft');
-  assert.equal(gs.journal[0].day, 1);
-  assert.match(gs.journal[0].line, /Rested at the loft/);
+  assert.equal(gs.recentHistory.length, 1);
+  assert.match(gs.recentHistory[0], /Rested at the loft/);
 });
 
 test('the consecutive-bar counter only counts the bar', () => {
@@ -669,94 +666,6 @@ test('the turn skips its event once the game is over', () => {
   assert.equal(r.event, null);
 });
 
-// ============================================================== contracts
-
-test('a contract can be accepted once and progresses on qualifying days', () => {
-  const gs = fresh();
-  assert.equal(gs.acceptContract('barrets_books'), true);
-  assert.equal(gs.acceptContract('barrets_books'), false, 'no double-booking');
-  assert.equal(gs.isContractActive('barrets_books'), true);
-
-  const em = quietManager();
-  resolveTurn(gs, em, 'bar');
-  assert.equal(gs.activeContracts[0].progress, 1);
-  resolveTurn(gs, em, 'home_loft');
-  assert.equal(gs.activeContracts[0].progress, 1, 'the loft is not a bar shift');
-});
-
-test('accepting an unknown contract fails', () => {
-  const gs = fresh();
-  assert.equal(gs.acceptContract('sell_your_soul'), false);
-});
-
-test('no more than three commitments at a time', () => {
-  const gs = fresh();
-  assert.equal(gs.acceptContract('winter_fuel'), true);
-  assert.equal(gs.acceptContract('barrets_books'), true);
-  assert.equal(gs.acceptContract('ninety_day_sit'), true);
-  assert.equal(gs.acceptContract('quiet_month'), false, 'three is the limit');
-  assert.equal(gs.activeContracts.length, 3);
-});
-
-test('completing a contract pays out, grants its item and cannot be retaken', () => {
-  const gs = fresh();
-  const contract = getContract('barrets_books');
-  gs.acceptContract('barrets_books');
-  const em = quietManager();
-
-  let finished = [];
-  for (let i = 0; i < contract.need; i++) {
-    finished = resolveTurn(gs, em, 'bar').completedContracts;
-  }
-  assert.equal(finished.length, 1);
-  assert.equal(finished[0].id, 'barrets_books');
-  assert.deepEqual(gs.completedContracts, ['barrets_books']);
-  assert.equal(gs.activeContracts.length, 0);
-  assert.ok(gs.hasItem(contract.reward.item), 'the reward item should be in the satchel');
-  assert.equal(gs.acceptContract('barrets_books'), false, 'done is done');
-});
-
-test('a tag contract counts every location carrying the tag', () => {
-  const gs = fresh();
-  gs.acceptContract('winter_fuel');   // requires the work tag
-  const em = quietManager();
-  resolveTurn(gs, em, 'bar');
-  resolveTurn(gs, em, 'farmers_market');
-  assert.equal(gs.activeContracts[0].progress, 2);
-});
-
-test('a missed deadline costs reputation and is recorded', () => {
-  const gs = fresh();
-  const contract = getContract('barrets_books');
-  gs.acceptContract('barrets_books');
-  const before = gs.reputation;
-
-  for (let i = 0; i <= contract.days; i++) gs.advanceDay();
-
-  assert.equal(gs.activeContracts.length, 0);
-  assert.deepEqual(gs.failedContracts, ['barrets_books']);
-  assert.equal(gs.reputation, before + contract.penalty.reputation);
-});
-
-test('expireContracts is a no-op when nothing has lapsed', () => {
-  const gs = fresh();
-  gs.acceptContract('barrets_books');
-  assert.deepEqual(gs.expireContracts(), []);
-  assert.equal(gs.activeContracts.length, 1);
-});
-
-test('contracts_changed fires on accept, completion and expiry', () => {
-  const gs = fresh();
-  let count = 0;
-  gs.on('contracts_changed', () => { count += 1; });
-  gs.acceptContract('barrets_books');
-  assert.equal(count, 1);
-
-  const em = quietManager();
-  for (let i = 0; i < getContract('barrets_books').need; i++) resolveTurn(gs, em, 'bar');
-  assert.equal(count, 2);
-});
-
 // =========================================================== achievements
 
 test('achievements are awarded once and emitted', () => {
@@ -807,7 +716,6 @@ test('achievements are picked up over the course of a real run', () => {
 test('a run round-trips through toJSON and loadFrom', () => {
   const gs = fresh(555);
   const em = manager();
-  gs.acceptContract('barrets_books');
   gs.addItem('thermos');
   gs.insight = 12;
   gs.buyPerk('steady_breath');
@@ -825,7 +733,6 @@ test('a run round-trips through toJSON and loadFrom', () => {
   assert.deepEqual(restored.items, gs.items);
   assert.deepEqual([...restored.perks], [...gs.perks]);
   assert.deepEqual([...restored.visitedLocations], [...gs.visitedLocations]);
-  assert.deepEqual(restored.activeContracts, gs.activeContracts);
   assert.equal(restored.getDateDisplay(), gs.getDateDisplay());
   assert.equal(restored.getWeather().id, gs.getWeather().id, 'the sky must restore too');
 });
@@ -841,7 +748,7 @@ test('loadFrom rejects junk without throwing', () => {
 test('loadFrom sanitises out-of-range and malformed fields', () => {
   const gs = fresh();
   assert.equal(gs.loadFrom({
-    v: 3,
+    v: 4,
     sanity: 9999,
     money: -50,
     energy: 'lots',
@@ -852,9 +759,7 @@ test('loadFrom sanitises out-of-range and malformed fields', () => {
     dayOfMonth: 99,
     items: ['thermos', 'not_a_thing'],
     perks: ['steady_breath', 'telekinesis'],
-    activeContracts: [{ id: 'barrets_books', progress: 1, need: 4, expiresOn: 9 }, { id: 'nope' }, null],
     recentHistory: ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
-    journal: 'not an array',
   }), true);
 
   assert.equal(gs.sanity, MAX_STAT);
@@ -867,9 +772,32 @@ test('loadFrom sanitises out-of-range and malformed fields', () => {
   assert.equal(gs.dayOfMonth, 31);
   assert.deepEqual(gs.items, ['thermos']);
   assert.deepEqual([...gs.perks], ['steady_breath']);
-  assert.equal(gs.activeContracts.length, 1);
   assert.equal(gs.recentHistory.length, 5);
-  assert.deepEqual(gs.journal, []);
+});
+
+test('a v3 save migrates shared progress while dropping retired task and note data', () => {
+  const old = fresh(31).toJSON();
+  old.v = 3;
+  old.journal = [{ day: 1, line: 'legacy note' }];
+  old.activeContracts = [{ id: 'barrets_books', progress: 2 }];
+  const restored = fresh();
+  assert.equal(restored.loadFrom(old), true);
+  assert.equal(restored.weatherSeed, old.weatherSeed);
+  assert.equal('journal' in restored, false);
+  assert.equal('activeContracts' in restored, false);
+});
+
+test('saveStore finds a v3 slot and clears both save keys', () => {
+  const old = fresh(44).toJSON();
+  old.v = 3;
+  const storage = fakeStorage();
+  storage.setItem('secondbarnone.save.v3', JSON.stringify(old));
+  const restored = fresh();
+  assert.equal(saveStore.has(storage), true);
+  assert.equal(saveStore.load(restored, storage), true);
+  assert.equal(restored.weatherSeed, old.weatherSeed);
+  assert.equal(saveStore.clear(storage), true);
+  assert.equal(saveStore.has(storage), false);
 });
 
 test('saveStore round-trips through a storage object', () => {
@@ -925,7 +853,6 @@ test('saveStore ignores corrupt JSON in the slot', () => {
 test('resetGame clears every accumulated system', () => {
   const gs = fresh(8);
   const em = manager();
-  gs.acceptContract('barrets_books');
   gs.addItem('thermos');
   gs.insight = 20;
   gs.buyPerk('steady_breath');
@@ -941,8 +868,6 @@ test('resetGame clears every accumulated system', () => {
   assert.equal(gs.perks.size, 0);
   assert.equal(gs.achievements.size, 0);
   assert.equal(gs.visitedLocations.size, 0);
-  assert.equal(gs.activeContracts.length, 0);
-  assert.equal(gs.journal.length, 0);
   assert.equal(gs.nightDays, 0);
   assert.equal(gs.getDateDisplay(), 'Thursday, January 1, 2026');
 });
@@ -978,7 +903,6 @@ test('long randomised runs across the whole city never go invalid', () => {
       assert.ok(gs.reputation >= 0 && gs.reputation <= MAX_REPUTATION, `rep ${gs.reputation}`);
       assert.ok(Number.isFinite(gs.insight) && gs.insight >= 0);
       assert.ok(gs.recentHistory.length <= 5);
-      assert.ok(gs.activeContracts.length <= 3);
       if (!gs.gameOver) gs.advanceDay();
     }
   }
@@ -1025,13 +949,6 @@ test('a sensible rotation survives noticeably longer than bar-only play', () => 
   assert.ok(rotationTurns > barTurns, `rotation ${rotationTurns} vs bar-only ${barTurns}`);
 });
 
-test('the journal is bounded on a very long run', () => {
-  const gs = fresh(1);
-  for (let i = 0; i < 500; i++) {
-    gs.addJournal({ location: 'bar', locationName: 'The Bar', line: 'x' });
-  }
-  assert.ok(gs.journal.length <= 400, `journal grew to ${gs.journal.length}`);
-});
 
 test('items and perks together never break the invariants', () => {
   const gs = fresh(77);
@@ -1086,6 +1003,29 @@ test('checkWin fires once at the endurance goal and does not end the run', () =>
   assert.equal(gs.gameOver, false);
   assert.equal(gs.checkWin(), false, 'only once');
   assert.ok(gs.winMessage.length > 0);
+});
+
+test('daily nudge gives gentle, state-specific guidance', () => {
+  const gs = fresh();
+  const before = gs.toJSON();
+  assert.match(gs.getDailyNudge().text, /Nothing is on fire/);
+  assert.equal(gs.journeyDay, before.journeyDay, 'a cue does not advance time');
+  assert.equal(gs.money, before.money, 'a cue does not spend anything');
+  gs.money = 12;
+  assert.match(gs.getDailyNudge().label, /wallet/i);
+  gs.money = 50;
+  gs.energy = 8;
+  assert.match(gs.getDailyNudge().label, /Pace/i);
+  gs.energy = 100;
+  gs.sanity = 10;
+  assert.match(gs.getDailyNudge().label, /room/i);
+  gs.sanity = 50;
+  gs.money = 50;
+  gs.journeyDay = 4; // Sunday from the fixed Thursday start
+  assert.match(gs.getDailyNudge().label, /Sunday rent/i, 'due rent takes priority');
+  gs.journeyDay = 3;
+  assert.match(gs.getDailyNudge().label, /Looking ahead/i, 'nearby rent is a quiet heads-up');
+  assert.equal(before.journeyDay, 1, 'the original snapshot is unchanged');
 });
 
 test('getGreeting and getProtagonist always return something useful', () => {

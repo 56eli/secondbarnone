@@ -1,6 +1,6 @@
 /**
  * DOM tests for the expanded UI: the map, satchel, practice tree,
- * commitments, almanac, journal, toasts, the widened HUD and autosave.
+ * almanac, toasts, the calmer HUD and autosave.
  *
  * Boots the real index.html in jsdom and drives real buttons, same as
  * dom.test.js. jsdom is an optional dev dependency, so these skip rather than
@@ -85,9 +85,9 @@ function cleanup(window) {
 /** Advance past a fade transition (350ms) plus a little slack. */
 const settle = () => new Promise((r) => setTimeout(r, 480));
 
-/** Click a hub-nav button by its visible text. */
+/** Click a compact hub-tool button by its visible text. */
 function nav(doc, label) {
-  const button = [...doc.querySelectorAll('.hub-nav button')]
+  const button = [...doc.querySelectorAll('.hub-tools button')]
     .find((b) => b.textContent.includes(label));
   assert.ok(button, `no hub-nav button matching "${label}"`);
   button.click();
@@ -154,10 +154,9 @@ maybe('the hub shows the weather line and a route into the city', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    assert.ok(doc.querySelector('.hub-weather'), 'weather line');
     assert.ok(doc.querySelector('.weather-badge'), 'weather badge');
     assert.ok(doc.querySelector('.choice-map'), 'map entry point');
-    assert.equal(doc.querySelectorAll('.hub-nav button').length, 6);
+    assert.equal(doc.querySelectorAll('.hub-tools button').length, 4);
   } finally { cleanup(window); }
 });
 
@@ -316,6 +315,29 @@ maybe('a location previews the exact day it is offering', async () => {
   } finally { cleanup(window); }
 });
 
+maybe('meeting a host shows character-specific small talk instead of their biography', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    click(doc, '.choice', 'The Bar');
+    await settle();
+    const talk = doc.querySelector('.small-talk');
+    assert.ok(talk, 'hosts should greet Léon at a location');
+    assert.match(talk.textContent, /Apron|stool|lemons/, 'Barret speaks in his own voice');
+    assert.equal(doc.querySelector('.host-rel'), null, 'relationship description stays on the People screen');
+  } finally { cleanup(window); }
+});
+
+maybe('the hub keeps weather visible and gives one gentle focus cue', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    assert.ok(doc.querySelector('.weather-badge'));
+    assert.ok(doc.querySelector('.daily-nudge'));
+    assert.equal(doc.querySelectorAll('.choice-primary').length, 2, 'the two daily choices stand out');
+  } finally { cleanup(window); }
+});
+
 maybe('the preview explains what adjusted the numbers', async () => {
   const window = await boot();
   try {
@@ -330,26 +352,6 @@ maybe('the preview explains what adjusted the numbers', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('contract offers appear where they are offered and can be taken', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs } = window.__game;
-    click(doc, '.choice', 'The Bar');
-    await settle();
-
-    const offer = doc.querySelector('.offer');
-    assert.ok(offer, 'the bar should be offering Barret’s Books');
-    assert.match(offer.textContent, /Barret/);
-
-    click(doc, '.offer button', 'Take it on');
-    await settle();
-
-    assert.equal(gs.activeContracts.length, 1);
-    assert.equal(gs.activeContracts[0].id, 'barrets_books');
-    assert.equal(doc.querySelector('.offer'), null, 'a taken offer disappears');
-  } finally { cleanup(window); }
-});
 
 maybe('the pawnbroker sells your best item, and copes with empty hands', async () => {
   const window = await boot();
@@ -535,56 +537,6 @@ maybe('a blocked perk explains itself through its title attribute', async () => 
   } finally { cleanup(window); }
 });
 
-// ============================================================ commitments
-
-maybe('commitments show progress, deadlines and outcomes', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-
-    nav(doc, 'Commitments');
-    await settle();
-    assert.match(doc.querySelector('.empty').textContent, /Nothing promised/);
-
-    gs.acceptContract('barrets_books');
-    api.goto.contracts();
-    assert.equal(doc.querySelectorAll('.contract-card').length, 1);
-    assert.match(doc.querySelector('.contract-foot').textContent, /0\/4 days/);
-    assert.equal(doc.querySelector('.contract-fill').style.width, '0%');
-
-    gs.activeContracts[0].progress = 2;
-    api.goto.contracts();
-    assert.equal(doc.querySelector('.contract-fill').style.width, '50%');
-
-    gs.activeContracts = [];
-    gs.completedContracts.push('barrets_books');
-    gs.failedContracts.push('winter_fuel');
-    api.goto.contracts();
-    const sections = [...doc.querySelectorAll('.mods h3')].map((h) => h.textContent);
-    assert.deepEqual(sections, ['Kept', 'Let slip']);
-  } finally { cleanup(window); }
-});
-
-maybe('active commitments surface on the hub, flagged when time is short', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.acceptContract('barrets_books');
-    api.goto.hub();
-
-    const pill = doc.querySelector('.contract-pill');
-    assert.ok(pill);
-    assert.match(pill.textContent, /Barret/);
-    assert.equal(doc.querySelector('.contract-days.urgent'), null);
-
-    gs.activeContracts[0].expiresOn = gs.journeyDay + 1;
-    api.goto.hub();
-    assert.ok(doc.querySelector('.contract-days.urgent'), 'one day left should read as urgent');
-  } finally { cleanup(window); }
-});
-
 // ================================================================ almanac
 
 maybe('the almanac forecasts ahead and matches the model', async () => {
@@ -592,7 +544,7 @@ maybe('the almanac forecasts ahead and matches the model', async () => {
   try {
     const doc = window.document;
     const { gs } = window.__game;
-    nav(doc, 'Almanac');
+    nav(doc, 'Weather');
     await settle();
 
     const cards = doc.querySelectorAll('.fc');
@@ -635,46 +587,6 @@ maybe('the forecast warns when weather will close places', async () => {
       found = doc.querySelectorAll('.fc-closes').length > 0;
     }
     assert.ok(found, 'closing weather should show up within a year of forecasts');
-  } finally { cleanup(window); }
-});
-
-// ================================================================ journal
-
-maybe('the journal fills in as days are played', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    nav(doc, 'Journal');
-    await settle();
-    assert.match(doc.querySelector('.empty').textContent, /No days/);
-
-    click(doc, '.btn', 'Back to hub');
-    await settle();
-    await playDay(doc, 'The Bar');
-
-    nav(doc, 'Journal');
-    await settle();
-    const entries = doc.querySelectorAll('.journal-list li');
-    assert.equal(entries.length, 1);
-    assert.match(entries[0].textContent, /Day 1/);
-    assert.match(entries[0].textContent, /The Bar/);
-  } finally { cleanup(window); }
-});
-
-maybe('the journal shows the newest day first and is capped on screen', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    for (let i = 1; i <= 80; i++) {
-      gs.journeyDay = i;
-      gs.addJournal({ location: 'bar', locationName: 'The Bar', line: `day ${i}` });
-    }
-    api.goto.journal();
-
-    const entries = doc.querySelectorAll('.journal-list li');
-    assert.equal(entries.length, 60, 'the screen shows the most recent sixty');
-    assert.match(entries[0].textContent, /Day 80/);
   } finally { cleanup(window); }
 });
 
@@ -749,24 +661,6 @@ maybe('toasts appear and clear themselves', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('refused actions explain themselves rather than failing silently', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    gs.acceptContract('barrets_books');
-    api.goto.location('bar');
-
-    // Accepting the same contract again must not throw and must say something.
-    gs.activeContracts = [];
-    gs.completedContracts.push('barrets_books');
-    api.goto.location('bar');
-    assert.equal(doc.querySelector('.offer'), null);
-
-    api.toast('');   // an empty toast is still a node, not a crash
-    assert.ok(doc.querySelector('#toasts'));
-  } finally { cleanup(window); }
-});
 
 // ================================================================== saving
 
@@ -782,7 +676,7 @@ maybe('a completed day is written to storage', async () => {
     const raw = storage.getItem(SAVE_KEY);
     assert.ok(raw, 'the run should be saved after continuing');
     const parsed = JSON.parse(raw);
-    assert.equal(parsed.v, 3);
+    assert.equal(parsed.v, 4);
     assert.equal(parsed.journeyDay, 2);
   } finally { cleanup(window); }
 });
@@ -801,7 +695,6 @@ maybe('an existing save is resumed on boot', async () => {
   try {
     const { gs } = window.__game;
     assert.equal(gs.journeyDay, 3, 'the run should pick up where it left off');
-    assert.ok(gs.journal.length >= 2);
     assert.match(window.document.getElementById('hud-day').textContent, /Journey Day 3/);
   } finally { cleanup(window); }
 });
@@ -865,7 +758,6 @@ maybe('the game-over screen summarises the whole run', async () => {
     const doc = window.document;
     const { gs } = window.__game;
     gs.sanity = 1;
-    gs.completedContracts.push('barrets_books');
     gs.achievements.add('first_week');
 
     click(doc, '.choice', 'The Bar');
@@ -877,7 +769,6 @@ maybe('the game-over screen summarises the whole run', async () => {
     assert.ok(summary, 'a run summary should render');
     const labels = [...summary.querySelectorAll('dt')].map((d) => d.textContent);
     assert.ok(labels.includes('Places visited'));
-    assert.ok(labels.includes('Commitments kept'));
     assert.ok(labels.includes('Achievements'));
     assert.match(summary.textContent, new RegExp(`/ ${LOCATIONS.length}`));
   } finally { cleanup(window); }
@@ -913,7 +804,7 @@ maybe('every screen can be opened and closed without throwing', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    for (const label of ['Satchel', 'Practice', 'Commitments', 'Almanac', 'Journal', 'Characters']) {
+    for (const label of ['Satchel', 'Practice', 'Weather', 'People']) {
       nav(doc, label);
       await settle();
       assert.ok(doc.querySelector('.screen'), `${label} rendered nothing`);
@@ -966,33 +857,6 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
   } finally { cleanup(window); }
 });
 
-maybe('the modal reports a picked-up item and a kept commitment', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, events } = window.__game;
-    const { buildEventPool } = await import('../docs/js/data/events.js');
-
-    // One qualifying day short of Barret's Books, with an item-granting event
-    // guaranteed to fire — so both note branches are exercised at once.
-    gs.acceptContract('barrets_books');
-    gs.activeContracts[0].progress = gs.activeContracts[0].need - 1;
-    events._allEvents = buildEventPool().filter((e) => e.id === 'four_am');
-    events._nextEventDay = 1;
-
-    click(doc, '.choice', 'The Bar');
-    await settle();
-    doc.querySelector('.btn-primary').click();
-    await settle();
-
-    const notes = doc.querySelector('.modal-notes').textContent;
-    assert.match(notes, /Commitment kept/);
-    assert.match(notes, /Barret/);
-    assert.ok(gs.completedContracts.includes('barrets_books'));
-    // The contract's reward item lands in the satchel.
-    assert.ok(gs.hasItem('tip_jar'));
-  } finally { cleanup(window); }
-});
 
 maybe('an item granted by an event is called out in the modal', async () => {
   const window = await boot();
@@ -1013,25 +877,6 @@ maybe('an item granted by an event is called out in the modal', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('a refused commitment says so instead of failing quietly', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    // Fill all three slots so the bar's offer cannot be taken.
-    gs.acceptContract('winter_fuel');
-    gs.acceptContract('ninety_day_sit');
-    gs.acceptContract('quiet_month');
-
-    api.goto.location('bar');
-    click(doc, '.offer button', 'Take it on');
-    await settle();
-
-    assert.equal(gs.activeContracts.length, 3, 'the fourth must be refused');
-    const toasts = [...doc.querySelectorAll('#toasts .toast')].map((t) => t.textContent);
-    assert.ok(toasts.some((t) => /cannot take that on/i.test(t)), JSON.stringify(toasts));
-  } finally { cleanup(window); }
-});
 
 maybe('using something unusable from the satchel is reported, not silent', async () => {
   const window = await boot();

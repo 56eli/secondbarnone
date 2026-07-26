@@ -215,18 +215,6 @@ test('getSeason returns Unknown for an out-of-range month', () => {
   assert.equal(gs.getSeason(), 'Unknown');
 });
 
-test('getMood covers the mid-range and single-stat-high branches', () => {
-  const gs = new GameState();
-
-  gs.sanity = 50; gs.money = 50;
-  assert.match(gs.getMood(), /managing/);
-
-  gs.sanity = 90; gs.money = 50;
-  assert.match(gs.getMood(), /spirit soars/);
-
-  gs.sanity = 50; gs.money = 90;
-  assert.match(gs.getMood(), /Financially comfortable/);
-});
 
 test('checkGameOver returns early once the game is already over', () => {
   const gs = new GameState();

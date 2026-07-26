@@ -155,6 +155,7 @@ export const LOCATIONS = [
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR, Tag.SOCIAL],
     effects: eff(5, -5, -16, 9, 0),
     unlock: { minDay: 11, minReputation: 25 },
+    bg: 'assets/backgrounds/soup_kitchen.webp',
   }),
 
   // ------------------------------------------------------------ Riverside
@@ -250,6 +251,7 @@ export const LOCATIONS = [
     tags: [Tag.MARKET, Tag.OUTDOOR, Tag.WORK],
     effects: eff(-4, 11, -12, 0, 0),
     unlock: { minDay: 6 },
+    bg: 'assets/backgrounds/flea_market.webp',
   }),
   loc({
     id: 'public_library',
@@ -280,6 +282,7 @@ export const LOCATIONS = [
     effects: eff(-6, 8, -6, 0, 0),
     unlock: { minDay: 6 },
     special: 'sell_item',
+    bg: 'assets/backgrounds/pawn_shop.webp',
   }),
   loc({
     id: 'radio_station',
@@ -309,6 +312,7 @@ export const LOCATIONS = [
     tags: [Tag.SOCIAL, Tag.NIGHT, Tag.INDOOR],
     effects: eff(8, 4, -14, 5, 1),
     unlock: { minDay: 10, weekdays: [4, 5] },
+    bg: 'assets/backgrounds/open_mic.webp',
   }),
 
   // --------------------------------------------------------------- Uptown
@@ -326,6 +330,7 @@ export const LOCATIONS = [
     effects: eff(9, 0, -8, 0, 0),
     unlock: { minDay: 5 },
     special: 'prepay_rent',
+    bg: 'assets/backgrounds/landlord_office.webp',
   }),
   loc({
     id: 'sato_studio',

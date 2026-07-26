@@ -17,8 +17,7 @@ import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
   renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderSatchel, renderPerks, renderContracts,
-  renderAlmanac, renderJournal, renderToast,
+  renderResultModal, renderSatchel, renderPerks, renderAlmanac, renderToast,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
@@ -173,14 +172,7 @@ export function initGame(opts = {}) {
       onCharacters: () => transitionTo(charactersScreen),
       onSatchel: () => transitionTo(satchelScreen),
       onPerks: () => transitionTo(perksScreen),
-      onContracts: () => transitionTo(contractsScreen),
       onAlmanac: () => transitionTo(almanacScreen),
-      onJournal: () => transitionTo(journalScreen),
-      onAcceptContract: (id) => {
-        if (gs.acceptContract(id)) toast('Commitment accepted.');
-        else toast('You cannot take that on right now.');
-        showScreen(hubScreen());
-      },
     });
   }
 
@@ -195,11 +187,6 @@ export function initGame(opts = {}) {
     return renderLocation(gs, locationId, {
       onAction: handleAction,
       onBack: () => transitionTo(hubScreen),
-      onAcceptContract: (id) => {
-        if (gs.acceptContract(id)) toast('Commitment accepted.');
-        else toast('You cannot take that on right now.');
-        showScreen(locationScreen(locationId));
-      },
       onSpecial: (kind, arg) => handleSpecial(kind, arg, locationId),
     });
   }
@@ -237,16 +224,8 @@ export function initGame(opts = {}) {
     });
   }
 
-  function contractsScreen() {
-    return renderContracts(gs, { onBack: () => transitionTo(hubScreen) });
-  }
-
   function almanacScreen() {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
-  }
-
-  function journalScreen() {
-    return renderJournal(gs, { onBack: () => transitionTo(hubScreen) });
   }
 
   // -------------------------------------------------------------- extras
@@ -333,9 +312,7 @@ export function initGame(opts = {}) {
       location: (id) => showScreen(locationScreen(id)),
       satchel: () => showScreen(satchelScreen()),
       perks: () => showScreen(perksScreen()),
-      contracts: () => showScreen(contractsScreen()),
       almanac: () => showScreen(almanacScreen()),
-      journal: () => showScreen(journalScreen()),
       characters: () => showScreen(charactersScreen()),
     },
   };
