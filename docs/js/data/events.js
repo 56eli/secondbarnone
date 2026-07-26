@@ -140,7 +140,7 @@ export function buildEventPool() {
       'A wealthy patron in a generous mood leaves tips that can only be described as absurd. Your money worries ease for a moment.',
       Category.FINANCIAL, Rarity.RARE_HELPFUL, 0, 25, WEIGHT_RARE_HELPFUL, 'bar'),
     ev('bar_old_friend', 'Unexpected Reunion',
-      'An old friend you haven\u2019t seen in years walks through the door. Hours of catching up leave your heart full and your spirit lifted.',
+      '{friend} walks through the door — someone you haven\u2019t seen in far too long. Hours of catching up leave your heart full and your spirit lifted.',
       Category.FRIEND, Rarity.RARE_HELPFUL, 15, 5, WEIGHT_RARE_HELPFUL, 'bar'),
 
     // ---- Rare Hurtful ----

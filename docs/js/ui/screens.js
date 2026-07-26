@@ -3,7 +3,7 @@
  * #content, replacing Godot's ContentHost + PackedScene instantiation.
  */
 
-import { getInitials, Role } from '../data/characters.js';
+import { getInitials, Role, roleLabel } from '../data/characters.js';
 import { MAX_STAT, SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS } from '../core/game-state.js';
 
 /** Small DOM helper. */
@@ -136,49 +136,104 @@ function startParticles(container) {
 
 // ------------------------------------------------------------ characters
 
+/** Order roles so the story-important people sit at the top of the list. */
+const ROLE_ORDER = [Role.PROTAGONIST, Role.ARCH_NEMESIS, Role.RIVAL, Role.SIDE_CHARACTER];
+
+const GROUP_TITLES = {
+  [Role.PROTAGONIST]: 'Protagonist',
+  [Role.ARCH_NEMESIS]: 'Arch Nemesis',
+  [Role.RIVAL]: 'Rivals',
+  [Role.SIDE_CHARACTER]: 'Side Characters',
+};
+
 export function renderCharacters(profiles, { onBack }) {
   const detail = el('div', { class: 'detail' },
     el('p', { class: 'detail-empty', text: 'Select a character to read their story.' }));
 
-  const rows = profiles.map((p) => {
-    const row = el('button', { class: 'char-row', role: 'option', 'aria-selected': 'false' },
-      avatar(p),
-      el('div', {},
-        el('div', { class: 'char-name', text: p.name }),
-        el('div', {
-          class: 'char-role',
-          text: `${p.role === Role.PROTAGONIST ? 'Protagonist' : 'Side Character'} · ${p.location}`,
-        })));
+  const showDetail = (p) => {
+    detail.replaceChildren(
+      el('div', { class: 'detail-head' },
+        avatar(p, 'avatar detail-avatar'),
+        el('div', {},
+          el('h3', { text: p.name }),
+          el('div', { class: `detail-role role-${p.role}`, text: roleLabel(p.role) }))),
+      el('p', { text: p.bio }),
+      el('dl', {},
+        el('dt', { text: 'Relationship to Léon' }),
+        el('dd', { text: p.relationship }),
+        el('dt', { text: 'Usually found at' }),
+        el('dd', { text: p.location })),
+    );
+  };
+
+  /** Build one clickable row. */
+  const allRows = [];
+  const makeRow = (p) => {
+    const row = el('button', {
+      class: `char-row role-${p.role}`, role: 'option', 'aria-selected': 'false',
+    },
+    avatar(p),
+    el('div', { class: 'char-meta' },
+      el('div', { class: 'char-name', text: p.name }),
+      el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` })));
 
     row.addEventListener('click', () => {
-      for (const r of rows) r.setAttribute('aria-selected', 'false');
+      for (const r of allRows) r.setAttribute('aria-selected', 'false');
       row.setAttribute('aria-selected', 'true');
-      detail.replaceChildren(
-        el('div', { class: 'detail-head' },
-          avatar(p, 'avatar detail-avatar'),
-          el('div', {},
-            el('h3', { text: p.name }),
-            el('div', {
-              class: 'detail-role',
-              text: p.role === Role.PROTAGONIST ? 'Protagonist' : 'Side Character',
-            }))),
-        el('p', { text: p.bio }),
-        el('dl', {},
-          el('dt', { text: 'Relationship to Léon' }),
-          el('dd', { text: p.relationship }),
-          el('dt', { text: 'Usually found at' }),
-          el('dd', { text: p.location })),
-      );
+      showDetail(p);
     });
+    row._profile = p;
+    allRows.push(row);
     return row;
+  };
+
+  // Group by role, preserving declaration order within each group.
+  const list = el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' });
+  const groups = [];
+  for (const role of ROLE_ORDER) {
+    const members = profiles.filter((p) => p.role === role);
+    if (members.length === 0) continue;
+    const heading = el('div', { class: 'char-group', text: GROUP_TITLES[role] });
+    const rows = members.map(makeRow);
+    list.append(heading, ...rows);
+    groups.push({ heading, rows });
+  }
+
+  const count = el('span', { class: 'char-count', text: `${profiles.length} people` });
+
+  const search = el('input', {
+    class: 'char-search',
+    type: 'search',
+    placeholder: 'Search by name, role or location…',
+    'aria-label': 'Search characters',
+  });
+
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    let visible = 0;
+    for (const { heading, rows } of groups) {
+      let shown = 0;
+      for (const row of rows) {
+        const p = row._profile;
+        const hit = !q
+          || p.name.toLowerCase().includes(q)
+          || p.location.toLowerCase().includes(q)
+          || roleLabel(p.role).toLowerCase().includes(q)
+          || p.bio.toLowerCase().includes(q);
+        row.hidden = !hit;
+        if (hit) shown += 1;
+      }
+      heading.hidden = shown === 0;
+      visible += shown;
+    }
+    count.textContent = q ? `${visible} match${visible === 1 ? '' : 'es'}` : `${profiles.length} people`;
   });
 
   return el('div', { class: 'screen' },
     el('h2', { class: 'screen-title', text: 'Characters' }),
     el('p', { class: 'screen-sub', text: 'The people who orbit Léon’s two worlds.' }),
-    el('div', { class: 'char-layout' },
-      el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' }, ...rows),
-      detail),
+    el('div', { class: 'char-toolbar' }, search, count),
+    el('div', { class: 'char-layout' }, list, detail),
     el('div', { class: 'action-row' },
       el('button', { class: 'btn', text: '← Back to hub', onclick: onBack })),
   );

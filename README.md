@@ -1,4 +1,4 @@
-# Balance of Spirit
+# secondbarnone
 
 A small narrative balance game. You play Léon, who runs a spiritual community by
 day and tends bar by night. Every day you pick one. The community restores your
@@ -7,68 +7,80 @@ Let either stat reach zero and the run ends.
 
 **Play:** https://56eli.github.io/secondbarnone/
 
+For design details and internals, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
+
 ---
+
+## Branches
+
+| Branch | What it is |
+|---|---|
+| **`main`** | The HTML/CSS/JS game. Deployed to GitHub Pages from `/docs`. |
+| **`godot`** | The original Godot 4.7 project, preserved verbatim. Not deployed. |
+
+The two are separate implementations, not versions to reconcile. **Never merge
+`godot` into `main`** — it would restore a 39.5 MB `docs/` and clobber the web
+build.
 
 ## Why this is plain HTML/CSS/JS
 
-This started as a Godot 4.7 project. Godot is a great engine, but shipping it
-requires a step no coding agent can do in a sandbox: running the Godot binary to
-compile a `.pck` archive. Release binaries aren't downloadable from the agent
-environment, so an agent could edit `.gd` files forever and never produce a build
-anyone could play. An earlier attempt to hand-assemble a `.pck` shipped a
-corrupt, unplayable file.
+Shipping a Godot web build requires running the Godot binary to compile a `.pck`
+archive. That binary isn't reachable from an agent sandbox, so the game couldn't
+be built or deployed automatically — and an attempt to hand-assemble a `.pck`
+produced a corrupt, unplayable file.
 
 Rewritten as vanilla ES modules, the source **is** the build:
 
 | | Godot version | This version |
 |---|---|---|
-| Deploy payload | 39.5 MB | **564 KB** (70× smaller) |
+| Deploy payload | 39.5 MB | **~940 KB** (40× smaller) |
 | Build step | Godot binary + export templates | none |
-| Agent can build & test it | no | yes |
-| Automated tests | none | 56 |
-| Time to first frame | multi-MB WASM boot | near-instant |
-
-The original Godot sources are still in `scripts/`, `scenes/` and
-`project.godot` for reference. They are no longer what gets deployed.
+| Automated tests | 0 | **107** |
+| Coverage | — | **~99%** |
 
 ## Running locally
 
-No dependencies and no build:
+No build step:
 
 ```bash
+npm install         # only needed for the test suite
 npm run serve       # → http://localhost:8000
 ```
 
 Any static server works — `python3 -m http.server -d docs` is equivalent. The
-game must be served over HTTP rather than opened as a `file://` URL, because ES
-modules are subject to CORS.
+game must be served over HTTP, not opened as a `file://` URL, because ES modules
+are subject to CORS.
 
 ## Tests
 
 ```bash
-npm test            # 56 tests
+npm test                # 107 tests
+npm run coverage        # with a coverage table
+npm run coverage:check  # enforce the 80% floor, non-zero exit if below
+npm run check           # tests + asset integrity
 ```
 
-Two layers:
+Three layers:
 
-- **`tests/game.test.js`** — 45 rule tests with no DOM. Calendar maths including
-  leap years, stat clamping, Sunday rent charged exactly once, the burnout
-  threshold, the 2-5 day event schedule, weighted rarity, game-over conditions,
-  and 25 seeded 300-turn playthroughs asserting state never goes invalid.
-- **`tests/dom.test.js`** — 11 tests that boot the real `index.html` in jsdom,
-  load the real `main.js`, and drive the UI by clicking actual buttons: screen
-  navigation, the result modal, stat rendering, double-click protection, game
-  over, and restart.
+- **`tests/game.test.js`** — 50 rule tests, no DOM. Calendar maths including leap
+  years, stat clamping, Sunday rent charged exactly once, the burnout threshold,
+  the 2–5 day event schedule, weighted rarity, game-over conditions, and 25
+  seeded 300-turn playthroughs asserting state never goes invalid.
+- **`tests/dom.test.js`** — 23 tests that boot the real `index.html` in jsdom,
+  call the real `initGame()`, and drive the UI by clicking actual buttons:
+  navigation, the result modal, stat rendering, double-click protection, the
+  portrait fallback, reduced-motion, game over and restart.
+- **`tests/coverage.test.js`** — 34 edge-case tests: the unseeded RNG branch,
+  signal unsubscribe, and defensive paths normal play never reaches.
+
+Current coverage — `npm run coverage`:
+
+```
+all files    99.94 line | 96.32 branch | 99.02 funcs
+```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
 deterministic while normal play stays random.
-
-`tests/dom.test.js` needs jsdom. It's optional — without it those tests skip
-rather than fail:
-
-```bash
-npm install --no-save jsdom
-```
 
 Asset integrity is checked separately, which catches a broken portrait path
 before it ships as a missing image:
@@ -84,46 +96,69 @@ docs/                      ← deployed by GitHub Pages (main /docs)
   index.html
   css/style.css
   js/
-    main.js                entry point: HUD, screen switching, modal
+    main.js                entry point (three lines)
+    app.js                 wiring: HUD, screens, modal, game over
     core/
       game-state.js        stats, calendar, history, mood/season
       event-manager.js     scheduling, weighted selection
       turn.js              one turn, resolved in order
       rng.js               seedable RNG
     data/
-      characters.js        14 characters
+      characters.js        78 characters
       events.js            29 events
     ui/screens.js          hub, location, characters, modal, game over
-  assets/                  optimised WebP + SVG (484 KB)
+  assets/                  optimised WebP + SVG (~940 KB)
 
-assets/                    full-resolution source art (19 MB, not deployed)
+assets/                    full-resolution source art (~26 MB, not deployed)
 scripts/                   dev tooling + legacy Godot .gd sources
 tests/
 ```
 
-`docs/js/core/` has no DOM references at all, which is what makes the rules
-testable in isolation.
+`docs/js/core/` and `docs/js/data/` have no DOM references, which is what makes
+the rules testable in isolation.
+
+## Cast
+
+78 characters. Léon is the protagonist; **Kaden** is the arch nemesis (a
+developer circling the community's land); **Sato** and **Alex** are rivals who
+run a competing wellness studio and cocktail bar. The remaining 74 are side
+characters drawn from the community, the bar, and the neighbourhood.
+
+The character screen groups them by role — antagonists first — and has a search
+box that filters on name, role, location or biography text.
+
+Character ids are ASCII slugs derived from display names, so portraits map onto
+filenames safely even for names written in Cyrillic, fraktur, Hangul or emoji
+(`𝕽𝖆𝖚𝖑` → `raul.svg`, `Kopung (고풍)` → `kopung.svg`). Display names keep their
+original spelling everywhere in the UI.
 
 ## Assets
 
-The source art in `assets/` is 19 MB of 1024×1024 PNGs — far more than the game
-displays. `scripts/optimize-assets.sh` downscales and converts to WebP:
+Source art in `assets/` is ~26 MB of 1024×1024 PNGs — far more than the game
+displays. One command regenerates avatars, downscales the painted portraits,
+converts to WebP and prunes orphans:
 
 ```bash
-./scripts/optimize-assets.sh     # 19 MB → 484 KB, needs ImageMagick
+npm run assets      # ~26 MB → ~940 KB, needs ImageMagick
 ```
 
 Portraits go to 512px (they render at ~84px, so this covers retina), backgrounds
-to 1000px wide. Six characters use small hand-written SVGs, copied verbatim.
-Portraits fall back to an initials chip if a file is ever missing.
+to 1000px wide.
+
+**Eleven characters have painted portraits** (Léon, the six community and bar
+regulars, plus Kaden, Sato and Alex). The other 67 get deterministic SVG avatars
+from `scripts/generate-avatars.js` — the same id always produces the same face,
+so diffs stay clean, and each file is under 1 KB. Bots render as machines and
+Cat renders as a cat. Portraits fall back to an initials chip if a file is ever
+missing.
 
 ## Deploying
 
-GitHub Pages already serves `main` → `/docs`. Any push to `main` that touches
-`docs/` goes live in about a minute:
+GitHub Pages serves `main` → `/docs`. Any push to `main` that touches `docs/`
+goes live in about a minute:
 
 ```bash
-npm test && git add -A && git commit -m "..." && git push origin main
+npm run check && git add -A && git commit -m "..." && git push origin main
 ```
 
 No settings to change, no export step.
@@ -134,7 +169,7 @@ No settings to change, no export step.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
 - Rent: **−18 money** every Sunday, charged once.
-- A random event fires every 2-5 days, drawn from the pool for the location you
+- A random event fires every 2–5 days, drawn from the pool for the location you
   chose. Weights are 10 for Common and 2 for each Rare, so roughly one event in
   six is rare.
 - Burnout unlocks only after 3 consecutive bar days.
@@ -156,3 +191,4 @@ collapses transitions.
 - No save/resume; a refresh restarts the run. `localStorage` persistence would
   be a natural next step.
 - No audio.
+- The three antagonists have profiles but no dedicated events yet.

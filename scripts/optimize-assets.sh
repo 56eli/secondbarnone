@@ -47,9 +47,23 @@ for f in assets/backgrounds/*.png; do
   printf '  %-12s %s\n' "$name" "$(du -h "docs/assets/backgrounds/${name}.webp" | cut -f1)"
 done
 
+echo "Regenerating procedural avatars…"
+node scripts/generate-avatars.js
+
 echo "Copying SVGs verbatim (already tiny)…"
 cp -f assets/portraits/*.svg docs/assets/portraits/ 2>/dev/null || true
 cp -f assets/backgrounds/*.svg docs/assets/backgrounds/ 2>/dev/null || true
+
+# Drop any web asset whose source no longer exists (e.g. a renamed character),
+# so docs/ never accumulates orphans.
+for f in docs/assets/portraits/*; do
+  [ -e "$f" ] || continue
+  base=$(basename "$f"); stem="${base%.*}"
+  if [ ! -e "assets/portraits/${stem}.png" ] && [ ! -e "assets/portraits/${stem}.svg" ]; then
+    echo "  removing orphan ${base}"
+    rm -f "$f"
+  fi
+done
 
 echo
 echo "Source art:  $(du -sh assets | cut -f1)"

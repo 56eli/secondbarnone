@@ -1,269 +1,255 @@
-# Balance of Spirit
+# secondbarnone — design & architecture
 
-A **2D browser-playable resource-management RPG** built in Godot 4.7.  
-You play as **Léon**, who runs a spiritual community (sanity) and works at a bar (money).  
-Each day you choose your priority — neglect either side and it's game over.
+A **browser-playable narrative resource-management game**. You play **Léon**,
+who runs a spiritual community by day (sanity) and tends bar by night (money).
+Each day you choose one. Neglect either side and the run ends.
 
-> **Current status**: Fully playable, enriched with visual assets, animations, and deep character lore.
+This document covers design and internals. For setup, testing and deployment,
+see [README.md](README.md).
 
----
-
-## What's New (Enhancement Pass)
-
-- **Animated stat bars** — Sanity and money bars smoothly animate between values
-- **Scene fade transitions** — Smooth black fades between hub, locations, and character screen
-- **Floating particles** — Ambient particles float gently in location scenes
-- **Background images** — AI-generated PNG backgrounds for both locations
-- **Character portraits** — 14 characters now have face portraits (PNG + SVG)
-- **Rich character bios** — All 14 characters have full backstories and relationships
-- **Stat delta indicators** — Animated +/- labels show exactly what changed each day
-- **Seasonal flavor** — Game detects season (Winter/Spring/Summer/Autumn) and mood
-- **Hub atmosphere** — Gradient background with mood text on the hub screen
-- **Color-coded rarity** — Event rarity tags are color-coded (green=helpful, red=hurtful)
-- **More events** — 8 new events added (Rainy Day Reflection, New Face, Anonymous Benefactor, Trivia Night, Neighborhood Drama, Unexpected Reunion, Surprise Inspection, Old Friend)
-- **Richer descriptions** — All event and location descriptions expanded
+> **Status:** playable, 107 tests, ~99% coverage on the shipped code.
+> Implemented in vanilla ES modules — no engine, no build step.
 
 ---
 
-## Project Structure
+## History: why there is no engine
 
-```
-res/
-├── project.godot                    Godot config (800×600, Compatibility renderer)
-├── export_presets.cfg               HTML5/Web export preset
-├── PROJECT_OVERVIEW.md              ← This file
-├── scripts/
-│   ├── main.gd                      Main controller — scene switching, HUD, modals
-│   ├── game_state.gd                Persistent state — stats, calendar, history
-│   ├── hub.gd                       Hub screen — location and character buttons
-│   ├── event_manager.gd             Data-driven event system
-│   ├── event_definition.gd          Custom Resource — event data schema
-│   ├── character_profile.gd         Custom Resource — character data schema
-│   ├── character_data.gd            Static factory — 14 character profiles
-│   ├── character_profiles.gd        Characters screen — list + detail panel
-│   └── locations/
-│       ├── location_base.gd         Base class — shared location UI + particles
-│       ├── spiritual_community.gd   Spiritual Community location
-│       └── bar.gd                   Bar location
-├── scenes/
-│   ├── main.tscn                    Root scene — HUD + content host + modals
-│   ├── hub.tscn                     Hub screen — title + action buttons
-│   ├── characters/
-│   │   └── character_profiles.tscn  Character roster + detail panel
-│   └── locations/
-│       ├── spiritual_community.tscn Spiritual Community scene
-│       └── bar.tscn                 Bar scene
-└── assets/
-    ├── backgrounds/
-    │   ├── spiritual_community.png  AI-generated community background
-    │   ├── bar.png                  AI-generated bar background
-    │   └── hub_background.svg       Gradient hub atmosphere
-    └── portraits/
-        ├── leon.png                 AI-generated portrait
-        ├── geo.png                  AI-generated portrait
-        ├── lakshay.png              AI-generated portrait
-        ├── arian.png                AI-generated portrait
-        ├── simon.png                AI-generated portrait
-        ├── kaj.png                  AI-generated portrait
-        ├── dorian.png               AI-generated portrait
-        ├── barret.png               AI-generated portrait
-        ├── ethan.svg                SVG portrait
-        ├── matt.svg                 SVG portrait
-        ├── artem.svg                SVG portrait
-        ├── klaudia.svg              SVG portrait
-        ├── brian.svg                SVG portrait
-        └── susan.svg                SVG portrait
-```
+The game was originally built in **Godot 4.7**. That version still exists on the
+[`godot`](https://github.com/56eli/secondbarnone/tree/godot) branch and is
+preserved verbatim.
+
+It was rewritten because shipping a Godot web build requires running the Godot
+binary to compile a `.pck` archive. That binary is not reachable from an agent
+sandbox, so the game could not be built, tested or deployed automatically — and
+one attempt to hand-assemble a `.pck` produced a corrupt, unplayable file.
+
+As plain ES modules the source *is* the build:
+
+| | Godot | Current |
+|---|---|---|
+| Deploy payload | 39.5 MB | **~940 KB** |
+| Build step | Godot binary + export templates | none |
+| Automated tests | 0 | **107** |
+| Coverage | — | **~99%** |
+
+The legacy `scripts/*.gd`, `scenes/*.tscn` and `project.godot` files remain in
+the repository for reference. They are not deployed and not maintained.
 
 ---
 
 ## Architecture
 
-### Scene tree (`main.tscn`) — the root
+The guiding rule: **`docs/js/core/` and `docs/js/data/` contain no DOM
+references.** All game rules are testable headlessly; everything that touches
+the document lives in `ui/` and `app.js`.
 
 ```
-Main (Control, fullscreen)
-├── HUD (Control, top bar)
-│   ├── HudBg (ColorRect)
-│   ├── CalendarLabel  [%CalendarLabel]  "Thursday, January 1, 2026"
-│   ├── DayProgressLabel  [%DayProgressLabel]  "Journey Day 1"
-│   └── StatBarsContainer
-│       ├── SanityRow
-│       │   ├── SanityLabel  [%SanityLabel]  "🧘 Sanity: 50 / 100"
-│       │   ├── SanityBar  [%SanityBar]  animated progress bar
-│       │   └── SanityDeltaLabel  [%SanityDeltaLabel]  animated +/- delta
-│       └── MoneyRow
-│           ├── MoneyLabel  [%MoneyLabel]  "💰 Money: 50 / 100"
-│           ├── MoneyBar  [%MoneyBar]  animated progress bar
-│           └── MoneyDeltaLabel  [%MoneyDeltaLabel]  animated +/- delta
-├── ContentHost (Control) — instanced scenes appear here
-├── FadeOverlay (ColorRect) — fullscreen black for fade transitions
-├── ResultModal (Control) — "Day Complete" overlay (hidden)
-└── GameOverPanel (Panel, hidden)
+docs/js/
+  main.js            entry point — calls initGame() and nothing else
+  app.js             wiring: HUD, screen switching, modal, game over
+  core/
+    game-state.js    stats, calendar, history, season/mood, signals
+    event-manager.js event scheduling and weighted selection
+    turn.js          resolves one turn in a fixed order
+    rng.js           seedable RNG
+  data/
+    characters.js    78 character profiles
+    events.js        29 event definitions
+  ui/
+    screens.js       hub, location, characters, modal, game-over renderers
 ```
 
-### Hub scene (`hub.tscn`)
+### Why `app.js` is separate from `main.js`
 
-```
-Hub (Control)
-├── HubBackground (TextureRect) — gradient atmosphere
-├── HubOverlay (ColorRect) — dark tint
-└── MainVBox
-    ├── TitleLabel       "Balance of Spirit"
-    ├── SubtitleLabel    "Find equilibrium between community and coin"
-    ├── DayLabel         "Thursday, January 1, 2026  |  Journey Day 1"
-    ├── MoodLabel        "Winter  |  You are managing. Not thriving, but surviving."
-    ├── StatsHBox (Sanity + Money)
-    ├── SpiritualBtn     "🧘 Visit Spiritual Community"
-    ├── BarBtn           "🍺 Visit the Bar"
-    ├── CharactersBtn    "👥 Characters"
-    └── HistoryLabel     "Recent History: …"
-```
+`app.js` exports `initGame()` rather than running on import. This lets the test
+suite boot a fresh game against a fresh DOM repeatedly without re-importing the
+module. The earlier approach — importing `main.js` with a cache-busting query
+string — gave each boot its own module instance, which fragmented coverage
+reporting and leaked state between tests.
 
-### Location scenes — now with particles
+`main.js` is now three lines: import, call, expose on `window.__game`.
 
-```
-Location (Control)
-├── BackgroundTexture (TextureRect) — AI art
-├── BackgroundFallback (ColorRect)
-├── Overlay (ColorRect) — dark tint
-├── ParticlesContainer (Control) — floating particles
-└── ContentVBox
-    ├── LocationName
-    ├── LocationDesc
-    ├── ActionBtn
-    └── BackBtn
-```
+### Signals
+
+`GameState` implements a small emitter (`on` / `off` / `emit`) that mirrors the
+Godot signals the original used:
+
+| Signal | Fired when |
+|---|---|
+| `stats_changed` | sanity or money changes |
+| `day_changed` | the calendar advances |
+| `game_over_triggered` | a stat hits zero (fires once) |
+| `history_updated` | a history line is added |
+
+`on()` returns an unsubscribe function. `emit()` iterates a copy of the listener
+list, so a handler may safely unsubscribe mid-dispatch.
 
 ---
 
-## Game Flow
+## Game rules
+
+### Stats
+
+Both start at **50**, capped at **100**, floored at **0**.
+
+| Action | Sanity | Money |
+|---|---|---|
+| Spiritual Community | **+15** | **−10** |
+| The Bar | **−12** | **+12** |
+| Sunday rent | — | **−18** |
+
+Reaching **0** in either stat ends the run, with a message specific to which
+stat broke.
+
+### Calendar
+
+Starts **Thursday, 1 January 2026** and advances one day per completed action.
+Full Gregorian handling including month lengths, leap years and year rollover —
+so a long run correctly passes through 29 February 2028.
+
+Rent is charged on Sundays only, and at most once per Sunday. The guard is keyed
+on day-of-month and is cleared by `resetGame()`.
+
+### Events
+
+29 events, each gated to one location.
+
+| Rarity | Weight | Count |
+|---|---|---|
+| Common | 10 | 20 |
+| Rare (Helpful) | 2 | 4 |
+| Rare (Hurtful) | 2 | 5 |
+
+Scheduling is **deterministic, not probabilistic**: after each event the next is
+scheduled 2–5 journey-days ahead, and when that day arrives an event fires.
+
+Additional gates:
+
+- **Location** — only events matching the chosen location are eligible.
+- **Burnout** — requires 3+ consecutive bar days.
+- **Friend events** — skipped when no character names are available.
+- **No immediate repeats** — the previous event is filtered out when possible.
+- `minimumDay` and `allowedWeekdays` are supported per event (unused by the
+  shipped pool, but honoured and tested).
+
+### Turn order
+
+`resolveTurn()` in `core/turn.js` applies, in this exact order:
+
+1. the location action
+2. Sunday rent
+3. the scheduled random event
+4. the game-over check
+5. one history line
+
+Order matters: rent lands before the event, so an event can pull a player back
+from the brink that rent pushed them toward.
+
+---
+
+## Cast
+
+**78 characters.**
+
+| Role | Count |
+|---|---|
+| Protagonist | 1 — Léon |
+| Arch Nemesis | 1 — Kaden |
+| Rival | 2 — Sato, Alex |
+| Side Character | 74 |
+
+**Kaden** is a developer circling the community's land — never threatening,
+just refiling paperwork while the rent notices do the work. **Sato** runs a
+polished rival wellness studio; **Alex** runs the craft cocktail bar two streets
+over. Each has a full profile in the same shape as everyone else.
+
+The character screen groups by role (antagonists first) and filters on name,
+role, location or biography text. A flat list of 78 was unusable.
+
+### Ids and unicode
+
+Display names include Cyrillic, fraktur, Hangul and emoji. Ids are ASCII slugs
+derived from them, because ids map directly onto portrait filenames:
+
+| Display name | Id | Portrait |
+|---|---|---|
+| `𝕽𝖆𝖚𝖑` | `raul` | `raul.svg` |
+| `Kopung (고풍)` | `kopung` | `kopung.svg` |
+| `Renata 🦥` | `renata` | `renata.svg` |
+| `Qusтoge` | `qustoge` | `qustoge.svg` |
+
+The UI always renders the original spelling. Slug uniqueness is enforced by test.
+
+---
+
+## Art
+
+**11 painted portraits** (Léon, six community and bar regulars, plus the three
+antagonists) rendered as WebP at 512px.
+
+**67 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
+the same id always produces the same face, so regenerating never churns the
+diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
+hash of the id. Under 1 KB each, versus ~2 MB for a painted portrait. Bots
+(Carl-bot, DocBot) render as machines; Cat renders as a cat.
+
+Backgrounds are WebP at 1000px wide behind a dark scrim. Missing portraits fall
+back to an initials chip, which is exercised by test.
+
+Source art in `assets/` is ~26 MB; the deployed payload is ~940 KB.
+`scripts/optimize-assets.sh` regenerates avatars, downscales, converts and
+prunes orphans in one pass.
+
+---
+
+## Testing
+
+**107 tests** across three files.
+
+| File | Tests | Scope |
+|---|---|---|
+| `tests/game.test.js` | 50 | Rules, headless: calendar, stats, rent, events, characters |
+| `tests/dom.test.js` | 23 | Real `index.html` in jsdom, driven by clicking real buttons |
+| `tests/coverage.test.js` | 34 | Edge cases: unseeded RNG, signal teardown, defensive branches |
+
+Coverage on shipped code:
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    GAME LOOP                             │
-│                                                          │
-│  Show Hub ──→ Pick Location ──→ See Location Scene       │
-│                     │                   │                │
-│                     │            ┌──────┴──────┐        │
-│                     │            │  Back (hub)  │        │
-│                     │            │  Action!     │        │
-│                     │            └──────┬──────┘        │
-│                     │                   ▼                │
-│                     │  ① GameState.apply_location_action│
-│                     │  ② Rent check (Sundays)           │
-│                     │  ③ EventManager.select_event      │
-│                     │  ④ GameState.apply_event_deltas   │
-│                     │  ⑤ GameState.check_game_over      │
-│                     │                   │                │
-│                     │            ┌──────┴──────┐        │
-│                     │            │ Game over?   │        │
-│                     │            │ → Show panel │        │
-│                     │            │ → Restart     │        │
-│                     │            └──────┬──────┘        │
-│                     │                   ▼                │
-│                     │         Show Result Modal          │
-│                     │           "Day Complete"           │
-│                     │           (animated fade-in)       │
-│                     │           Continue →               │
-│                     │                   │                │
-│                     │            GameState.advance_day() │
-│                     └──────────────────┘                 │
-│                                                          │
-│  All scene transitions use fade-to-black for polish     │
-└──────────────────────────────────────────────────────────┘
+app.js            100.00 line | 94.12 branch | 100.00 funcs
+core/*            ~99-100 across the board
+data/*            100.00 line | 100.00 branch | 100.00 funcs
+ui/screens.js     100.00 line | 91.03 branch |  96.43 funcs
+────────────────────────────────────────────────────────────
+all files          99.94 line | 96.32 branch |  99.02 funcs
 ```
 
----
+`npm run coverage:check` enforces an 80% floor on all three metrics and exits
+non-zero below it.
 
-## Game Balance
-
-|              | Sanity | Money | Calendar |
-|--------------|--------|-------|----------|
-| Start        | 50     | 50    | Thursday, January 1, 2026 |
-| Max          | 100    | 100   | Ongoing  |
-| **Spiritual**| **+15**| **−10**| +1 journey day |
-| **Bar**      | **−12**| **+12**| +1 journey day |
-
-Rent: **−18 money** every Sunday
+All randomness routes through `core/rng.js`, so tests are deterministic while
+normal play stays random. Long seeded playthroughs (25 seeds × 300 turns) assert
+that state never goes invalid.
 
 ---
 
-## Characters
+## Accessibility
 
-| ID | Name | Location |
-|----|------|----------|
-| leon | Léon | Spiritual Community & The Bar |
-| geo | Geo | Spiritual Community |
-| lakshay | Lakshay | Spiritual Community |
-| arian | Arian | Spiritual Community |
-| simon | Simon | Spiritual Community |
-| kaj | Kaj | Spiritual Community |
-| dorian | Dorian | The Bar |
-| barret | Barret | The Bar |
-| ethan | Ethan | The Bar & Spiritual Community |
-| matt | Matt | The Bar |
-| artem | Artem | The Bar |
-| klaudia | Klaudia | Spiritual Community & The Bar |
-| brian | Brian | Spiritual Community & The Bar |
-| susan | Susan | Spiritual Community & The Bar |
+Semantic buttons and headings, visible focus rings, `aria-selected` on the
+character list, `role="dialog"` with `aria-modal` on the result modal, labelled
+search input, and full keyboard operability.
 
-All characters have rich backstories, detailed relationships to Léon, and portrait artwork.
+`prefers-reduced-motion` disables particles and collapses transitions — covered
+by a dedicated test that boots the app with the media query forced on.
 
 ---
 
-## Event Catalog (29 events)
+## Known gaps
 
-### Spiritual Community
-| Rarity | Event | Sanity | Money |
-|--------|-------|--------|-------|
-| Standard | Inspiring Meditation | +8 | 0 |
-| Standard | Moment of Clarity | +10 | 0 |
-| Standard | Community Support | +8 | 0 |
-| Standard | Community Potluck | +8 | +8 |
-| Standard | Group Healing Circle | +12 | 0 |
-| Standard | Wise Elder Visit | +10 | 0 |
-| Standard | Small Fundraiser | +5 | +5 |
-| Standard | Spiritual Doubt | −8 | 0 |
-| Standard | Community Disagreement | −6 | 0 |
-| Standard | Rainy Day Reflection | +6 | 0 |
-| Standard | A New Face | +7 | +3 |
-| Rare Helpful | Deep Meditation Breakthrough | +25 | 0 |
-| Rare Helpful | Anonymous Benefactor | +5 | +20 |
-| Rare Hurtful | Spiritual Crisis | −20 | 0 |
-| Rare Hurtful | Schism in the Community | −10 | 0 |
-
-### Bar
-| Rarity | Event | Sanity | Money |
-|--------|-------|--------|-------|
-| Standard | Unexpected Tips | 0 | +8 |
-| Standard | Slow Night | 0 | −5 |
-| Standard | Difficult Customer | −6 | 0 |
-| Standard | Regular Tells a Story | +6 | 0 |
-| Standard | Philosophical Drunk | +4 | 0 |
-| Standard | Karaoke Night Success | +8 | +8 |
-| Standard | Broken Equipment | 0 | −12 |
-| Standard | Trivia Night Triumph | +5 | +5 |
-| Standard | Neighborhood Drama | −4 | 0 |
-| Rare Helpful | Big Tip Night | 0 | +25 |
-| Rare Helpful | Unexpected Reunion | +15 | +5 |
-| Rare Hurtful | Bar Fight | −18 | −8 |
-| Rare Hurtful | Burnout (needs 3+ consecutive bar days) | −15 | 0 |
-| Rare Hurtful | Surprise Inspection | −8 | −12 |
-
----
-
-## Browser Export
-
-- **Renderer**: Compatibility (`gl_compatibility`) — WebGL 2.0
-- **Window**: 800×600, `canvas_items` stretch, `expand` aspect
-- **Export preset**: `export_presets.cfg` → Web → outputs to `build/web/index.html`
-
-## How to share with another AI
-
-1. **`main.gd`** — controller, scene switching, HUD, transitions, modals
-2. **`game_state.gd`** — stats, calendar, season detection, mood
-3. **`event_manager.gd`** — 29 data-driven events with rarity weights
-4. **`location_base.gd`** — base class with particle effects and background switching
-5. **`character_data.gd`** — 14 characters with rich bios and portrait loading
-6. **Signals everywhere**: `visit_location`, `go_back`, `location_action_performed`, `stats_changed`, `day_changed`, `game_over_triggered`
+- **Not verified in a real browser.** The UI is jsdom-verified; Chromium could
+  not be downloaded in the environment this was built in. Layout and animation
+  deserve a human eye on a real device.
+- **No save/resume.** A refresh restarts the run. `localStorage` persistence
+  would be the natural next step.
+- **No audio.**
+- The three antagonists exist as profiles but have **no dedicated events yet** —
+  Kaden in particular is a natural fit for rent-pressure events.

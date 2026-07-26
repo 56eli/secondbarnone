@@ -28,8 +28,11 @@ try {
 
 const maybe = JSDOM ? test : test.skip;
 
-/** Boot index.html in jsdom and evaluate main.js against it. */
-async function boot() {
+/**
+ * Boot index.html in jsdom and evaluate main.js against it.
+ * @param {{reducedMotion?: boolean}} [opts]
+ */
+async function boot(opts = {}) {
   const html = readFileSync(join(DOCS, 'index.html'), 'utf8');
   const dom = new JSDOM(html, {
     url: pathToFileURL(join(DOCS, 'index.html')).href,
@@ -43,12 +46,20 @@ async function boot() {
   global.HTMLElement = window.HTMLElement;
   global.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 0));
 
-  if (!window.matchMedia) {
-    window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-  }
+  // jsdom has no media-query engine, so stub it. `reducedMotion` lets a test
+  // assert the accessibility path that disables particles and transitions.
+  window.matchMedia = (query) => ({
+    matches: Boolean(opts.reducedMotion) && query.includes('prefers-reduced-motion'),
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+  });
 
-  // Cache-bust so each boot gets a clean module instance.
-  await import(`${pathToFileURL(join(DOCS, 'js', 'main.js')).href}?t=${Date.now()}${Math.random()}`);
+  // app.js is imported once and re-invoked per test. Importing main.js with a
+  // cache-busting query instead would give each boot its own module instance,
+  // which fragments coverage reporting and leaks state between tests.
+  const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
+  window.__game = initGame();
   return window;
 }
 
@@ -145,7 +156,7 @@ maybe('continuing from the modal advances the day and returns to the hub', async
   } finally { cleanup(window); }
 });
 
-maybe('the characters screen lists all 14 people and shows detail on click', async () => {
+maybe('the characters screen lists the whole cast and shows detail on click', async () => {
   const window = await boot();
   try {
     const doc = window.document;
@@ -153,7 +164,7 @@ maybe('the characters screen lists all 14 people and shows detail on click', asy
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
-    assert.equal(rows.length, 14, 'all characters listed');
+    assert.equal(rows.length, 78, 'all characters listed');
     assert.match(doc.querySelector('.detail').textContent, /Select a character/);
 
     rows[0].click();
@@ -161,6 +172,64 @@ maybe('the characters screen lists all 14 people and shows detail on click', asy
     assert.match(detail.textContent, /Léon/);
     assert.match(detail.textContent, /Protagonist/);
     assert.match(detail.textContent, /Relationship to Léon/);
+  } finally { cleanup(window); }
+});
+
+maybe('characters are grouped with antagonists near the top', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    await settle();
+
+    const groups = [...doc.querySelectorAll('.char-group')].map((g) => g.textContent);
+    assert.deepEqual(groups, ['Protagonist', 'Arch Nemesis', 'Rivals', 'Side Characters']);
+
+    assert.ok(doc.querySelector('.char-row.role-arch_nemesis'), 'nemesis row is tagged');
+    assert.equal(doc.querySelectorAll('.char-row.role-rival').length, 2);
+  } finally { cleanup(window); }
+});
+
+maybe('searching filters the character list', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    await settle();
+
+    const search = doc.querySelector('.char-search');
+    const visible = () => [...doc.querySelectorAll('.char-row')].filter((r) => !r.hidden).length;
+
+    assert.equal(visible(), 78);
+
+    search.value = 'Kaden';
+    search.dispatchEvent(new window.Event('input'));
+    assert.equal(visible(), 1);
+    assert.match(doc.querySelector('.char-count').textContent, /1 match/);
+
+    // Unicode names must be findable by their ASCII-ish substrings too.
+    search.value = 'Kopung';
+    search.dispatchEvent(new window.Event('input'));
+    assert.equal(visible(), 1);
+
+    search.value = '';
+    search.dispatchEvent(new window.Event('input'));
+    assert.equal(visible(), 78);
+  } finally { cleanup(window); }
+});
+
+maybe('the arch nemesis and rivals have full profiles', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    await settle();
+
+    doc.querySelector('.char-row.role-arch_nemesis').click();
+    const detail = doc.querySelector('.detail');
+    assert.match(detail.textContent, /Kaden/);
+    assert.match(detail.textContent, /Arch Nemesis/);
+    assert.ok(detail.textContent.length > 300, 'nemesis should have a substantial profile');
   } finally { cleanup(window); }
 });
 
@@ -236,6 +305,162 @@ maybe('game over renders and restart resets the run', async () => {
     assert.equal(doc.getElementById('hud').hidden, false, 'HUD returns');
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
     assert.equal(window.__game.gs.sanity, 50);
+  } finally { cleanup(window); }
+});
+
+maybe('leaving a location without acting returns to the hub unchanged', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    const before = { s: gs.sanity, m: gs.money, d: gs.journeyDay };
+
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    await settle();
+    [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
+    await settle();
+
+    assert.ok(doc.querySelector('.hub'), 'should be back on the hub');
+    assert.equal(gs.sanity, before.s);
+    assert.equal(gs.money, before.m);
+    assert.equal(gs.journeyDay, before.d, 'backing out must not consume a day');
+  } finally { cleanup(window); }
+});
+
+maybe('the hub shows history after a completed turn', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+    [...doc.querySelectorAll('.modal button')]
+      .find((b) => b.textContent.includes('Continue')).click();
+    await settle();
+
+    const history = doc.querySelector('.history');
+    assert.ok(history, 'history block should render');
+    assert.match(history.textContent, /Visited the Spiritual Community/);
+  } finally { cleanup(window); }
+});
+
+maybe('clicking the modal backdrop dismisses it like Continue', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    const backdrop = doc.querySelector('.modal-backdrop');
+    assert.ok(backdrop);
+    backdrop.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    await settle();
+
+    assert.equal(doc.querySelector('.modal-backdrop'), null, 'modal should close');
+    assert.ok(doc.querySelector('.hub'), 'should land back on the hub');
+  } finally { cleanup(window); }
+});
+
+maybe('stat deltas are shown in the HUD after a turn', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    const sanityDelta = doc.getElementById('sanity-delta');
+    const moneyDelta = doc.getElementById('money-delta');
+    // A bar shift always moves both stats, so both indicators should show.
+    assert.match(sanityDelta.textContent, /^-\d+$/, 'sanity delta should be negative');
+    assert.match(moneyDelta.textContent, /^\+\d+$/, 'money delta should be positive');
+    assert.ok(sanityDelta.classList.contains('neg'));
+    assert.ok(moneyDelta.classList.contains('pos'));
+  } finally { cleanup(window); }
+});
+
+maybe('the HUD flags low stats', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+
+    gs.sanity = 10;
+    gs.money = 10;
+    gs.emit('stats_changed', gs.sanity, gs.money);
+    await settle();
+
+    assert.match(doc.getElementById('sanity-label').textContent, /low/i);
+    assert.match(doc.getElementById('money-label').textContent, /low/i);
+    assert.ok(doc.getElementById('sanity-bar').classList.contains('low'));
+    assert.ok(doc.getElementById('money-bar').classList.contains('low'));
+  } finally { cleanup(window); }
+});
+
+maybe('running out of money ends the run', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+
+    // Visiting the community costs money; leave just less than the cost.
+    gs.money = 1;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    const over = doc.querySelector('.gameover');
+    assert.ok(over, 'game over screen should render');
+    assert.match(over.textContent, /broke/i, 'should use the money-specific message');
+  } finally { cleanup(window); }
+});
+
+maybe('a missing portrait falls back to an initials chip', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    await settle();
+
+    const img = doc.querySelector('.char-row img');
+    assert.ok(img, 'portraits render as <img> to begin with');
+    // jsdom does not fetch images, so simulate the failure the browser reports.
+    img.dispatchEvent(new window.Event('error'));
+
+    const chip = doc.querySelector('.char-row div.avatar');
+    assert.ok(chip, 'a fallback chip should replace the broken image');
+    assert.ok(chip.textContent.length > 0, 'chip should show initials');
+  } finally { cleanup(window); }
+});
+
+maybe('particles are suppressed when reduced motion is preferred', async () => {
+  const window = await boot({ reducedMotion: true });
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    await settle();
+
+    const container = doc.querySelector('.particles');
+    assert.ok(container, 'the container still exists');
+    assert.equal(container.children.length, 0, 'but no motes should spawn');
+  } finally { cleanup(window); }
+});
+
+maybe('particles spawn when motion is allowed', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 900));
+
+    const container = doc.querySelector('.particles');
+    assert.ok(container.children.length > 0, 'motes should appear over time');
   } finally { cleanup(window); }
 });
 

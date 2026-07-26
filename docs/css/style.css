@@ -1,5 +1,5 @@
 /* ============================================================
-   Balance of Spirit — styles
+   secondbarnone — styles
    Replaces the Godot theme: HUD, hub, locations, characters,
    modal, fades, particles and stat-bar animation.
    ============================================================ */
@@ -316,7 +316,51 @@ h2.screen-title {
   .char-layout { grid-template-columns: 1fr; }
 }
 
-.char-list { max-height: 400px; overflow-y: auto; padding-right: 4px; }
+.char-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.char-search {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #10101a;
+  color: var(--text);
+}
+
+.char-search::placeholder { color: #6a675f; }
+.char-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.char-count {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.char-list { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+
+.char-group {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: var(--text-dim);
+  padding: 12px 4px 5px;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+
+.char-group[hidden], .char-row[hidden] { display: none; }
+
+.char-meta { min-width: 0; }
+.char-name, .char-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .char-row {
   display: flex;
@@ -368,6 +412,14 @@ h2.screen-title {
 .detail-avatar { width: 84px; height: 84px; border-radius: 12px; font-size: 24px; flex: 0 0 84px; }
 .detail h3 { margin: 0 0 2px; font-size: 18px; }
 .detail-role { font-size: 12px; color: var(--accent); }
+
+/* Role colour-coding: antagonists read at a glance. */
+.char-row.role-arch_nemesis { border-left: 3px solid var(--danger); }
+.char-row.role-rival { border-left: 3px solid #d98b4a; }
+.char-row.role-protagonist { border-left: 3px solid var(--accent); }
+
+.detail-role.role-arch_nemesis { color: var(--danger); }
+.detail-role.role-rival { color: #e0a165; }
 .detail p { font-size: 13px; line-height: 1.6; color: #c5c0b6; margin: 9px 0; }
 .detail dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); margin-top: 11px; }
 .detail dd { margin: 3px 0 0; font-size: 12.5px; color: #c5c0b6; line-height: 1.55; }

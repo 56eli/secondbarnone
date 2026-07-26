@@ -1,10 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="16" fill="#7a4a6a"/>
-  <circle cx="64" cy="46" r="28" fill="#f5dcc3"/>
-  <ellipse cx="64" cy="90" rx="34" ry="28" fill="#9a6a8a"/>
-  <ellipse cx="64" cy="30" rx="24" ry="14" fill="#4a2020"/>
-  <path d="M40 30 Q52 20 64 30 Q76 20 88 30" fill="#4a2020"/>
-  <circle cx="54" cy="44" r="4" fill="#3a2820"/>
-  <circle cx="74" cy="44" r="4" fill="#3a2820"/>
-  <path d="M52 58 Q64 66 76 58" stroke="#3a2820" stroke-width="2" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
+<defs><linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#4f4630"/><stop offset="1" stop-color="#342d1f"/>
+</linearGradient></defs>
+<rect width="128" height="128" rx="16" fill="url(#b)"/>
+<ellipse cx="64" cy="96" rx="34" ry="28" fill="#4a7c59"/>
+<circle cx="64" cy="50" r="26" fill="#8d5a38"/>
+<ellipse cx="64" cy="32" rx="19" ry="12" fill="#6b3a2a"/><circle cx="64" cy="17" r="8" fill="#6b3a2a"/>
+<rect x="50" y="44" width="8" height="3.4" rx="1.7" fill="#241812"/><rect x="70" y="44" width="8" height="3.4" rx="1.7" fill="#241812"/>
+<path d="M57 60 L71 60" stroke="#3d211a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+<circle cx="43" cy="54" r="2.8" fill="#e67f9a"/>
 </svg>

@@ -16,7 +16,7 @@ import {
 import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
 import { resolveTurn } from '../docs/js/core/turn.js';
 import { buildEventPool, Rarity, Category } from '../docs/js/data/events.js';
-import { createAllProfiles, getInitials, Role } from '../docs/js/data/characters.js';
+import { createAllProfiles, getInitials, Role, roleLabel } from '../docs/js/data/characters.js';
 import { createRng } from '../docs/js/core/rng.js';
 
 const seeded = () => createRng(12345);
@@ -320,6 +320,30 @@ test('selecting an event does not mutate the shared pool', () => {
   assert.equal(after, pristine, 'friend event description was mutated in place');
 });
 
+test('the {friend} placeholder is substituted with a real character name', () => {
+  const gs = new GameState();
+  const names = gs.getCharacterNames();
+  let sawFriendEvent = false;
+
+  for (let seed = 0; seed < 60 && !sawFriendEvent; seed++) {
+    const em = new EventManager(createRng(seed));
+    em.initialize(names);
+    for (let day = 1; day <= 300; day++) {
+      const e = em.selectEvent(day, day % 7, 'bar', 0);
+      if (e?.category === Category.FRIEND) {
+        sawFriendEvent = true;
+        assert.ok(!e.description.includes('{friend}'), 'placeholder left unsubstituted');
+        assert.ok(
+          names.some((n) => e.description.includes(n)),
+          `no known character name found in: ${e.description}`,
+        );
+        break;
+      }
+    }
+  }
+  assert.ok(sawFriendEvent, 'expected to encounter the friend event');
+});
+
 test('reset clears the schedule and repeat guard', () => {
   const em = new EventManager(seeded());
   em.initialize(['Geo']);
@@ -430,11 +454,50 @@ test('reset restores a clean starting state', () => {
 
 // ---------------------------------------------------------- characters
 
-test('there are 14 characters and exactly one protagonist', () => {
+test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   const chars = createAllProfiles();
-  assert.equal(chars.length, 14);
+  assert.equal(chars.length, 78);
   assert.equal(chars.filter((c) => c.role === Role.PROTAGONIST).length, 1);
   assert.equal(chars.find((c) => c.role === Role.PROTAGONIST).id, 'leon');
+
+  const nemeses = chars.filter((c) => c.role === Role.ARCH_NEMESIS);
+  assert.equal(nemeses.length, 1);
+  assert.equal(nemeses[0].id, 'kaden');
+
+  const rivals = chars.filter((c) => c.role === Role.RIVAL).map((c) => c.id).sort();
+  assert.deepEqual(rivals, ['alex', 'sato']);
+});
+
+test('every character id is unique', () => {
+  const ids = createAllProfiles().map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test('character ids are filesystem-safe slugs', () => {
+  // Names include Cyrillic, fraktur, Korean and emoji; ids must stay ASCII
+  // because they map directly onto portrait filenames.
+  for (const c of createAllProfiles()) {
+    assert.match(c.id, /^[a-z0-9_]+$/, `${c.name} -> ${c.id}`);
+  }
+});
+
+test('roleLabel covers every role in use', () => {
+  for (const c of createAllProfiles()) {
+    const label = roleLabel(c.role);
+    assert.ok(label && label !== '', `${c.id} has no role label`);
+  }
+  assert.equal(roleLabel(Role.ARCH_NEMESIS), 'Arch Nemesis');
+  assert.equal(roleLabel(Role.RIVAL), 'Rival');
+});
+
+test('unicode display names are preserved exactly', () => {
+  const byId = Object.fromEntries(createAllProfiles().map((c) => [c.id, c.name]));
+  assert.equal(byId.raul, '𝕽𝖆𝖚𝖑');
+  assert.equal(byId.kopung, 'Kopung (고풍)');
+  assert.equal(byId.renata, 'Renata 🦥');
+  assert.equal(byId.aril_stellar, 'Aril Stellar☯');
+  assert.equal(byId.siekamcebule, 'SiekamCebulę');
+  assert.equal(byId.qustoge, 'Qusтoge');
 });
 
 test('every character has full biography text', () => {
@@ -452,7 +515,7 @@ test('every character has full biography text', () => {
 test('the friend-name pool excludes the protagonist', () => {
   const gs = new GameState();
   const names = gs.getCharacterNames();
-  assert.equal(names.length, 13);
+  assert.equal(names.length, 77);
   assert.ok(!names.includes('Léon'));
 });
 

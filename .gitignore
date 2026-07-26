@@ -25,3 +25,6 @@ addons/ziva_agent/
 Thumbs.db
 *.tmp
 *.bak
+
+# Portable bundle produced for handoff (build artifact, see DEPLOY.md)
+*.bundle

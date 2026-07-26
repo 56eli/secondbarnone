@@ -1,13 +1,19 @@
 {
-  "name": "balance-of-spirit",
-  "version": "2.0.0",
+  "name": "secondbarnone",
+  "version": "2.1.0",
   "description": "A narrative balance game — split your days between a spiritual community and a bar.",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" --test-coverage-exclude=\"scripts/**\" --test-reporter=spec \"tests/**/*.test.js\"",
+    "coverage:check": "node scripts/coverage-gate.js",
     "serve": "node scripts/serve.js",
+    "assets": "./scripts/optimize-assets.sh",
     "check": "npm test && node scripts/check-assets.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
   },
   "license": "MIT"
 }

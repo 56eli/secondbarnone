@@ -51,5 +51,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Balance of Spirit → http://localhost:${PORT}`);
+  console.log(`secondbarnone → http://localhost:${PORT}`);
 });
