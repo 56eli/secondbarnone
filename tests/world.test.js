@@ -606,6 +606,13 @@ test('every location host has several deterministic character-specific small-tal
   assert.equal(smallTalkFor('nobody', 1), 'It is good to see you.');
 });
 
+test('retired task rewards remain discoverable through ordinary events', () => {
+  const grants = new Set(buildEventPool().map((event) => event.grantsItem).filter(Boolean));
+  for (const item of ['tip_jar', 'herbal_tonic', 'good_boots']) {
+    assert.ok(grants.has(item), `${item} must remain discoverable`);
+  }
+});
+
 test('every event is tied to a real character', () => {
   const ids = new Set(createAllProfiles().map((c) => c.id));
   const pool = buildEventPool();

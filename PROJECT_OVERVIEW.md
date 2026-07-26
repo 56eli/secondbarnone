@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 311 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 312 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -33,7 +33,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **311** |
+| Automated tests | 0 | **312** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -257,11 +257,11 @@ prunes orphans in one pass.
 
 ## Testing
 
-**311 tests** across six files.
+**312 tests** across six files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Six test files | **311** | Rules, catalogues, systems, DOM, UI, coverage edges |
+| Six test files | **312** | Rules, catalogues, systems, DOM, UI, coverage edges |
 
 The data tests are written as invariants over the whole catalogue rather than
 spot checks, which is how they earn their keep — they caught three real design

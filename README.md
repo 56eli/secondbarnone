@@ -29,7 +29,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **311** |
+| Automated tests | 0 | **312** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -52,7 +52,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 311 tests
+npm test                # 312 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity

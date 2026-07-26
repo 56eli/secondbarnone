@@ -45,6 +45,9 @@ feature was cut merely to make the interface sparse.
 - The deleted systems have been removed from state, turn resolution, UI,
   serialization and data imports; `v3` saves migrate their shared run data into
   the calmer `v4` shape while retired task/log fields are safely ignored.
+- The coherence pass found that two item rewards had only been available via
+  retired tasks. They now arrive through ordinary, character-led events, with a
+  test preventing those rewards from becoming stranded again.
 - All 22 locations now declare a deployable WebP background, and the asset
   check derives those references directly from the location catalogue.
 - The dialogue, nudge and social-event rules are covered by unit and jsdom UI
