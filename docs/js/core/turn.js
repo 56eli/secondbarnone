@@ -22,14 +22,14 @@ import { getLocation, Tag } from '../data/locations.js';
 /** Legacy copy table, still exported because the old tests and UI read it. */
 export const LOCATION_COPY = {
   spiritual_community: {
-    name: 'Spiritual Community',
+    name: 'La Maison Calme',
     actionDesc: 'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
-    historyLabel: 'Visited the Spiritual Community',
+    historyLabel: 'Visited La Maison Calme',
   },
   bar: {
-    name: 'The Bar',
+    name: 'Le Dernier Verre',
     actionDesc: 'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
-    historyLabel: 'Worked at the Bar',
+    historyLabel: 'Worked at Le Dernier Verre',
   },
 };
 

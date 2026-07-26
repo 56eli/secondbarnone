@@ -61,7 +61,6 @@ docs/js/
     locations.js     22 locations across 5 districts
     events.js        64 event definitions
     weather.js        9 weather types, derived per day
-    items.js         12 carryable items
     perks.js         10 perks in a prerequisite tree
     festivals.js      9 fixed calendar events
     achievements.js  22 predicates over a state snapshot

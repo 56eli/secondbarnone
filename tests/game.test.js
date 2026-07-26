@@ -441,7 +441,7 @@ test('a turn writes exactly one history line', () => {
   em.initialize(gs.getCharacterNames());
   resolveTurn(gs, em, 'bar');
   assert.equal(gs.recentHistory.length, 1);
-  assert.match(gs.recentHistory[0], /Worked at the Bar/);
+  assert.match(gs.recentHistory[0], /Worked at Le Dernier Verre/);
 });
 
 test('reported deltas match the actual stat change', () => {

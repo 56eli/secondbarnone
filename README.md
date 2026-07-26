@@ -90,7 +90,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       characters.js        78 characters
       locations.js         22 locations (each with a host)
       events.js            64 events (each with a character)
-      weather.js / items.js / perks.js
+      weather.js / perks.js
       festivals.js / achievements.js
     ui/screens.js          hub, map, location, practice, …
   assets/                  optimised WebP + SVG

@@ -103,7 +103,7 @@ function click(doc, selector, label) {
 }
 
 /** Play one full day at a hub location and dismiss the modal. */
-async function playDay(doc, label = 'The Bar') {
+async function playDay(doc, label = 'Le Dernier Verre') {
   click(doc, '.choice', label);
   await settle();
   doc.querySelector('.btn-primary').click();
@@ -156,7 +156,7 @@ maybe('the hub shows the weather line and a route into the city', async () => {
     const doc = window.document;
     assert.ok(doc.querySelector('.weather-badge'), 'weather badge');
     assert.ok(doc.querySelector('.choice-map'), 'map entry point');
-    assert.equal(doc.querySelectorAll('.hub-tools button').length, 4);
+    assert.equal(doc.querySelectorAll('.hub-tools button').length, 3);
   } finally { cleanup(window); }
 });
 
@@ -290,7 +290,7 @@ maybe('a location can be entered and played from the map', async () => {
     await settle();
 
     assert.ok(doc.querySelector('.location'));
-    assert.match(doc.querySelector('.screen-title').textContent, /Loft/);
+    assert.match(doc.querySelector('.screen-title').textContent, /Belleville Studio/);
 
     const before = gs.energy;
     doc.querySelector('.btn-primary').click();
@@ -306,7 +306,7 @@ maybe('a location previews the exact day it is offering', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
 
     const preview = doc.querySelector('.preview');
@@ -319,7 +319,7 @@ maybe('meeting a host shows character-specific small talk instead of their biogr
   const window = await boot();
   try {
     const doc = window.document;
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
     const talk = doc.querySelector('.small-talk');
     assert.ok(talk, 'hosts should greet Léon at a location');
@@ -402,7 +402,7 @@ maybe('the flavour-only specials render without a button', async () => {
     assert.match(doc.querySelector('.special-note').textContent, /Three days/);
 
     api.goto.location('farmers_market');
-    assert.match(doc.querySelector('.special-note').textContent, /crate/);
+    assert.equal(doc.querySelector('.special-note'), null, 'market has no retired inventory prompt');
   } finally { cleanup(window); }
 });
 
@@ -523,7 +523,7 @@ maybe('the modal reports weather, deltas and running totals', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -546,7 +546,7 @@ maybe('achievements raise a toast when earned', async () => {
     const { gs } = window.__game;
     gs.journeyDay = 7;   // one turn from "One Week Down" being true
 
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -582,7 +582,7 @@ maybe('a completed day is written to storage', async () => {
     const doc = window.document;
     assert.equal(storage.getItem(SAVE_KEY), null, 'nothing saved before a day is played');
 
-    await playDay(doc, 'The Bar');
+    await playDay(doc, 'Le Dernier Verre');
 
     const raw = storage.getItem(SAVE_KEY);
     assert.ok(raw, 'the run should be saved after continuing');
@@ -597,8 +597,8 @@ maybe('an existing save is resumed on boot', async () => {
   {
     const first = await boot({ storage });
     try {
-      await playDay(first.document, 'The Bar');
-      await playDay(first.document, 'Spiritual Community');
+      await playDay(first.document, 'Le Dernier Verre');
+      await playDay(first.document, 'La Maison Calme');
     } finally { cleanup(first); }
   }
 
@@ -614,7 +614,7 @@ maybe('autoload can be switched off', async () => {
   const storage = fakeStorage();
   {
     const first = await boot({ storage });
-    try { await playDay(first.document, 'The Bar'); } finally { cleanup(first); }
+    try { await playDay(first.document, 'Le Dernier Verre'); } finally { cleanup(first); }
   }
 
   const window = await boot({ storage, autoload: false });
@@ -627,7 +627,7 @@ maybe('the game runs with no storage at all', async () => {
   const window = await boot({ storage: null });
   try {
     const doc = window.document;
-    await playDay(doc, 'The Bar');
+    await playDay(doc, 'Le Dernier Verre');
     assert.ok(doc.querySelector('.hub'), 'a storageless browser must still play');
     assert.equal(window.__game.gs.journeyDay, 2);
   } finally { cleanup(window); }
@@ -647,11 +647,11 @@ maybe('game over wipes the save so a restart is clean', async () => {
   const window = await boot({ storage });
   try {
     const doc = window.document;
-    await playDay(doc, 'The Bar');
+    await playDay(doc, 'Le Dernier Verre');
     assert.ok(storage.getItem(SAVE_KEY));
 
     window.__game.gs.sanity = 1;
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -671,7 +671,7 @@ maybe('the game-over screen summarises the whole run', async () => {
     gs.sanity = 1;
     gs.achievements.add('first_week');
 
-    click(doc, '.choice', 'The Bar');
+    click(doc, '.choice', 'Le Dernier Verre');
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
