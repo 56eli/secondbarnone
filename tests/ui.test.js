@@ -119,10 +119,13 @@ maybe('the HUD shows four gauges, insight and today’s weather', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    assert.match(doc.getElementById('sanity-num').textContent, /50 \/ 100/);
-    assert.match(doc.getElementById('money-num').textContent, /50 \/ 100/);
-    assert.match(doc.getElementById('energy-num').textContent, /100 \/ 100/);
-    assert.match(doc.getElementById('rep-num').textContent, /10 \/ 100/);
+    assert.match(doc.getElementById('sanity-num').textContent, /50%/);
+    assert.match(doc.getElementById('money-num').textContent, /^50$/);
+    assert.match(doc.getElementById('energy-num').textContent, /100%/);
+    assert.match(doc.getElementById('rep-num').textContent, /10%/);
+    // Léon is always present in the HUD
+    assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
+    assert.ok(doc.getElementById('hud-portrait').getAttribute('src').includes('leon'));
     assert.match(doc.getElementById('insight-num').textContent, /🔮 0/);
 
     const weather = doc.getElementById('hud-weather').textContent;
@@ -900,7 +903,7 @@ maybe('restarting clears every accumulated system in the UI', async () => {
     assert.equal(gs.items.length, 0);
     assert.equal(gs.insight, 0);
     assert.match(doc.getElementById('insight-num').textContent, /🔮 0/);
-    assert.match(doc.getElementById('energy-num').textContent, /100 \/ 100/);
+    assert.match(doc.getElementById('energy-num').textContent, /100%/);
   } finally { cleanup(window); }
 });
 

@@ -32,6 +32,8 @@ import {
 import {
   ACHIEVEMENTS, getAchievement, evaluateAchievements,
 } from '../docs/js/data/achievements.js';
+import { createAllProfiles } from '../docs/js/data/characters.js';
+import { buildEventPool } from '../docs/js/data/events.js';
 
 // ============================================================== locations
 
@@ -572,7 +574,7 @@ test('getFestival resolves by id', () => {
 test('achievements are unique and fully described', () => {
   const ids = ACHIEVEMENTS.map((a) => a.id);
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal(ACHIEVEMENTS.length, 20);
+  assert.equal(ACHIEVEMENTS.length, 22);
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name.length > 2, `${a.id} name`);
     assert.ok(a.emoji.length > 0, `${a.id} emoji`);
@@ -614,8 +616,10 @@ test('every achievement has a snapshot that earns it', () => {
     wanderer: { visitedLocations: new Set(locationIds().slice(0, 8)) },
     cartographer: { visitedLocations: new Set(locationIds()) },
     flush: { money: 90 },
+    war_chest: { money: 150 },
     serene: { sanity: 90 },
     in_balance: { sanity: 71, money: 71 },
+    hundred_days: { journeyDay: 100 },
     well_known: { reputation: 60 },
     pillar: { reputation: 90 },
     student: { perks: new Set(perkIds().slice(0, 3)) },
@@ -667,4 +671,44 @@ test('District constants are all used by the order list', () => {
   for (const d of Object.values(District)) {
     assert.ok(DISTRICT_ORDER.includes(d), `${d} is declared but never displayed`);
   }
+});
+
+test('every location has a host who is a real character', () => {
+  const ids = new Set(createAllProfiles().map((c) => c.id));
+  for (const l of LOCATIONS) {
+    assert.ok(l.host, `${l.id} has no host`);
+    assert.ok(ids.has(l.host), `${l.id} host ${l.host} missing from cast`);
+  }
+});
+
+test('every event is tied to a real character', () => {
+  const ids = new Set(createAllProfiles().map((c) => c.id));
+  const pool = buildEventPool();
+  assert.ok(pool.length >= 64);
+  for (const e of pool) {
+    assert.ok(e.character, `${e.id} has no character`);
+    assert.ok(ids.has(e.character), `${e.id} → ${e.character}`);
+  }
+});
+
+test('Sato and Alex each have multi-beat arcs', () => {
+  const pool = buildEventPool();
+  const sato = pool.filter((e) => e.character === 'sato');
+  const alex = pool.filter((e) => e.character === 'alex');
+  assert.ok(sato.length >= 3, `sato events: ${sato.length}`);
+  assert.ok(alex.length >= 3, `alex events: ${alex.length}`);
+});
+
+test('hundred_days and war_chest achievements exist and fire', () => {
+  assert.ok(getAchievement('hundred_days'));
+  assert.ok(getAchievement('war_chest'));
+  const earned = evaluateAchievements({
+    journeyDay: 100, sanity: 50, money: 150, energy: 50, reputation: 10,
+    insight: 0, perks: new Set(), items: [], visitedLocations: new Set(),
+    totalLocations: 22, contractsCompleted: 0, rentPaidCount: 0,
+    nightDays: 0, festivalsSeen: 0, weatherId: 'clear', locationTags: [],
+  }, new Set());
+  const ids = earned.map((a) => a.id);
+  assert.ok(ids.includes('hundred_days'));
+  assert.ok(ids.includes('war_chest'));
 });

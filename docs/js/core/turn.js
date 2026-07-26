@@ -210,6 +210,9 @@ export function resolveTurn(gs, eventManager, locationId) {
   // 6 — achievements
   const achievements = gs.checkAchievements();
 
+  // 6b — soft win (does not end the run)
+  const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
+
   // 7 — game over
   const gameOver = gs.checkGameOver();
 
@@ -245,6 +248,8 @@ export function resolveTurn(gs, eventManager, locationId) {
     rentCharged,
     rentAmount: rentCharged || RENT_AMOUNT,
     gameOver,
+    justWon,
+    winMessage: justWon ? gs.winMessage : '',
     deltas,
     reasons,
     completedContracts,

@@ -11,7 +11,8 @@ import assert from 'node:assert/strict';
 
 import {
   GameState, saveStore, SAVE_KEY,
-  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, START_ENERGY, START_REPUTATION,
+  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_HARD_CEILING, MONEY_SOFT_CAP,
+  ENDURANCE_GOAL_DAYS, START_ENERGY, START_REPUTATION,
   ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, SATCHEL_CAPACITY, RENT_AMOUNT,
 } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
@@ -265,12 +266,13 @@ test('selling what you do not have pays nothing', () => {
   assert.equal(gs.sellItem('not_an_item'), 0);
 });
 
-test('a sale cannot push money over the cap', () => {
+test('a sale can push money past 100 — the wallet has no soft cap', () => {
   const gs = fresh();
   gs.money = MAX_STAT;
   gs.addItem('emergency_envelope');
-  gs.sellItem('emergency_envelope');
-  assert.equal(gs.money, MAX_STAT);
+  const got = gs.sellItem('emergency_envelope');
+  assert.equal(gs.money, MAX_STAT + got);
+  assert.ok(gs.money > 100);
 });
 
 test('mostValuableItem picks the best of what is carried', () => {
@@ -532,7 +534,7 @@ test('a turn at every location leaves the state valid', () => {
     const em = manager();
     const r = resolveTurn(gs, em, l.id);
     assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT, `${l.id} sanity`);
-    assert.ok(gs.money >= 0 && gs.money <= MAX_STAT, `${l.id} money`);
+    assert.ok(gs.money >= 0 && gs.money <= MONEY_HARD_CEILING, `${l.id} money`);
     assert.ok(gs.energy >= 0 && gs.energy <= MAX_ENERGY, `${l.id} energy`);
     assert.ok(gs.reputation >= 0 && gs.reputation <= MAX_REPUTATION, `${l.id} reputation`);
     assert.ok(gs.insight >= 0, `${l.id} insight`);
@@ -971,7 +973,7 @@ test('long randomised runs across the whole city never go invalid', () => {
     for (let turn = 0; turn < 200 && !gs.gameOver; turn++) {
       resolveTurn(gs, em, ids[Math.floor(rng.random() * ids.length)]);
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT, `sanity ${gs.sanity}`);
-      assert.ok(gs.money >= 0 && gs.money <= MAX_STAT, `money ${gs.money}`);
+      assert.ok(gs.money >= 0 && gs.money <= MONEY_HARD_CEILING, `money ${gs.money}`);
       assert.ok(gs.energy >= 0 && gs.energy <= MAX_ENERGY, `energy ${gs.energy}`);
       assert.ok(gs.reputation >= 0 && gs.reputation <= MAX_REPUTATION, `rep ${gs.reputation}`);
       assert.ok(Number.isFinite(gs.insight) && gs.insight >= 0);
@@ -1041,7 +1043,7 @@ test('items and perks together never break the invariants', () => {
   const em = manager(77);
   for (let i = 0; i < 80 && !gs.gameOver; i++) {
     resolveTurn(gs, em, LOCATIONS[i % LOCATIONS.length].id);
-    assert.ok(gs.sanity <= MAX_STAT && gs.money <= MAX_STAT && gs.energy <= MAX_ENERGY);
+    assert.ok(gs.sanity <= MAX_STAT && gs.money <= MONEY_HARD_CEILING && gs.energy <= MAX_ENERGY);
     if (!gs.gameOver) gs.advanceDay();
   }
 });
@@ -1063,4 +1065,65 @@ test('every item kind is exercised end to end', () => {
   assert.ok(gs.energy > 10);
   assert.ok(gs.sellItem(byKind[ItemKind.KEEPSAKE].id) > 0);
   assert.equal(gs.items.length, 1);
+});
+
+// ---------------- homely / money / win ----------------
+
+test('money is a separate uncapped resource that still ends the run at 0', () => {
+  const gs = fresh();
+  gs.applyDeltas({ money: 200 });
+  assert.ok(gs.money > 100);
+  gs.money = 0;
+  assert.equal(gs.checkGameOver(), true);
+  assert.match(gs.gameOverMessage, /broke/i);
+});
+
+test('checkWin fires once at the endurance goal and does not end the run', () => {
+  const gs = fresh();
+  gs.journeyDay = ENDURANCE_GOAL_DAYS;
+  assert.equal(gs.checkWin(), true);
+  assert.equal(gs.won, true);
+  assert.equal(gs.gameOver, false);
+  assert.equal(gs.checkWin(), false, 'only once');
+  assert.ok(gs.winMessage.length > 0);
+});
+
+test('getGreeting and getProtagonist always return something useful', () => {
+  const gs = fresh();
+  assert.ok(gs.getGreeting().length > 10);
+  const leon = gs.getProtagonist();
+  assert.equal(leon.id, 'leon');
+  assert.match(leon.name, /L/);
+  assert.ok(leon.portrait.includes('leon'));
+});
+
+test('every location names a real host character', () => {
+  const gs = fresh();
+  const ids = new Set(gs.getAllCharacters().map((c) => c.id));
+  for (const l of LOCATIONS) {
+    assert.ok(l.host, `${l.id} missing host`);
+    assert.ok(ids.has(l.host), `${l.id} host ${l.host} unknown`);
+  }
+});
+
+test('every event names a real character', () => {
+  const gs = fresh();
+  const ids = new Set(gs.getAllCharacters().map((c) => c.id));
+  for (const e of buildEventPool()) {
+    assert.ok(e.character, `${e.id} missing character`);
+    assert.ok(ids.has(e.character), `${e.id} character ${e.character} unknown`);
+  }
+});
+
+test('resolveTurn reports justWon when the endurance goal is crossed', () => {
+  const gs = fresh();
+  gs.journeyDay = ENDURANCE_GOAL_DAYS;
+  gs.sanity = 80;
+  gs.money = 80;
+  gs.energy = 80;
+  const em = manager(7);
+  const r = resolveTurn(gs, em, 'spiritual_community');
+  assert.equal(r.justWon, true);
+  assert.equal(gs.won, true);
+  assert.equal(r.gameOver, false);
 });

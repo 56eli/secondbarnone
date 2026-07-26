@@ -17,9 +17,19 @@ import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import { getContract, startContract, qualifies } from '../data/contracts.js';
 
+/** Cap for gauge stats (sanity / energy / reputation). Money is uncapped. */
 export const MAX_STAT = 100.0;
 export const START_SANITY = 50.0;
 export const START_MONEY = 50.0;
+
+/**
+ * Money is a wallet, not a gauge. It has no ceiling — you can earn past 100 —
+ * but still bottoms out at 0 and ends the run. `MONEY_SOFT_CAP` is only used by
+ * the HUD bar so a full track still means "comfortable", not "maxed".
+ */
+export const MONEY_SOFT_CAP = 100.0;
+/** Practical upper bound so a corrupted save cannot overflow display maths. */
+export const MONEY_HARD_CEILING = 99999.0;
 
 export const SANITY_GAIN = 15.0;
 export const SANITY_LOSS = 12.0;
@@ -40,6 +50,9 @@ export const START_REPUTATION = 10.0;
 
 /** Currency of the perk tree. Uncapped, spent not lost. */
 export const START_INSIGHT = 0;
+
+/** Soft win: hold the community this many journey days without breaking. */
+export const ENDURANCE_GOAL_DAYS = 100;
 
 /** Satchel size. Items beyond this cannot be picked up. */
 export const SATCHEL_CAPACITY = 6;
@@ -88,6 +101,9 @@ export class GameState {
     this.year = 2026;
     this.gameOver = false;
     this.gameOverMessage = '';
+    /** Set when the player reaches the endurance goal without dying. */
+    this.won = false;
+    this.winMessage = '';
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
@@ -257,7 +273,7 @@ export class GameState {
     const item = getItem(id);
     if (!item || !this.hasItem(id)) return 0;
     this.removeItem(id);
-    this.money = clamp(this.money + item.value, 0, MAX_STAT);
+    this.money = clamp(this.money + item.value, 0, MONEY_HARD_CEILING);
     this._statsChanged();
     return item.value;
   }
@@ -306,7 +322,8 @@ export class GameState {
    */
   applyDeltas(d = {}) {
     this.sanity = clamp(this.sanity + (d.sanity ?? 0), 0, MAX_STAT);
-    this.money = clamp(this.money + (d.money ?? 0), 0, MAX_STAT);
+    // Money is a wallet: floor at 0 (broke ends the run), no gameplay ceiling.
+    this.money = clamp(this.money + (d.money ?? 0), 0, MONEY_HARD_CEILING);
     this.energy = clamp(this.energy + (d.energy ?? 0), 0, MAX_ENERGY);
     this.reputation = clamp(this.reputation + (d.reputation ?? 0), 0, MAX_REPUTATION);
     this.insight = Math.max(this.insight + (d.insight ?? 0), 0);
@@ -394,7 +411,8 @@ export class GameState {
       this.money = Math.max(this.money - MONEY_LOSS, 0);
       this.consecutiveBarDays = 0;
     } else if (location === 'bar') {
-      this.money = Math.min(this.money + MONEY_GAIN, MAX_STAT);
+      // Money is uncapped — bar tips keep stacking past the old 100 ceiling.
+      this.money = Math.min(this.money + MONEY_GAIN, MONEY_HARD_CEILING);
       this.sanity = Math.max(this.sanity - SANITY_LOSS, 0);
       this.consecutiveBarDays += 1;
     }
@@ -417,17 +435,53 @@ export class GameState {
     if (this.gameOver) return true;
     if (this.sanity <= 0) {
       this.gameOver = true;
+      this.won = false;
       this.gameOverMessage = 'Your sanity has crumbled. The spiritual path was neglected too long.';
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
     }
     if (this.money <= 0) {
       this.gameOver = true;
-      this.gameOverMessage = 'You\u2019re broke. The bills pile up and you can\u2019t sustain the community.';
+      this.won = false;
+      this.gameOverMessage = "You're broke. The bills pile up and you can't sustain the community.";
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
     }
     return false;
+  }
+
+  /**
+   * Soft win: survive ENDURANCE_GOAL_DAYS without breaking. Does not end the
+   * run — the player may keep going — but flags the moment once.
+   * @returns {boolean} true the first time the goal is reached
+   */
+  checkWin() {
+    if (this.won || this.gameOver) return false;
+    if (this.journeyDay < ENDURANCE_GOAL_DAYS) return false;
+    this.won = true;
+    this.winMessage = 'One hundred days. The community still stands, the bar still opens, and you are still here. That is enough.';
+    this.emit('win_triggered', this.winMessage);
+    return true;
+  }
+
+  /** Time-of-day greeting based on weekday and season — pure flavour. */
+  getGreeting() {
+    const day = this.getWeekdayName();
+    const season = this.getSeason();
+    if (day === 'Sunday') return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
+    if (day === 'Monday') return 'Monday. The week opens its hands and asks what you will put in them.';
+    if (day === 'Friday') return 'Friday evening light. People are kinder to themselves, and to you.';
+    if (day === 'Saturday') return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
+    if (season === 'Winter') return `${day}. Cold enough that the kettle feels like a small kindness.`;
+    if (season === 'Spring') return `${day}. Something is beginning, whether you are ready or not.`;
+    if (season === 'Summer') return `${day}. The light lasts longer than your patience, some days.`;
+    return `${day}. Autumn air, and the sense that the year is keeping score.`;
+  }
+
+  /** Léon himself — always available for the HUD portrait. */
+  getProtagonist() {
+    return this.characterProfiles.find((p) => p.id === 'leon')
+      ?? { id: 'leon', name: 'Léon', portrait: 'assets/portraits/leon.webp', role: 'protagonist' };
   }
 
   // ---------------- contracts ----------------
@@ -562,6 +616,7 @@ export class GameState {
     if (this.isExhausted) return 'You are upright, solvent, and completely out of road.';
     if (s > 80 && m > 80) return 'Life feels balanced and full of possibility.';
     if (s > 80) return 'Your spirit soars. The community work is deeply fulfilling.';
+    if (m > 150) return 'The wallet is heavy. The soul still asks what the money is for.';
     if (m > 80) return 'Financially comfortable, but the soul needs tending too.';
     return 'You are managing. Not thriving, but surviving.';
   }
@@ -594,6 +649,8 @@ export class GameState {
       year: this.year,
       gameOver: this.gameOver,
       gameOverMessage: this.gameOverMessage,
+      won: this.won,
+      winMessage: this.winMessage,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       lastRentDayOfMonth: this._lastRentDayOfMonth,
@@ -622,7 +679,7 @@ export class GameState {
     const arr = (v) => (Array.isArray(v) ? v : []);
 
     this.sanity = clamp(num(data.sanity, START_SANITY), 0, MAX_STAT);
-    this.money = clamp(num(data.money, START_MONEY), 0, MAX_STAT);
+    this.money = clamp(num(data.money, START_MONEY), 0, MONEY_HARD_CEILING);
     this.energy = clamp(num(data.energy, START_ENERGY), 0, MAX_ENERGY);
     this.reputation = clamp(num(data.reputation, START_REPUTATION), 0, MAX_REPUTATION);
     this.insight = Math.max(num(data.insight, 0), 0);
@@ -633,6 +690,8 @@ export class GameState {
     this.year = num(data.year, 2026);
     this.gameOver = Boolean(data.gameOver);
     this.gameOverMessage = typeof data.gameOverMessage === 'string' ? data.gameOverMessage : '';
+    this.won = Boolean(data.won);
+    this.winMessage = typeof data.winMessage === 'string' ? data.winMessage : '';
 
     this.consecutiveBarDays = num(data.consecutiveBarDays, 0);
     this.lastLocationVisited = typeof data.lastLocationVisited === 'string' ? data.lastLocationVisited : '';

@@ -1,7 +1,7 @@
 {
   "name": "secondbarnone",
-  "version": "2.1.0",
-  "description": "A narrative balance game — split your days between a spiritual community and a bar.",
+  "version": "2.2.0",
+  "description": "A narrative balance game \u2014 L\u00e9on, a spiritual community, a bar, and a city full of people.",
   "type": "module",
   "private": true,
   "scripts": {

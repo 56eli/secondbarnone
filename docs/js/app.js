@@ -11,7 +11,7 @@
  */
 
 import {
-  GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, saveStore,
+  GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
@@ -45,6 +45,8 @@ export function initGame(opts = {}) {
     date: document.getElementById('hud-date'),
     day: document.getElementById('hud-day'),
     weather: document.getElementById('hud-weather'),
+    portrait: document.getElementById('hud-portrait'),
+    name: document.getElementById('hud-name'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
     sanityBar: document.getElementById('sanity-bar'),
@@ -77,11 +79,26 @@ export function initGame(opts = {}) {
     const weather = gs.getWeather();
     setText(dom.weather, `${weather.emoji} ${weather.name}`);
 
+    // Léon stays on every page — portrait + name in the HUD.
+    const leon = typeof gs.getProtagonist === 'function' ? gs.getProtagonist() : null;
+    if (leon) {
+      if (dom.portrait && dom.portrait.getAttribute('src') !== leon.portrait) {
+        dom.portrait.setAttribute('src', leon.portrait);
+        dom.portrait.setAttribute('alt', leon.name);
+      }
+      setText(dom.name, leon.name);
+    }
+
     const sLow = gs.sanity < 25;
     const mLow = gs.money < 25;
+    const sPct = Math.round((gs.sanity / MAX_STAT) * 100);
+    const ePct = Math.round((gs.energy / MAX_ENERGY) * 100);
+    const rPct = Math.round((gs.reputation / MAX_REPUTATION) * 100);
+    // Money bar is a comfort meter against the soft cap; the number is uncapped.
+    const mComfort = Math.min(100, Math.round((gs.money / MONEY_SOFT_CAP) * 100));
 
     setBar(dom.sanityBar, gs.sanity, MAX_STAT);
-    setBar(dom.moneyBar, gs.money, MAX_STAT);
+    setBar(dom.moneyBar, Math.min(gs.money, MONEY_SOFT_CAP), MONEY_SOFT_CAP);
     setBar(dom.energyBar, gs.energy, MAX_ENERGY);
     setBar(dom.repBar, gs.reputation, MAX_REPUTATION);
 
@@ -94,11 +111,24 @@ export function initGame(opts = {}) {
     dom.sanityLabel?.classList.toggle('low', sLow);
     dom.moneyLabel?.classList.toggle('low', mLow);
 
-    setText(dom.sanityNum, `${Math.round(gs.sanity)} / ${MAX_STAT}`);
-    setText(dom.moneyNum, `${Math.round(gs.money)} / ${MAX_STAT}`);
-    setText(dom.energyNum, `${Math.round(gs.energy)} / ${MAX_ENERGY}`);
-    setText(dom.repNum, `${Math.round(gs.reputation)} / ${MAX_REPUTATION}`);
+    setText(dom.sanityNum, `${sPct}%`);
+    setText(dom.moneyNum, `${Math.round(gs.money)}`);
+    setText(dom.energyNum, `${ePct}%`);
+    setText(dom.repNum, `${rPct}%`);
     setText(dom.insight, `🔮 ${gs.insight}`);
+
+    // Keep aria meters honest.
+    const setMeter = (bar, now, max) => {
+      const track = bar?.parentElement;
+      if (track?.getAttribute('role') === 'meter') {
+        track.setAttribute('aria-valuenow', String(Math.round(now)));
+        track.setAttribute('aria-valuemax', String(max));
+      }
+    };
+    setMeter(dom.sanityBar, sPct, 100);
+    setMeter(dom.moneyBar, mComfort, 100);
+    setMeter(dom.energyBar, ePct, 100);
+    setMeter(dom.repBar, rPct, 100);
   }
 
   /** Floating +N / −N indicator. */
@@ -146,6 +176,11 @@ export function initGame(opts = {}) {
       onContracts: () => transitionTo(contractsScreen),
       onAlmanac: () => transitionTo(almanacScreen),
       onJournal: () => transitionTo(journalScreen),
+      onAcceptContract: (id) => {
+        if (gs.acceptContract(id)) toast('Commitment accepted.');
+        else toast('You cannot take that on right now.');
+        showScreen(hubScreen());
+      },
     });
   }
 
@@ -236,6 +271,7 @@ export function initGame(opts = {}) {
     flashDelta(dom.sanityDelta, result.deltas.sanity);
     flashDelta(dom.moneyDelta, result.deltas.money);
     for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
+    if (result.justWon) toast(`🏅 ${result.winMessage || 'One hundred days.'}`);
 
     if (result.gameOver) {
       saveStore.clear(storage);

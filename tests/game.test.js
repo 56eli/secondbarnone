@@ -10,8 +10,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, MAX_STAT, START_SANITY, START_MONEY, RENT_AMOUNT,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
+  GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
+  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS, ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
@@ -112,14 +112,25 @@ test('visiting the community resets the consecutive bar counter', () => {
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
-test('stats never exceed MAX_STAT or fall below zero', () => {
+test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
   gs.applyEventDeltas(999, 999);
   assert.equal(gs.sanity, MAX_STAT);
-  assert.equal(gs.money, MAX_STAT);
-  gs.applyEventDeltas(-999, -999);
+  assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
+  assert.ok(gs.money > MAX_STAT);
+  gs.applyEventDeltas(-99999, -99999);
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
+});
+
+test('money can grow well past 100 without being clamped', () => {
+  const gs = new GameState();
+  gs.money = 95;
+  gs.applyLocationAction('bar');
+  assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
+  gs.applyDeltas({ money: 500 });
+  assert.ok(gs.money >= 500);
+  assert.ok(gs.money <= MONEY_HARD_CEILING);
 });
 
 // --------------------------------------------------------------- rent
@@ -220,14 +231,14 @@ test('mood reflects combined stat pressure', () => {
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  assert.equal(pool.length, 58);
+  assert.equal(pool.length, 64);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
   assert.equal(std + helpful + hurtful, pool.length);
-  assert.equal(std, 39);
-  assert.equal(helpful, 12);
-  assert.equal(hurtful, 7);
+  assert.equal(std, 42);
+  assert.equal(helpful, 14);
+  assert.equal(hurtful, 8);
 });
 
 test('every event has a unique id', () => {
@@ -428,7 +439,7 @@ test('a full turn applies action, rent and event in order', () => {
   assert.equal(r.rentCharged, RENT_AMOUNT);
   // The day's money effect, minus rent, plus any event delta.
   const expected = before + total.money - RENT_AMOUNT + (r.event?.moneyDelta ?? 0);
-  assert.equal(gs.money, Math.min(Math.max(expected, 0), MAX_STAT));
+  assert.equal(gs.money, Math.max(expected, 0));
 });
 
 test('a turn writes exactly one history line', () => {
@@ -466,7 +477,7 @@ test('a long random playthrough never produces invalid state', () => {
     for (let turn = 0; turn < 300 && !gs.gameOver; turn++) {
       resolveTurn(gs, em, rng.random() < 0.5 ? 'bar' : 'spiritual_community');
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT, `sanity ${gs.sanity} out of range`);
-      assert.ok(gs.money >= 0 && gs.money <= MAX_STAT, `money ${gs.money} out of range`);
+      assert.ok(gs.money >= 0 && gs.money <= MONEY_HARD_CEILING, `money ${gs.money} out of range`);
       assert.ok(Number.isFinite(gs.sanity) && Number.isFinite(gs.money));
       assert.ok(gs.recentHistory.length <= 5);
       if (!gs.gameOver) gs.advanceDay();

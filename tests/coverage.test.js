@@ -360,7 +360,7 @@ test('stats stay clamped through a long adversarial event sequence', () => {
     for (const m of swings) {
       gs.applyEventDeltas(s, m);
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT);
-      assert.ok(gs.money >= 0 && gs.money <= MAX_STAT);
+      assert.ok(gs.money >= 0 && gs.money <= 99999);
     }
   }
 });
@@ -372,6 +372,7 @@ test('portrait extensions match the painted / generated split', () => {
     'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
     'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
     'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
+    'yun', 'marlies', 'mateo', 'luca', 'cheezl',
   ]);
   for (const c of createAllProfiles()) {
     const expected = painted.has(c.id) ? 'webp' : 'svg';

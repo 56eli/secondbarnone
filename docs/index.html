@@ -20,8 +20,14 @@
 
   <header id="hud">
     <div class="hud-top">
-      <span class="hud-title">secondbarnone</span>
-      <span>
+      <div class="hud-identity" id="hud-identity">
+        <img class="hud-portrait" id="hud-portrait" src="assets/portraits/leon.webp" alt="Léon" width="44" height="44">
+        <div class="hud-identity-text">
+          <span class="hud-name" id="hud-name">Léon</span>
+          <span class="hud-title">secondbarnone</span>
+        </div>
+      </div>
+      <span class="hud-meta-right">
         <span class="hud-weather" id="hud-weather">☀️ Clear</span>
         <span class="hud-date" id="hud-date">Thursday, January 1, 2026</span>
         <span class="hud-day" id="hud-day">Journey Day 1</span>
@@ -29,30 +35,38 @@
       </span>
     </div>
 
-    <div class="stat-row">
+    <div class="stat-row" data-stat="sanity">
       <span class="stat-label" id="sanity-label">🧘 Sanity</span>
-      <span class="bar-track"><span class="bar-fill sanity" id="sanity-bar"></span></span>
-      <span class="stat-num" id="sanity-num">50 / 100</span>
+      <span class="bar-track" role="meter" aria-label="Sanity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+        <span class="bar-fill sanity" id="sanity-bar"></span>
+      </span>
+      <span class="stat-num" id="sanity-num">50%</span>
       <span class="delta" id="sanity-delta" aria-hidden="true"></span>
     </div>
 
-    <div class="stat-row">
+    <div class="stat-row" data-stat="money">
       <span class="stat-label" id="money-label">💰 Money</span>
-      <span class="bar-track"><span class="bar-fill money" id="money-bar"></span></span>
-      <span class="stat-num" id="money-num">50 / 100</span>
+      <span class="bar-track money-track" role="meter" aria-label="Money comfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+        <span class="bar-fill money" id="money-bar"></span>
+      </span>
+      <span class="stat-num" id="money-num">50</span>
       <span class="delta" id="money-delta" aria-hidden="true"></span>
     </div>
 
-    <div class="stat-row">
+    <div class="stat-row" data-stat="energy">
       <span class="stat-label" id="energy-label">⚡ Energy</span>
-      <span class="bar-track"><span class="bar-fill energy" id="energy-bar"></span></span>
-      <span class="stat-num" id="energy-num">100 / 100</span>
+      <span class="bar-track" role="meter" aria-label="Energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+        <span class="bar-fill energy" id="energy-bar"></span>
+      </span>
+      <span class="stat-num" id="energy-num">100%</span>
     </div>
 
-    <div class="stat-row">
+    <div class="stat-row" data-stat="reputation">
       <span class="stat-label" id="rep-label">🤝 Reputation</span>
-      <span class="bar-track"><span class="bar-fill rep" id="rep-bar"></span></span>
-      <span class="stat-num" id="rep-num">10 / 100</span>
+      <span class="bar-track" role="meter" aria-label="Reputation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
+        <span class="bar-fill rep" id="rep-bar"></span>
+      </span>
+      <span class="stat-num" id="rep-num">10%</span>
     </div>
   </header>
 

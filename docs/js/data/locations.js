@@ -57,6 +57,8 @@ function loc(cfg) {
     unlock: {},
     special: null,
     bg: '',
+    /** Side character who "keeps" this place — shown on the location card. */
+    host: '',
     ...cfg,
     effects: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.effects },
     unlock: { minDay: 1, minReputation: 0, ...cfg.unlock },
@@ -67,6 +69,7 @@ export const LOCATIONS = [
   // ------------------------------------------------------------- core two
   loc({
     id: 'spiritual_community',
+    host: 'geo',
     name: 'Spiritual Community',
     emoji: '🧘',
     district: District.RIVERSIDE,
@@ -80,6 +83,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'bar',
+    host: 'barret',
     name: 'The Bar',
     emoji: '🍻',
     district: District.OLD_TOWN,
@@ -95,6 +99,7 @@ export const LOCATIONS = [
   // --------------------------------------------------------- Home Quarter
   loc({
     id: 'home_loft',
+    host: 'leon',
     name: 'The Loft',
     emoji: '🛏️',
     district: District.HOME,
@@ -105,9 +110,11 @@ export const LOCATIONS = [
     tags: [Tag.REST, Tag.INDOOR, Tag.QUIET],
     // A rest day still costs you: you eat, and you earn nothing.
     effects: eff(4, -3, 34, 0, 0),
+    bg: 'assets/backgrounds/home_loft.webp',
   }),
   loc({
     id: 'rooftop',
+    host: 'yume',
     name: 'The Rooftop',
     emoji: '🌃',
     district: District.HOME,
@@ -122,6 +129,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'free_clinic',
+    host: 'susan',
     name: 'The Free Clinic',
     emoji: '🩺',
     district: District.HOME,
@@ -132,9 +140,11 @@ export const LOCATIONS = [
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR],
     effects: eff(6, -4, -14, 7, 1),
     unlock: { minDay: 8 },
+    bg: 'assets/backgrounds/free_clinic.webp',
   }),
   loc({
     id: 'soup_kitchen',
+    host: 'siekamcebule',
     name: 'The Soup Kitchen',
     emoji: '🍲',
     district: District.HOME,
@@ -150,6 +160,7 @@ export const LOCATIONS = [
   // ------------------------------------------------------------ Riverside
   loc({
     id: 'river_walk',
+    host: 'joar',
     name: 'The River Walk',
     emoji: '🌊',
     district: District.RIVERSIDE,
@@ -165,6 +176,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'community_garden',
+    host: 'brock_lee',
     name: 'The Community Garden',
     emoji: '🌱',
     district: District.RIVERSIDE,
@@ -179,6 +191,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'farmers_market',
+    host: 'ahyeon',
     name: 'The Farmers Market',
     emoji: '🥬',
     district: District.RIVERSIDE,
@@ -190,9 +203,11 @@ export const LOCATIONS = [
     effects: eff(2, 8, -10, 2, 0),
     unlock: { minDay: 3 },
     special: 'gift_item',
+    bg: 'assets/backgrounds/farmers_market.webp',
   }),
   loc({
     id: 'bathhouse',
+    host: 'renata',
     name: 'The Old Bathhouse',
     emoji: '♨️',
     district: District.RIVERSIDE,
@@ -209,6 +224,7 @@ export const LOCATIONS = [
   // ------------------------------------------------------------- Old Town
   loc({
     id: 'night_market',
+    host: 'cheezl',
     name: 'The Night Market',
     emoji: '🏮',
     district: District.OLD_TOWN,
@@ -223,6 +239,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'flea_market',
+    host: 'baris',
     name: 'The Flea Market',
     emoji: '🧺',
     district: District.OLD_TOWN,
@@ -236,6 +253,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'public_library',
+    host: 'lou',
     name: 'The Public Library',
     emoji: '📚',
     district: District.OLD_TOWN,
@@ -250,6 +268,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'pawn_shop',
+    host: 'stephen',
     name: 'Verrier & Son, Pawnbrokers',
     emoji: '💍',
     district: District.OLD_TOWN,
@@ -264,6 +283,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'radio_station',
+    host: 'hawkinstv',
     name: 'Pirate Radio 88.3',
     emoji: '📻',
     district: District.OLD_TOWN,
@@ -274,9 +294,11 @@ export const LOCATIONS = [
     tags: [Tag.COMMUNITY, Tag.INDOOR, Tag.NIGHT, Tag.SOCIAL],
     effects: eff(4, 3, -10, 12, 1),
     unlock: { minDay: 7, minReputation: 40 },
+    bg: 'assets/backgrounds/radio_station.webp',
   }),
   loc({
     id: 'open_mic',
+    host: 'klaudia',
     name: 'The Open Mic',
     emoji: '🎤',
     district: District.OLD_TOWN,
@@ -292,6 +314,7 @@ export const LOCATIONS = [
   // --------------------------------------------------------------- Uptown
   loc({
     id: 'landlord_office',
+    host: 'kaden',
     name: 'The Letting Office',
     emoji: '📄',
     district: District.UPTOWN,
@@ -306,6 +329,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'sato_studio',
+    host: 'sato',
     name: 'Sato\u2019s Wellness Studio',
     emoji: '🕯️',
     district: District.UPTOWN,
@@ -316,9 +340,11 @@ export const LOCATIONS = [
     tags: [Tag.WORK, Tag.RIVAL, Tag.INDOOR, Tag.SPIRITUAL],
     effects: eff(-8, 15, -16, -3, 1),
     unlock: { minDay: 10 },
+    bg: 'assets/backgrounds/sato_studio.webp',
   }),
   loc({
     id: 'alex_cocktail_bar',
+    host: 'alex',
     name: 'Vermillion (Alex\u2019s Bar)',
     emoji: '🍸',
     district: District.UPTOWN,
@@ -335,6 +361,7 @@ export const LOCATIONS = [
   // ------------------------------------------------------------ Outskirts
   loc({
     id: 'memorial_garden',
+    host: 'marlies',
     name: 'The Memorial Garden',
     emoji: '🕊️',
     district: District.OUTSKIRTS,
@@ -349,6 +376,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'temple_ruins',
+    host: 'iulian',
     name: 'The Temple Ruins',
     emoji: '⛩️',
     district: District.OUTSKIRTS,
@@ -363,6 +391,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'mountain_retreat',
+    host: 'geo',
     name: 'The Mountain Retreat',
     emoji: '🏔️',
     district: District.OUTSKIRTS,
