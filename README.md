@@ -1,9 +1,16 @@
 # secondbarnone
 
 A small narrative balance game. You play Léon, who runs a spiritual community by
-day and tends bar by night. Every day you pick one. The community restores your
-sanity but costs money; the bar pays but grinds you down. Rent hits every Sunday.
-Let either stat reach zero and the run ends.
+day and tends bar by night. Every day you pick one place to be. The community
+restores your sanity but costs money; the bar pays but grinds you down. Rent hits
+every Sunday. Let sanity or money reach zero and the run ends.
+
+Those two places are where you start. There are **22 locations across five
+districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
+night market, a pirate radio station, a temple ruin an hour out on the bus.
+Weather is written down four days in advance and closes the outdoor ones.
+Insight buys perks, contracts ask you to plan a week, and the satchel holds six
+things at a time.
 
 **Play:** https://56eli.github.io/secondbarnone/
 
@@ -33,9 +40,9 @@ Rewritten as vanilla ES modules, the source **is** the build:
 
 | | Godot version | This version |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~940 KB** (40× smaller) |
+| Deploy payload | 39.5 MB | **~1.7 MB** (23× smaller) |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **107** |
+| Automated tests | 0 | **321** |
 | Coverage | — | **~99%** |
 
 ## Running locally
@@ -54,7 +61,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 107 tests
+npm test                # 321 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity

@@ -22,8 +22,10 @@
     <div class="hud-top">
       <span class="hud-title">secondbarnone</span>
       <span>
+        <span class="hud-weather" id="hud-weather">☀️ Clear</span>
         <span class="hud-date" id="hud-date">Thursday, January 1, 2026</span>
         <span class="hud-day" id="hud-day">Journey Day 1</span>
+        <span class="hud-insight" id="insight-num">🔮 0</span>
       </span>
     </div>
 
@@ -40,6 +42,18 @@
       <span class="stat-num" id="money-num">50 / 100</span>
       <span class="delta" id="money-delta" aria-hidden="true"></span>
     </div>
+
+    <div class="stat-row">
+      <span class="stat-label" id="energy-label">⚡ Energy</span>
+      <span class="bar-track"><span class="bar-fill energy" id="energy-bar"></span></span>
+      <span class="stat-num" id="energy-num">100 / 100</span>
+    </div>
+
+    <div class="stat-row">
+      <span class="stat-label" id="rep-label">🤝 Reputation</span>
+      <span class="bar-track"><span class="bar-fill rep" id="rep-bar"></span></span>
+      <span class="stat-num" id="rep-num">10 / 100</span>
+    </div>
   </header>
 
   <main id="content"></main>
@@ -51,6 +65,7 @@
 
 </div>
 
+<div id="toasts" aria-live="polite"></div>
 <div id="fade"></div>
 
 <script type="module" src="js/main.js"></script>

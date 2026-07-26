@@ -12,18 +12,20 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createAllProfiles } from '../docs/js/data/characters.js';
+import { LOCATIONS } from '../docs/js/data/locations.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
 
 /** Assets referenced from CSS/JS that aren't character portraits. */
 const STATIC_REFS = [
-  'assets/backgrounds/bar.webp',
-  'assets/backgrounds/spiritual_community.webp',
   'assets/backgrounds/hub_background.svg',
   'index.html',
   'css/style.css',
   'js/main.js',
+  // Every background named by a location, derived rather than hand-listed so
+  // adding a location to the catalogue cannot silently ship a broken path.
+  ...LOCATIONS.map((l) => l.bg).filter(Boolean),
 ];
 
 const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this

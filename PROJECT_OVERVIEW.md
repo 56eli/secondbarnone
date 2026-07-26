@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 107 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 321 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 
 ---
@@ -29,7 +29,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~940 KB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **107** |
+| Automated tests | 0 | **321** |
 | Coverage | — | **~99%** |
 
 The legacy `scripts/*.gd`, `scenes/*.tscn` and `project.godot` files remain in
@@ -46,18 +46,29 @@ the document lives in `ui/` and `app.js`.
 ```
 docs/js/
   main.js            entry point — calls initGame() and nothing else
-  app.js             wiring: HUD, screen switching, modal, game over
+  app.js             wiring: HUD, screens, modal, toasts, autosave, game over
   core/
-    game-state.js    stats, calendar, history, season/mood, signals
+    game-state.js    stats, calendar, satchel, perks, contracts, save/load
     event-manager.js event scheduling and weighted selection
-    turn.js          resolves one turn in a fixed order
+    turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
     characters.js    78 character profiles
-    events.js        29 event definitions
+    locations.js     22 locations across 5 districts
+    events.js        58 event definitions
+    weather.js        9 weather types, derived per day
+    items.js         12 carryable items
+    perks.js         10 perks in a prerequisite tree
+    contracts.js      8 multi-day commitments
+    festivals.js      9 fixed calendar events
+    achievements.js  20 predicates over a state snapshot
   ui/
-    screens.js       hub, location, characters, modal, game-over renderers
+    screens.js       hub, map, location, satchel, practice, commitments,
+                     almanac, journal, characters, modal, game over
 ```
+
+Every module under `data/` is pure data plus pure helpers, which is why the
+test suite can assert over the whole catalogue rather than sampling it.
 
 ### Why `app.js` is separate from `main.js`
 
@@ -88,62 +99,94 @@ list, so a handler may safely unsubscribe mid-dispatch.
 
 ## Game rules
 
-### Stats
+### Resources
 
-Both start at **50**, capped at **100**, floored at **0**.
+| | Start | Max | What it is |
+|---|---|---|---|
+| **Sanity** | 50 | 100 | Reaching 0 ends the run |
+| **Money** | 50 | 100 | Reaching 0 ends the run |
+| **Energy** | 100 | 100 | Recovers overnight; running low costs sanity |
+| **Reputation** | 10 | 100 | Gates locations and contracts |
+| **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
 
-| Action | Sanity | Money |
-|---|---|---|
-| Spiritual Community | **+15** | **−10** |
-| The Bar | **−12** | **+12** |
-| Sunday rent | — | **−18** |
+The two founding locations keep their original numbers exactly — Spiritual
+Community is still +15/−10 and the Bar is still +12/−12 — so the opening of a
+run plays as it always did. Everything else is layered on top.
 
-Reaching **0** in either stat ends the run, with a message specific to which
-stat broke.
+**Exhaustion.** Below 25 energy every action costs extra sanity, scaling to −6
+at empty. `Second Wind` widens the threshold and softens the fall.
 
-### Calendar
+### Locations
 
-Starts **Thursday, 1 January 2026** and advances one day per completed action.
-Full Gregorian handling including month lengths, leap years and year rollover —
-so a long run correctly passes through 29 February 2028.
+**22 locations across 5 districts.** Each carries tags (`quiet`, `night`,
+`market`, `pilgrimage`, …) which are the join key for the whole game: weather
+modifies by tag, perks bonus by tag, events gate by tag, and contracts count
+qualifying days by tag.
 
-Rent is charged on Sundays only, and at most once per Sunday. The guard is keyed
-on day-of-month and is cleared by `resetGame()`.
+Locations unlock on journey day, reputation, weekday, or a required perk/item.
+A fresh run can reach three places; a long, well-regarded one can reach all 22.
+
+Every location costs something — money, energy or sanity. That invariant is
+enforced by test, because a free location would collapse the decision.
+
+### Weather
+
+**9 types, derived not rolled.** `weatherForDay(day, seed, season)` is a pure
+function of an FNV-1a hash, so the forecast can be read four days ahead in the
+almanac without rolling anything, and a save restores the exact same sky.
+
+Weather modifies effects by tag and can close tags outright — a storm shuts
+every outdoor location unless you are carrying the rain shell. Snow is
+winter-only, heatwaves are summer-only, blossom wind is spring-only.
+
+### Rent
+
+Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk,
+skippable by paying ahead at the letting office, and waived entirely on
+Rent Amnesty Day.
+
+### Items, perks and contracts
+
+- **12 items** in a 6-slot satchel: passives modify every turn, consumables are
+  spent once, keepsakes are inert but pawnable.
+- **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
+  acyclic and declared in a buyable order.
+- **8 contracts** — N qualifying days inside a deadline. Three at a time.
+  Meeting one pays; missing one costs reputation. This is what makes a run
+  about planning a week rather than a day.
+- **9 festivals** on fixed calendar dates, and **20 achievements** expressed as
+  pure predicates over a state snapshot.
 
 ### Events
 
-29 events, each gated to one location.
+**58 events.** Gated by location id, by location tag, by weather, or by a
+minimum day — enforced by test, so no event can fire anywhere at any time.
+Kaden finally has his own arc: four events that escalate the rent pressure
+from refiled paperwork to a buyout offer on very good paper.
 
-| Rarity | Weight | Count |
-|---|---|---|
-| Common | 10 | 20 |
-| Rare (Helpful) | 2 | 4 |
-| Rare (Hurtful) | 2 | 5 |
-
-Scheduling is **deterministic, not probabilistic**: after each event the next is
-scheduled 2–5 journey-days ahead, and when that day arrives an event fires.
-
-Additional gates:
-
-- **Location** — only events matching the chosen location are eligible.
-- **Burnout** — requires 3+ consecutive bar days.
-- **Friend events** — skipped when no character names are available.
-- **No immediate repeats** — the previous event is filtered out when possible.
-- `minimumDay` and `allowedWeekdays` are supported per event (unused by the
-  shipped pool, but honoured and tested).
+Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
+the last four events filtered out of the pool to avoid repetition.
 
 ### Turn order
 
 `resolveTurn()` in `core/turn.js` applies, in this exact order:
 
-1. the location action
-2. Sunday rent
-3. the scheduled random event
-4. the game-over check
-5. one history line
+1. the day's effects — location, weather, festival, perks, items
+2. the exhaustion penalty
+3. Sunday rent
+4. the scheduled random event, scaled by perks
+5. contract credit
+6. achievements
+7. the game-over check
+8. one history line and one journal entry
 
-Order matters: rent lands before the event, so an event can pull a player back
-from the brink that rent pushed them toward.
+Order still matters: rent lands before the event, so an event can pull a player
+back from the brink that rent pushed them toward.
+
+Step 1 is factored out as `computeDayEffects()`, which is also what the UI
+calls to show the exact numbers a location is offering *before* the player
+commits. The preview and the resolution cannot drift, because they are the
+same function.
 
 ---
 
@@ -187,6 +230,12 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 **11 painted portraits** (Léon, six community and bar regulars, plus the three
 antagonists) rendered as WebP at 512px.
 
+**10 painted location backgrounds** for the rooftop, river walk, community
+garden, bathhouse, night market, library, cocktail bar, memorial garden,
+temple ruins and mountain retreat — WebP at 1000px, 33–108 KB each. Background
+paths are derived from the location catalogue by `scripts/check-assets.js`, so
+adding a location cannot silently ship a broken image path.
+
 **67 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
 the same id always produces the same face, so regenerating never churns the
 diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
@@ -204,23 +253,33 @@ prunes orphans in one pass.
 
 ## Testing
 
-**107 tests** across three files.
+**321 tests** across six files.
 
 | File | Tests | Scope |
 |---|---|---|
-| `tests/game.test.js` | 50 | Rules, headless: calendar, stats, rent, events, characters |
-| `tests/dom.test.js` | 23 | Real `index.html` in jsdom, driven by clicking real buttons |
+| `tests/game.test.js` | 56 | Original rules: calendar, stats, rent, events, characters |
+| `tests/world.test.js` | 69 | The data catalogues, asserted exhaustively rather than sampled |
+| `tests/systems.test.js` | 88 | Energy, satchel, perks, contracts, achievements, save/load, the turn |
+| `tests/dom.test.js` | 23 | The original UI journeys in jsdom |
+| `tests/ui.test.js` | 51 | Map, satchel, practice, commitments, almanac, journal, autosave |
 | `tests/coverage.test.js` | 34 | Edge cases: unseeded RNG, signal teardown, defensive branches |
+
+The data tests are written as invariants over the whole catalogue rather than
+spot checks, which is how they earn their keep — they caught three real design
+bugs during the expansion: two locations that cost the player nothing (a free
+lunch that would have broken the economy), a festival dated 29 September that
+could never fire in a 30-day month, and an exhaustion penalty that rounded to
+zero just below its own threshold.
 
 Coverage on shipped code:
 
 ```
-app.js            100.00 line | 94.12 branch | 100.00 funcs
+app.js             99.68 line | 90.36 branch |  94.92 funcs
 core/*            ~99-100 across the board
-data/*            100.00 line | 100.00 branch | 100.00 funcs
-ui/screens.js     100.00 line | 91.03 branch |  96.43 funcs
+data/*            ~99-100 across the board
+ui/screens.js      99.55 line | 94.15 branch |  98.59 funcs
 ────────────────────────────────────────────────────────────
-all files          99.94 line | 96.32 branch |  99.02 funcs
+all files          99.87 line | 96.83 branch |  98.44 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -247,9 +306,13 @@ by a dedicated test that boots the app with the media query forced on.
 
 - **Not verified in a real browser.** The UI is jsdom-verified; Chromium could
   not be downloaded in the environment this was built in. Layout and animation
-  deserve a human eye on a real device.
-- **No save/resume.** A refresh restarts the run. `localStorage` persistence
-  would be the natural next step.
+  deserve a human eye on a real device — the map grid and the five-row HUD in
+  particular have not been seen at a phone width.
 - **No audio.**
-- The three antagonists exist as profiles but have **no dedicated events yet** —
-  Kaden in particular is a natural fit for rent-pressure events.
+- **Sato and Alex** now have events via the `rival` tag, but no arc of their
+  own the way Kaden has. Their locations exist; their stories do not yet.
+- **Contract offers are location-bound**, so a player who never visits the
+  clinic never learns the clinic rota exists. A notice board on the hub would
+  fix this.
+- **The satchel has no sort or filter.** Six slots is small enough that this
+  has not bitten yet.

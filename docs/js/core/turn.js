@@ -1,17 +1,26 @@
 /**
- * Turn resolution — the exact sequence from main.gd::_on_location_action.
+ * Turn resolution.
  *
- * Extracted into a pure-ish function so it can be unit-tested without any DOM.
- * Order matters and is preserved:
- *   1. apply the location action
- *   2. charge Sunday rent
- *   3. roll the scheduled random event
- *   4. check game over
- *   5. write the history line
+ * One function, one day. The order is fixed and load-bearing — rent lands
+ * before the random event, so an event can still pull you back from the brink
+ * that rent pushed you toward.
+ *
+ *   1. the location action, modified by weather, festival, perks and items
+ *   2. exhaustion penalty
+ *   3. Sunday rent
+ *   4. the scheduled random event
+ *   5. contract credit
+ *   6. achievements
+ *   7. game-over check
+ *   8. history + journal
+ *
+ * Pure with respect to the DOM; every input is state or data.
  */
 
 import { RENT_AMOUNT } from './game-state.js';
+import { getLocation, Tag } from '../data/locations.js';
 
+/** Legacy copy table, still exported because the old tests and UI read it. */
 export const LOCATION_COPY = {
   spiritual_community: {
     name: 'Spiritual Community',
@@ -25,53 +34,228 @@ export const LOCATION_COPY = {
   },
 };
 
+const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
+
+const zero = () => ({ sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
+
+/** Add `src` into `dst` in place. */
+function accumulate(dst, src = {}) {
+  for (const k of KEYS) dst[k] += src[k] ?? 0;
+  return dst;
+}
+
 /**
- * Resolve one location action.
- * @returns {{actionDesc:string, event:object|null, rentCharged:boolean,
- *            gameOver:boolean, sanityDelta:number, moneyDelta:number,
- *            prevSanity:number, prevMoney:number}}
+ * Everything that modifies a day's base effects, resolved into one bundle.
+ *
+ * Exported separately from `resolveTurn` so the UI can preview a day before
+ * the player commits to it, and so the maths is testable on its own.
+ *
+ * @param {object} gs
+ * @param {string} locationId
+ * @returns {{base:object, total:object, reasons:string[]}}
  */
-export function resolveTurn(gs, eventManager, location) {
-  const prevSanity = gs.sanity;
-  const prevMoney = gs.money;
+export function computeDayEffects(gs, locationId) {
+  const location = getLocation(locationId);
+  const reasons = [];
+  if (!location) return { base: zero(), total: zero(), reasons };
 
-  // 1 — location action
-  gs.applyLocationAction(location);
-  const actionDesc = LOCATION_COPY[location]?.actionDesc ?? '';
+  const base = { ...location.effects };
+  const total = accumulate(zero(), base);
 
-  // 2 — Sunday rent, before the random event
+  // --- weather ---
+  const weather = gs.getWeather();
+  const shielded = gs.getItemModifiers().weatherShield > 0;
+  for (const tag of location.tags) {
+    const mod = weather.tagEffects[tag];
+    if (!mod) continue;
+    // A rain shell cancels the bad half of the weather, never the good half.
+    const applied = {};
+    for (const [k, v] of Object.entries(mod)) {
+      applied[k] = shielded && v < 0 ? 0 : v;
+    }
+    accumulate(total, applied);
+    if (Object.values(applied).some((v) => v !== 0)) {
+      reasons.push(`${weather.emoji} ${weather.name}`);
+    }
+  }
+
+  // --- festival ---
+  const festival = gs.getFestival();
+  if (festival) {
+    accumulate(total, festival.effects);
+    for (const tag of location.tags) {
+      accumulate(total, festival.tagEffects[tag] ?? {});
+    }
+    reasons.push(`${festival.emoji} ${festival.name}`);
+  }
+
+  // --- perks ---
+  const perks = gs.getPerkEffects();
+  const perkBundle = zero();
+  if (locationId === 'bar' || location.tags.includes(Tag.WORK)) {
+    perkBundle.sanity += perks.barSanityRelief;
+  }
+  if (location.tags.includes(Tag.COMMUNITY) || location.tags.includes(Tag.SPIRITUAL)) {
+    perkBundle.money += perks.communityCostRelief;
+  }
+  if (location.tags.includes(Tag.NIGHT)) {
+    perkBundle.money += perks.nightMoneyBonus;
+    perkBundle.energy += perks.nightEnergyRelief;
+  }
+  if (location.tags.includes(Tag.MARKET)) {
+    perkBundle.money += perks.marketMoneyBonus;
+  }
+  if (location.tags.includes(Tag.QUIET)) {
+    perkBundle.sanity += perks.quietSanityBonus;
+  }
+  if (location.tags.includes(Tag.REST)) {
+    perkBundle.energy += perks.restBonus;
+  }
+  if (location.tags.includes(Tag.PILGRIMAGE)) {
+    perkBundle.energy += gs.getItemModifiers().travelEnergyDiscount;
+  }
+  if (base.reputation > 0) {
+    perkBundle.reputation += perks.reputationBonus;
+  }
+  if (base.insight > 0) {
+    perkBundle.insight += perks.insightBonus;
+  }
+  if (KEYS.some((k) => perkBundle[k] !== 0)) {
+    accumulate(total, perkBundle);
+    reasons.push('Perks');
+  }
+
+  // --- carried items ---
+  const items = gs.getItemModifiers();
+  const itemBundle = zero();
+  itemBundle.sanity += items.sanityPerTurn;
+  itemBundle.energy += items.energyPerTurn;
+  itemBundle.insight += items.insightPerTurn;
+  if (location.tags.includes(Tag.WORK)) itemBundle.money += items.moneyPerWorkTurn;
+  if (KEYS.some((k) => itemBundle[k] !== 0)) {
+    accumulate(total, itemBundle);
+    reasons.push('Satchel');
+  }
+
+  return { base, total, reasons: [...new Set(reasons)] };
+}
+
+/** Scale an event's deltas by the player's perks. */
+export function scaleEventDeltas(event, perks) {
+  const helpful = event.rarity === 'rare_helpful' ? 1 + perks.helpfulAmplify : 1;
+  const dampen = 1 - perks.hurtfulDampening;
+  const soften = (v) => (v < 0 ? Math.round(v * dampen) : Math.round(v * helpful));
+  return {
+    sanity: soften(event.sanityDelta),
+    money: soften(event.moneyDelta),
+    energy: soften(event.energyDelta ?? 0),
+    reputation: soften(event.reputationDelta ?? 0),
+    insight: Math.round((event.insightDelta ?? 0) * helpful),
+  };
+}
+
+/**
+ * Resolve one day.
+ *
+ * @returns {{actionDesc:string, event:object|null, rentCharged:number,
+ *            gameOver:boolean, deltas:object, reasons:string[],
+ *            completedContracts:object[], achievements:object[],
+ *            grantedItem:string|null, exhaustion:number,
+ *            sanityDelta:number, moneyDelta:number,
+ *            prevSanity:number, prevMoney:number, weather:object,
+ *            festival:object|null}}
+ */
+export function resolveTurn(gs, eventManager, locationId) {
+  const prev = {
+    sanity: gs.sanity, money: gs.money, energy: gs.energy,
+    reputation: gs.reputation, insight: gs.insight,
+  };
+  const location = getLocation(locationId);
+  const weather = gs.getWeather();
+  const festival = gs.getFestival();
+
+  // 1 — the day itself
+  const { total, reasons } = computeDayEffects(gs, locationId);
+  gs.applyDeltas(total);
+  gs.noteVisit(locationId);
+  const actionDesc = location?.actionDesc ?? LOCATION_COPY[locationId]?.actionDesc ?? '';
+
+  // 2 — exhaustion
+  const exhaustion = gs.exhaustionPenalty();
+  if (exhaustion !== 0) gs.applyDeltas({ sanity: exhaustion });
+
+  // 3 — rent
   const rentCharged = gs.applyRentIfSunday();
 
-  // 3 — scheduled random event
+  // 4 — scheduled event
   let event = null;
+  let grantedItem = null;
   if (!gs.gameOver) {
     event = eventManager.selectEvent(
       gs.journeyDay,
       gs.getWeekdayIndex(),
-      location,
+      locationId,
       gs.consecutiveBarDays,
+      { tags: location?.tags ?? [], weatherId: weather.id },
     );
-    if (event) gs.applyEventDeltas(event.sanityDelta, event.moneyDelta);
+    if (event) {
+      gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
+      if (event.grantsItem && gs.addItem(event.grantsItem)) grantedItem = event.grantsItem;
+    }
   }
 
-  // 4 — game over check
+  // 5 — contracts
+  const completedContracts = gs.creditContracts(locationId);
+
+  // 6 — achievements
+  const achievements = gs.checkAchievements();
+
+  // 7 — game over
   const gameOver = gs.checkGameOver();
 
-  // 5 — history line
+  // 8 — history + journal
   const parts = [];
-  if (LOCATION_COPY[location]) parts.push(LOCATION_COPY[location].historyLabel);
-  if (rentCharged) parts.push(`Paid rent (-${RENT_AMOUNT} money)`);
+  if (location) parts.push(location.historyLabel);
+  else if (LOCATION_COPY[locationId]) parts.push(LOCATION_COPY[locationId].historyLabel);
+  if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
   if (event) parts.push(`Event: ${event.title}`);
-  gs.addHistory(parts.join(' / '));
+  for (const c of completedContracts) parts.push(`Completed: ${c.name}`);
+  const line = parts.join(' / ');
+  gs.addHistory(line);
+  gs.addJournal({
+    location: locationId,
+    locationName: location?.name ?? locationId,
+    weather: weather.id,
+    festival: festival?.id ?? null,
+    event: event?.id ?? null,
+    line,
+  });
+
+  const deltas = {
+    sanity: gs.sanity - prev.sanity,
+    money: gs.money - prev.money,
+    energy: gs.energy - prev.energy,
+    reputation: gs.reputation - prev.reputation,
+    insight: gs.insight - prev.insight,
+  };
 
   return {
     actionDesc,
     event,
     rentCharged,
+    rentAmount: rentCharged || RENT_AMOUNT,
     gameOver,
-    prevSanity,
-    prevMoney,
-    sanityDelta: gs.sanity - prevSanity,
-    moneyDelta: gs.money - prevMoney,
+    deltas,
+    reasons,
+    completedContracts,
+    achievements,
+    grantedItem,
+    exhaustion,
+    weather,
+    festival,
+    prevSanity: prev.sanity,
+    prevMoney: prev.money,
+    sanityDelta: deltas.sanity,
+    moneyDelta: deltas.money,
   };
 }
