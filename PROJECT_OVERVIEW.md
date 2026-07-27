@@ -228,15 +228,14 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**68 painted portraits** of Léon, the major antagonists, and community and bar
-regulars, rendered as WebP (or PNG for a few early ones) at 512px. Every
+**76 painted portraits** of Léon, the major antagonists, and every side
+character, rendered as WebP (or PNG for a few early ones) at 512px. Every
 portrait — HUD, location host banner, map, People screen, day-result event
 card — is a clickable/tappable button that opens a read-only popup with that
 character's bio (see `renderPortraitPopup` / `openCharacterPopup` in
-`docs/js/ui/screens.js`). `docs/side_characters_report.md` tracks who still
-needs one; **10 side characters** remain on procedural SVG avatars, two of
-which (Carl-bot, DocBot) are meant to stay stylised machines rather than
-painted people.
+`docs/js/ui/screens.js`). Every human character in the cast now has a painted
+portrait; `docs/side_characters_report.md` tracks the two remaining SVGs,
+which are intentional (Carl-bot, DocBot are stylised machines, not people).
 
 **22 location backgrounds** now cover every playable location. The five
 new environmental scenes (soup kitchen, flea market, pawn shop, open mic and
@@ -244,7 +243,8 @@ letting office) are optimized WebP at 1000px. Background paths are derived
 from the location catalogue by `scripts/check-assets.js`, so adding a location
 cannot silently ship a broken image path.
 
-**10 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
+**2 generated SVG avatars** from `scripts/generate-avatars.js`, both bots
+(Carl-bot, DocBot) rendered as machines by design. Deterministic —
 the same id always produces the same face, so regenerating never churns the
 diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
 hash of the id. Under 1 KB each, versus tens of KB for a painted portrait. Bots

@@ -29,12 +29,14 @@ const STATIC_REFS = [
 ];
 
 const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
-// Raised from 4 MB alongside the July 2026 clickable-portrait pass, which
-// replaced 16 procedural SVG placeholders with painted WebP portraits.
-// Deployed payload is still under 5 MB total — small for a "39.5 MB Godot
-// build" baseline (see README) — with headroom for the ~26 placeholders
-// still tracked in docs/side_characters_report.md.
-const MAX_TOTAL_BYTES = 5 * 1024 * 1024;
+// Raised in stages during the July 2026 clickable-portrait pass, which
+// replaced 40 procedural SVG placeholders with painted WebP portraits
+// (68/78 characters now painted — see docs/side_characters_report.md for
+// the remaining handful, mostly intentional machine bots). Deployed
+// payload is still ~5 MB total — small for a "39.5 MB Godot build"
+// baseline (see README) — with a little headroom for the last few
+// placeholders and future location art.
+const MAX_TOTAL_BYTES = 6 * 1024 * 1024;
 
 let failures = 0;
 const fail = (msg) => { console.error(`  ✗ ${msg}`); failures += 1; };

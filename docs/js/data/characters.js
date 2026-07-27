@@ -40,6 +40,7 @@ const WEBP_PORTRAITS = new Set([
   'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
   'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
   'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
+  'air_vaisselle', 'blokely', 'jits', 'jared', 'orshi', 'brendan', 'hazel', 'yungnosaj',
 ]);
 
 function portraitFor(id) {

@@ -8,89 +8,86 @@ a new character is added.
 
 Through the **clickable-portrait pass** (July 2026), every portrait in the
 game became a tappable/clickable popup showing the character's bio, and we
-generated **32 new high-quality portraits** across two rounds, cutting the
-placeholder list from 42 characters down to 10.
+generated **40 new high-quality portraits** across three rounds. Every human
+character in the cast now has a painted portrait.
 
 ---
 
 ## 👥 Summary
-- **Total Side Characters:** 51 (74 side characters + Léon, Kaden, Sato, Alex
-  across all roles = 78 total cast; this report tracks the side-character
-  portrait backlog specifically)
-- **High-Quality Portraits Done:** 68 characters total have a painted WebP/PNG
-  portrait (up from 32)
-- **Still Using SVG Placeholders:** 10 (2 are intentionally non-human — see
-  below — leaving **8 human characters** still needing a painted portrait)
+- **Total cast:** 78 (Léon, Kaden, Sato, Alex + 74 side characters)
+- **High-Quality Portraits Done:** 76 of 78 — every human character
+- **Still Using SVG Placeholders:** 2, and both are intentional (see below)
 
 ---
 
 ## 🎨 Portrait Status List
 
-### Done (High-Quality WebP/PNG Images)
+### Done (High-Quality WebP/PNG Images) — 76 characters
+
 Léon, Kaden, Sato, Alex, Geo, Lakshay, Arian, Simon, Kaj, Dorian, Barret,
 Ethan, Matt, Artem, Klaudia, Brian, Susan, HawkinsTV, RicoLewis, Yun,
 Marlies, Yume, Mateo, Luca, Cheezl, Kate, Emily, Joar, Brock Lee, Ahyeon,
-Renata, SiekamCebulę, Lou, Baris, Stephen, Iulian — the earlier 32 from the
-previous cycle — plus, newly painted this pass:
+Renata, SiekamCebulę, Lou, Baris, Stephen, Iulian (the original 32), plus
+every side character painted during the clickable-portrait pass:
 
-1. **Tarrasqu** (`tarrasqu`) — WebP 🌟 *[NEW]* (Tabletop GM regular)
-2. **Friend** (`friend`) — WebP 🌟 *[NEW]* (Mysterious helper)
-3. **nestomalt** (`nestomalt`) — WebP 🌟 *[NEW]* (Night-shift nurse)
-4. **Self** (`self`) — WebP 🌟 *[NEW]* (Contented silent meditator)
-5. **Daniela** (`daniela`) — WebP 🌟 *[NEW]* (Posture-correcting physiotherapist)
-6. **Crveni** (`crveni`) — WebP 🌟 *[NEW]* (Fast union organizer)
-7. **Gordon** (`gordon`) — WebP 🌟 *[NEW]* (Retired quiet firefighter)
-8. **Oh** (`oh`) — WebP 🌟 *[NEW]* (Devout 11-word poet)
-9. **RicardoEA** (`ricardoea`) — WebP 🌟 *[NEW]* (Rigorous electrical engineer)
-10. **SpeedFire** (`speedfire`) — WebP 🌟 *[NEW]* (Ultra-fast supply courier)
-11. **Scatmandu** (`scatmandu`) — WebP 🌟 *[NEW]* (Loud alley scat singer)
-12. **Cat** (`cat`) — WebP 🌟 *[NEW]* (Actual cat who loves underfloor heating)
-13. **Hanans** (`hanans`) — WebP 🌟 *[NEW]* (Skeptical herbal pharmacist)
-14. **Kaschem** (`kaschem`) — WebP 🌟 *[NEW]* (Cold-brew enthusiast)
-15. **Vanna** (`vanna`) — WebP 🌟 *[NEW]* (Passing-through travel writer)
-16. **Sir Cruds** (`sir_cruds`) — WebP 🌟 *[NEW]* (Arrogant cheese knight)
-17. **Qusтoge** (`qustoge`) — WebP 🌟 *[NEW]* (Deep poetry translator)
-18. **groovyphoenix** (`groovyphoenix`) — WebP 🌟 *[NEW]* (Ecstatic dance DJ)
-19. **Cary** (`cary`) — WebP 🌟 *[NEW]* (Existential philosopher locksmith)
-20. **Aril Stellar☯** (`aril_stellar`) — WebP 🌟 *[NEW]* (Astrology newsletter writer)
-21. **Alvigunilla** (`alvigunilla`) — WebP 🌟 *[NEW]* (Patient tapestry weaver)
-22. **Fraghis** (`fraghis`) — WebP 🌟 *[NEW]* (Midnight competitive gamer)
-23. **Mrone** (`mrone`) — WebP 🌟 *[NEW]* (Minimalist with 19 possessions)
-24. **𝕽𝖆𝖚𝖑** (`raul`) — WebP 🌟 *[NEW]* (Gothic metal-flyer tattoo artist)
-25. **Marlène xoxo** (`marlene_xoxo`) — WebP 🌟 *[NEW]* (Cabaret performer)
-26. **diamndsdancin** (`diamndsdancin`) — WebP 🌟 *[NEW]* (Ecstatic dance movement teacher)
-27. **Seth** (`seth`) — WebP 🌟 *[NEW]* (Long-haul regional driver)
-28. **Kopung (고풍)** (`kopung`) — WebP 🌟 *[NEW]* (Antique-style ceramicist)
-29. **Isra** (`isra`) — WebP 🌟 *[NEW]* (Refuge architecture student)
-30. **Kobideh** (`kobideh`) — WebP 🌟 *[NEW]* (Grill house owner)
-31. **stijn12d** (`stijn12d`) — WebP 🌟 *[NEW]* (Volunteer booking software dev)
-32. **Andre Watson** (`andre_watson`) — WebP 🌟 *[NEW]* (Jazz trumpeter regular)
-
----
-
-### Still Needs High-Quality Images (Currently SVGs) — 10 remaining
-
-1. **Carl-bot** (`carl_bot`) — SVG *(intentional — renders as a machine, see note below)*
-2. **DocBot** (`docbot`) — SVG *(intentional — renders as a machine, see note below)*
-3. **Air-Vaisselle** (`air_vaisselle`) — SVG (Transcendent dishwasher)
-4. **blokely** (`blokely`) — SVG (Salvaged material sculptor)
-5. **Jits** (`jits`) — SVG (Jiu-jitsu master meditator)
-6. **Jared** (`jared`) — SVG (Audio PA sound engineer)
-7. **Orshi** (`orshi`) — SVG (Melancholic translator of poetry)
-8. **Brendan** (`brendan`) — SVG (Lonely grading schoolteacher)
-9. **Hazel** (`hazel`) — SVG (Medicinal tea-blend herbalist)
-10. **yungnosaj** (`yungnosaj`) — SVG (Field-recording beat producer)
-
-**Note on Carl-bot and DocBot:** `scripts/generate-avatars.js` deliberately
-renders these two as stylised machines (a tablet-on-a-stand and a first-aid
-kiosk) rather than painted human portraits, since they aren't people. They
-could still get a painted "object portrait" in the same circular vignette
-style if that's ever wanted — they're listed here for completeness, not
-because they were missed.
+1. Tarrasqu (`tarrasqu`) — Tabletop GM regular
+2. Friend (`friend`) — Mysterious helper
+3. nestomalt (`nestomalt`) — Night-shift nurse
+4. Self (`self`) — Contented silent meditator
+5. Daniela (`daniela`) — Posture-correcting physiotherapist
+6. Crveni (`crveni`) — Fast union organizer
+7. Gordon (`gordon`) — Retired quiet firefighter
+8. Oh (`oh`) — Devout 11-word poet
+9. RicardoEA (`ricardoea`) — Rigorous electrical engineer
+10. SpeedFire (`speedfire`) — Ultra-fast supply courier
+11. Scatmandu (`scatmandu`) — Loud alley scat singer
+12. Cat (`cat`) — Actual cat who loves underfloor heating
+13. Hanans (`hanans`) — Skeptical herbal pharmacist
+14. Kaschem (`kaschem`) — Cold-brew enthusiast
+15. Vanna (`vanna`) — Passing-through travel writer
+16. Sir Cruds (`sir_cruds`) — Arrogant cheese knight
+17. Qusтoge (`qustoge`) — Deep poetry translator
+18. groovyphoenix (`groovyphoenix`) — Ecstatic dance DJ
+19. Cary (`cary`) — Existential philosopher locksmith
+20. Aril Stellar☯ (`aril_stellar`) — Astrology newsletter writer
+21. Alvigunilla (`alvigunilla`) — Patient tapestry weaver
+22. Fraghis (`fraghis`) — Midnight competitive gamer
+23. Mrone (`mrone`) — Minimalist with 19 possessions
+24. 𝕽𝖆𝖚𝖑 (`raul`) — Gothic metal-flyer tattoo artist
+25. Marlène xoxo (`marlene_xoxo`) — Cabaret performer
+26. diamndsdancin (`diamndsdancin`) — Ecstatic dance movement teacher
+27. Seth (`seth`) — Long-haul regional driver
+28. Kopung (고풍) (`kopung`) — Antique-style ceramicist
+29. Isra (`isra`) — Refuge architecture student
+30. Kobideh (`kobideh`) — Grill house owner
+31. stijn12d (`stijn12d`) — Volunteer booking software dev
+32. Andre Watson (`andre_watson`) — Jazz trumpeter regular
+33. Air-Vaisselle (`air_vaisselle`) — Transcendent dishwasher
+34. blokely (`blokely`) — Salvaged material sculptor
+35. Jits (`jits`) — Jiu-jitsu master meditator
+36. Jared (`jared`) — Audio PA sound engineer
+37. Orshi (`orshi`) — Melancholic translator of poetry
+38. Brendan (`brendan`) — Lonely grading schoolteacher
+39. Hazel (`hazel`) — Medicinal tea-blend herbalist
+40. yungnosaj (`yungnosaj`) — Field-recording beat producer
 
 ---
 
-## How to fill in the rest
+### Still Using SVG (2, both intentional)
+
+1. **Carl-bot** (`carl_bot`) — SVG. `scripts/generate-avatars.js` deliberately
+   renders this as a stylised machine (a tablet on a stand), not a person.
+2. **DocBot** (`docbot`) — SVG. Same reasoning — it's a first-aid kiosk, not
+   a person.
+
+Both *could* still get a painted "object portrait" in the same circular
+vignette style if that's ever wanted (a friendly illustrated tablet/kiosk
+rather than a generated SVG), but they're deliberately excluded from the
+"paint every character" backlog since they aren't people.
+
+---
+
+## How to add a portrait for a new character
 
 1. Generate a source image (1024×1024 or similar) matching the existing
    painted style: warm semi-realistic digital painting, circular vignette
@@ -108,5 +105,5 @@ because they were missed.
 5. Run `npm run check` (tests + `scripts/check-assets.js`) and update the
    lists above.
 6. Keep an eye on the total deployed payload — `scripts/check-assets.js`
-   enforces a budget (currently 5 MB) so the game stays a fraction of the
+   enforces a budget (currently 6 MB) so the game stays a fraction of the
    size of the original Godot build.

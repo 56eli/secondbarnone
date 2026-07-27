@@ -370,6 +370,7 @@ test('portrait extensions match the painted / generated split', () => {
     'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
     'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
     'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
+    'air_vaisselle', 'blokely', 'jits', 'jared', 'orshi', 'brendan', 'hazel', 'yungnosaj',
   ]);
   for (const c of createAllProfiles()) {
     const expected = ['yume', 'joar', 'susan'].includes(c.id) ? 'png' : painted.has(c.id) ? 'webp' : 'svg';
