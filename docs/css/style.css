@@ -62,17 +62,74 @@ body {
 .hud-top {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
 
+.hud-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hud-portrait {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: 0 2px 10px rgba(201, 162, 39, 0.25);
+  background: #1a1a28;
+  flex: 0 0 82px;
+  display: block;
+}
+
+.hud-portrait-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  flex: 0 0 82px;
+  line-height: 0;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.hud-portrait-btn:hover { transform: scale(1.05); filter: brightness(1.08); }
+.hud-portrait-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hud-portrait-btn:active { transform: scale(0.97); }
+
+.hud-identity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hud-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f0e9da;
+  letter-spacing: 0.2px;
+}
+
 .hud-title {
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
   color: var(--accent);
+  text-transform: lowercase;
+}
+
+.hud-meta-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .hud-date { font-size: 13px; color: var(--text); }
@@ -104,18 +161,29 @@ body {
 }
 
 .bar-fill {
+  display: block;
   height: 100%;
+  min-width: 0;
   width: 50%;
   border-radius: 999px;
   /* Mirrors the Godot tween: 0.5s cubic ease-out */
   transition: width 500ms cubic-bezier(0.22, 0.61, 0.36, 1), background-color 300ms ease;
 }
 
-.bar-fill.sanity { background: linear-gradient(90deg, #4e9c6b, var(--sanity)); }
-.bar-fill.money { background: linear-gradient(90deg, #b8912f, var(--money)); }
-.bar-fill.low { background: linear-gradient(90deg, #a33b3b, var(--danger)); }
+.bar-fill { background: #42b96e; }
+.bar-fill.bar-critical { background: #d84a4a; }
+.bar-fill.bar-warning { background: #e5bd3f; }
+.bar-fill.bar-fair { background: #8fd66b; }
+.bar-fill.bar-full { background: #35b85a; }
 
-.stat-num { font-size: 12px; color: var(--text-dim); min-width: 58px; text-align: right; }
+.stat-num { font-size: 12px; color: var(--text-dim); min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Money is a wallet number; the bar is only a comfort meter. */
+.stat-row[data-stat="money"] .stat-num {
+  color: var(--money);
+  font-weight: 600;
+  min-width: 52px;
+}
 
 /* Floating +/- delta indicator */
 .delta {
@@ -188,16 +256,10 @@ h2.screen-title {
   margin-bottom: 4px;
 }
 
-.hub-mood {
-  font-style: italic;
-  color: #b9b4a8;
-  font-size: 13px;
-  margin-bottom: 18px;
-}
 
 .choices {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -224,6 +286,25 @@ h2.screen-title {
 
 .choice-name { display: block; font-weight: 600; font-size: 15px; margin-bottom: 4px; }
 .choice-eff { display: block; font-size: 12px; color: var(--text-dim); }
+
+/* Day-one welcome: Brian's standing invitation, pinned to the fourth card.
+   Warm but quiet — it should read as an open door, not an alert. */
+.choice.welcome {
+  border-color: rgba(201, 162, 39, 0.55);
+  background: linear-gradient(180deg, #26221f, #191723);
+}
+
+.choice.welcome:hover {
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.24);
+}
+
+.choice-welcome {
+  display: block;
+  font-size: 11.5px;
+  letter-spacing: 0.2px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
 
 .history {
   background: #10101a;
@@ -401,6 +482,29 @@ h2.screen-title {
   color: #cfcabf;
 }
 
+/*
+ * Portraits are clickable: every .avatar is optionally wrapped in an
+ * .avatar-btn so tapping it opens a read-only profile popup. inline-flex +
+ * flex-shrink: 0 lets the button take on the wrapped <img>'s own size
+ * (42px / 22px / 52px / … depending on context) instead of imposing one, so
+ * it drops into existing flex rows (char-row, host-chip, event-person)
+ * without changing their layout.
+ */
+.avatar-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 0;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.avatar-btn:hover { transform: scale(1.06); box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.45); }
+.avatar-btn:active { transform: scale(0.96); }
+.avatar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .char-name { font-size: 14.5px; font-weight: 600; color: #f0e9da; }
 .char-role { font-size: 11px; color: var(--text-dim); }
 
@@ -507,6 +611,76 @@ h2.screen-title {
 
 .modal-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
 
+/* Portrait lightbox: opened by clicking/tapping any avatar in the game.
+   Shows the artwork and nothing else — the inline avatar is a preview, so
+   this is that preview at full size. Deliberately does NOT reuse .modal:
+   there is no panel, no padding and no text, just the picture on a dimmed
+   backdrop, so the art is the whole interface. */
+.portrait-popup-backdrop {
+  z-index: 60;
+  /* Darker than the day-result modal so the painting carries the screen. */
+  background: rgba(3, 3, 8, 0.9);
+  padding: max(16px, env(safe-area-inset-top)) 16px;
+  cursor: zoom-out;
+}
+
+.portrait-lightbox {
+  position: relative;
+  display: block;
+  line-height: 0;
+  animation: portraitIn 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.portrait-full {
+  display: block;
+  /* Fit the viewport on any screen while never upscaling past the 896px
+     source. min() of both axes keeps tall phones and wide desktops honest. */
+  width: min(560px, 92vw, 78vh);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  background: #12121c;
+  cursor: zoom-out;
+}
+
+/* Small round dismiss affordance pinned to the corner of the picture.
+   Sized to a comfortable 40px touch target on phones. */
+.portrait-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  color: #f0e9da;
+  background: rgba(18, 18, 28, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: transform 140ms ease, background 140ms ease;
+}
+.portrait-close:hover { background: #24243a; transform: scale(1.07); }
+.portrait-close:active { transform: scale(0.94); }
+.portrait-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@keyframes portraitIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* On narrow screens the corner button would hang off the edge. */
+@media (max-width: 480px) {
+  .portrait-close { top: -10px; right: -10px; width: 38px; height: 38px; }
+}
+
 /* ---------------- game over ---------------- */
 
 .gameover { text-align: center; padding: 46px 20px; }
@@ -545,4 +719,483 @@ footer a { color: #7d786f; }
     transition-duration: 0.001ms !important;
   }
   .particles { display: none; }
+}
+
+/* ============================================================
+   Expansion styles — Paris, practice, almanac, weather and toasts.
+   ============================================================ */
+
+:root {
+  --energy: #6fa8d4;
+  --rep: #b98fd0;
+}
+
+.hud-weather { font-size: 12px; color: var(--text-dim); margin-right: 8px; }
+.hud-insight { font-size: 12px; color: #b98fd0; margin-left: 8px; }
+
+
+
+/* ---------------- effect chips ---------------- */
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+
+.chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #12121c;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chip.pos { color: var(--good); border-color: #2f5c3c; }
+.chip.neg { color: var(--danger); border-color: #5c2f2f; }
+
+/* ---------------- hub additions ---------------- */
+
+
+.festival-banner {
+  font-size: 12.5px;
+  color: #f0dfa6;
+  background: rgba(201, 162, 39, 0.09);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+
+.choice-map { border-style: dashed; }
+
+
+.district-count { color: #6a675f; text-transform: none; letter-spacing: 0; }
+
+.loc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 9px;
+}
+
+.loc-card {
+  text-align: left;
+  background: linear-gradient(180deg, #1c1c2b, #14141f);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.loc-card:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--accent); }
+.loc-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.loc-card.locked { opacity: 0.5; cursor: not-allowed; }
+.loc-card.visited { border-left: 3px solid var(--sanity); }
+
+.loc-name { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 4px; }
+.loc-lock { display: block; font-size: 11px; color: var(--text-dim); margin: 5px 0; }
+.loc-tags { display: block; font-size: 10px; color: #5f5c56; margin-top: 6px; letter-spacing: 0.3px; }
+.loc-chips { margin-top: 5px; }
+
+/* ---------------- location preview ---------------- */
+
+.preview {
+  background: rgba(12, 12, 22, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+
+.preview h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.preview-why { font-size: 11.5px; color: var(--text-dim); margin: 7px 0 0; }
+
+.special, .special-note {
+  background: rgba(12, 12, 22, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 13px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: #c5c0b6;
+  line-height: 1.55;
+}
+
+.special p { margin: 0 0 9px; font-size: 12.5px; }
+
+
+/* ---------------- practice ---------------- */
+
+.item-list, .perk-list { display: flex; flex-direction: column; gap: 8px; }
+
+.item-row, .perk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  background: #12121c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.item-emoji, .perk-emoji { font-size: 20px; line-height: 1.2; flex: 0 0 24px; }
+.item-meta, .perk-meta { flex: 1; min-width: 0; }
+.item-name, .perk-name { font-size: 13.5px; font-weight: 600; color: #f0e9da; }
+.item-desc, .perk-desc { font-size: 12px; color: #c5c0b6; margin-top: 3px; line-height: 1.5; }
+.item-kind, .perk-req { font-size: 10.5px; color: #6a675f; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.6px; }
+.item-actions { display: flex; flex-direction: column; gap: 5px; }
+
+.item-row.kind-consumable { border-left: 3px solid var(--good); }
+.item-row.kind-keepsake { border-left: 3px solid #7d5c93; }
+
+.perk-row.owned { border-left: 3px solid var(--accent); opacity: 0.92; }
+.perk-row.blocked { opacity: 0.55; }
+.perk-owned { font-size: 11.5px; color: var(--accent); white-space: nowrap; }
+
+.mods { margin-top: 16px; }
+.mods h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin: 0 0 6px; }
+.mods ul { margin: 0; padding-left: 18px; }
+.mods li { font-size: 12px; color: #bdb9b0; margin-bottom: 3px; }
+
+
+/* ---------------- almanac ---------------- */
+
+.section-h {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: var(--text-dim);
+  margin: 20px 0 9px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 5px;
+}
+
+.forecast { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+
+.fc {
+  background: #12121c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.fc.today { border-color: var(--accent); }
+.fc-day { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.7px; }
+.fc-emoji { font-size: 22px; margin: 5px 0; }
+.fc-name { font-size: 12px; color: #e8e6e0; }
+.fc-closes { font-size: 10px; color: var(--danger); margin-top: 4px; }
+
+.fest-list { margin: 0; padding-left: 18px; }
+.fest-list li { font-size: 12.5px; color: #c5c0b6; margin-bottom: 6px; line-height: 1.5; }
+
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 7px; }
+
+.ach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #12121c;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: #6a675f;
+}
+
+.ach.earned { color: #f0e9da; border-color: #3d3a2a; background: #171420; }
+.ach-emoji { font-size: 15px; }
+.ach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
+/* ---------------- modal additions ---------------- */
+
+.modal-weather { font-size: 11.5px; color: var(--text-dim); margin: 0 0 8px; }
+.modal-notes { margin: 12px 0 0; padding-left: 18px; }
+.modal-notes li { font-size: 12.5px; color: #cfcabf; margin-bottom: 4px; line-height: 1.5; }
+.modal-totals { font-size: 11.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.6; }
+
+/* ---------------- run summary ---------------- */
+
+.run-stats {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 16px;
+  justify-content: center;
+  margin: 0 auto 22px;
+  text-align: left;
+  max-width: 320px;
+}
+
+.run-stats dt { font-size: 11.5px; color: var(--text-dim); }
+.run-stats dd { font-size: 12.5px; color: #e8e6e0; margin: 0; }
+
+/* ---------------- toasts ---------------- */
+
+#toasts {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  color: #f0e9da;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  box-shadow: var(--shadow);
+  animation: toastIn 220ms ease-out;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.empty { color: var(--text-dim); font-size: 12.5px; }
+
+/* ============================================================
+   Homely pass — Léon in the HUD, hosts on locations, notice board,
+   event faces, greetings.
+   ============================================================ */
+
+.hub-greeting {
+  font-size: 13px;
+  color: #cfc6b0;
+  margin: 0 0 10px;
+  line-height: 1.55;
+  max-width: 58ch;
+}
+
+.hub-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 7px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.hub-heading .weather-badge { margin-top: 3px; white-space: nowrap; }
+
+.daily-nudge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border-left: 3px solid #766542;
+  border-radius: 7px;
+  background: rgba(17, 17, 28, 0.75);
+  color: #cfcabf;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.daily-nudge strong, .daily-nudge span { display: block; }
+.daily-nudge strong { color: #eee6d7; font-size: 12px; margin-bottom: 1px; }
+.nudge-emoji { font-size: 17px; line-height: 1.2; }
+
+.choice-primary {
+  min-height: 122px;
+  padding: 17px 18px;
+  border-top: 3px solid var(--accent);
+  background: linear-gradient(160deg, #282438, #181826);
+}
+
+.choice-action {
+  display: block;
+  margin: 2px 0 8px;
+  color: #cfc6b0;
+  font-size: 12px;
+}
+
+.choice-map {
+  align-self: stretch;
+  border-style: dashed;
+  background: rgba(19, 19, 30, 0.72);
+}
+
+.hub-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(42, 42, 61, 0.72);
+}
+
+.tool-label {
+  margin-right: 3px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.history { margin-top: 2px; }
+.history summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.35px;
+}
+.history[open] summary { margin-bottom: 9px; color: #d3cec3; }
+
+.small-talk {
+  margin: 5px 0 0;
+  color: #d9d1bc;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.48;
+}
+
+
+
+.host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 6px;
+  font-size: 12px;
+  color: #cfcabf;
+}
+
+.host-chip.compact { margin: 2px 0 4px; }
+
+.host-avatar {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  font-size: 9px;
+  border-color: #3a3a52;
+}
+
+.host-avatar-lg {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  font-size: 16px;
+  border-color: rgba(201, 162, 39, 0.45);
+}
+
+.host-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(12, 12, 22, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.host-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--text-dim);
+}
+
+.host-name-lg {
+  font-size: 15px;
+  font-weight: 650;
+  color: #f0e9da;
+}
+
+
+.event-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.event-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-color: rgba(201, 162, 39, 0.4);
+}
+
+.event-who {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.win-note {
+  color: var(--accent) !important;
+  font-style: italic;
+  max-width: 44ch;
+  margin: 0 auto 14px !important;
+}
+
+/* Phone-width HUD: keep Léon visible, stack meta. */
+@media (max-width: 520px) {
+  body { padding: 10px; }
+
+  #hud { padding: 10px 12px; }
+
+  .hud-portrait {
+    width: 68px;
+    height: 68px;
+    flex-basis: 68px;
+  }
+
+  .hud-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-meta-right {
+    justify-content: flex-start;
+    font-size: 12px;
+  }
+
+  .stat-label { min-width: 100px; font-size: 12px; }
+
+  .stat-row {
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+  }
+
+  .loc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .choices {
+    grid-template-columns: 1fr;
+  }
+
+  #content { min-height: 360px; }
 }

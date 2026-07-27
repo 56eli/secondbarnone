@@ -10,11 +10,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, MAX_STAT, START_SANITY, START_MONEY, RENT_AMOUNT,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
+  GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
+  ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
-import { resolveTurn } from '../docs/js/core/turn.js';
+import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
+import { LOCATIONS, locationIds, getLocation } from '../docs/js/data/locations.js';
+import { getWeather } from '../docs/js/data/weather.js';
 import { buildEventPool, Rarity, Category } from '../docs/js/data/events.js';
 import { createAllProfiles, getInitials, Role, roleLabel } from '../docs/js/data/characters.js';
 import { createRng } from '../docs/js/core/rng.js';
@@ -84,62 +86,77 @@ test('starting stats are 50/50', () => {
 
 test('spiritual community trades money for sanity', () => {
   const gs = new GameState();
-  gs.applyLocationAction('spiritual_community');
-  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
-  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
+  const before = { sanity: gs.sanity, money: gs.money };
+  gs.applyDeltas(getLocation('spiritual_community').effects);
+  gs.noteVisit('spiritual_community');
+  assert.ok(gs.sanity > before.sanity, 'community restores sanity');
+  assert.ok(gs.money < before.money, 'community costs money');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
-  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
+  const before = { sanity: gs.sanity, money: gs.money };
+  gs.applyDeltas(getLocation('bar').effects);
+  gs.noteVisit('bar');
+  assert.ok(gs.money > before.money, 'the bar pays');
+  assert.ok(gs.sanity < before.sanity, 'the bar costs spirit');
   assert.equal(gs.consecutiveBarDays, 1);
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
-  gs.applyLocationAction('spiritual_community');
+  gs.noteVisit('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
-test('stats never exceed MAX_STAT or fall below zero', () => {
+test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyEventDeltas(999, 999);
+  gs.applyDeltas({ sanity: 999, money: 999 });
   assert.equal(gs.sanity, MAX_STAT);
-  assert.equal(gs.money, MAX_STAT);
-  gs.applyEventDeltas(-999, -999);
+  assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
+  assert.ok(gs.money > MAX_STAT);
+  gs.applyDeltas({ sanity: -99999, money: -99999 });
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
+});
+
+test('money can grow well past 100 without being clamped', () => {
+  const gs = new GameState();
+  gs.money = 95;
+  gs.applyDeltas({ money: getLocation('bar').effects.money });
+  assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
+  gs.applyDeltas({ money: 500 });
+  assert.ok(gs.money >= 500);
+  assert.ok(gs.money <= MONEY_HARD_CEILING);
 });
 
 // --------------------------------------------------------------- rent
 
 test('rent is charged on Sunday only', () => {
   const gs = new GameState();               // Thursday
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), 0);
   gs.advanceDay();                          // Friday
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), 0);
   gs.advanceDay();                          // Saturday
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), 0);
   gs.advanceDay();                          // Sunday
   const before = gs.money;
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.money, before - RENT_AMOUNT);
 });
 
 test('rent is charged at most once per Sunday', () => {
   const gs = new GameState();
   for (let i = 0; i < 3; i++) gs.advanceDay();  // Sunday
-  assert.equal(gs.applyRentIfSunday(), true);
-  assert.equal(gs.applyRentIfSunday(), false);
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
+  assert.equal(gs.applyRentIfSunday(), 0);
+  assert.equal(gs.applyRentIfSunday(), 0);
 });
 
 test('rent cannot push money below zero', () => {
@@ -190,7 +207,7 @@ test('history keeps only the five most recent entries, newest first', () => {
   assert.equal(gs.recentHistory[4], 'entry 3');
 });
 
-// ------------------------------------------------------- season/mood
+// ------------------------------------------------------ season / focus
 
 test('season maps from month index', () => {
   const gs = new GameState();
@@ -201,29 +218,30 @@ test('season maps from month index', () => {
   }
 });
 
-test('mood reflects combined stat pressure', () => {
+test('daily focus cue reflects combined stat pressure without prescribing a destination', () => {
   const gs = new GameState();
   gs.sanity = 10; gs.money = 10;
-  assert.match(gs.getMood(), /precarious/);
+  assert.match(gs.getDailyNudge().label, /gently/i);
   gs.sanity = 10; gs.money = 50;
-  assert.match(gs.getMood(), /fraying/);
+  assert.match(gs.getDailyNudge().label, /room/i);
   gs.sanity = 50; gs.money = 10;
-  assert.match(gs.getMood(), /bills/);
+  assert.match(gs.getDailyNudge().label, /wallet/i);
   gs.sanity = 90; gs.money = 90;
-  assert.match(gs.getMood(), /balanced/);
+  assert.match(gs.getDailyNudge().label, /No rush/i);
 });
 
 // ------------------------------------------------------------- events
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  assert.equal(pool.length, 29);
+  assert.equal(pool.length, 64);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
-  assert.equal(std, 20);
-  assert.equal(helpful, 4);
-  assert.equal(hurtful, 5);
+  assert.equal(std + helpful + hurtful, pool.length);
+  assert.equal(std, 42);
+  assert.equal(helpful, 14);
+  assert.equal(hurtful, 8);
 });
 
 test('every event has a unique id', () => {
@@ -231,11 +249,41 @@ test('every event has a unique id', () => {
   assert.equal(new Set(pool.map((e) => e.id)).size, pool.length);
 });
 
-test('every event is gated to a location', () => {
+test('every event is gated by location, tag, weather or a minimum day', () => {
+  // An event with no gate at all would fire anywhere, at any time, which is
+  // how a pool ends up feeling like noise. Every entry must earn its place.
   for (const e of buildEventPool()) {
-    assert.ok(['bar', 'spiritual_community'].includes(e.requiredLocation), `${e.id} has no location`);
+    const gated = e.requiredLocation !== ''
+      || e.requiredTag !== ''
+      || e.requiredWeather !== ''
+      || e.minimumDay > 1;
+    assert.ok(gated, `${e.id} has no gate of any kind`);
   }
 });
+
+test('location-gated events still name a real playable location', () => {
+  const ids = new Set(locationIds());
+  for (const e of buildEventPool()) {
+    if (e.requiredLocation === '') continue;
+    assert.ok(ids.has(e.requiredLocation), `${e.id} points at ${e.requiredLocation}`);
+  }
+});
+
+test('tag-gated events use tags that some location actually has', () => {
+  const known = new Set(LOCATIONS.flatMap((l) => l.tags));
+  for (const e of buildEventPool()) {
+    if (!e.requiredTag) continue;
+    assert.ok(known.has(e.requiredTag), `${e.id} requires unknown tag ${e.requiredTag}`);
+  }
+});
+
+test('weather-gated events name a real weather type', () => {
+  for (const e of buildEventPool()) {
+    if (!e.requiredWeather) continue;
+    assert.ok(getWeather(e.requiredWeather), `${e.id} requires unknown weather ${e.requiredWeather}`);
+  }
+});
+
 
 test('rarity weights follow the 10 / 2 / 2 rule', () => {
   for (const e of buildEventPool()) {
@@ -255,9 +303,31 @@ test('no event fires before its scheduled day', () => {
 test('events only fire for the matching location', () => {
   const em = new EventManager(seeded());
   em.initialize(['Geo']);
+  const bar = getLocation('bar');
   for (let day = 1; day <= 200; day++) {
-    const e = em.selectEvent(day, day % 7, 'bar', 0);
-    if (e) assert.equal(e.requiredLocation, 'bar');
+    const e = em.selectEvent(day, day % 7, 'bar', 0, { tags: bar.tags, weatherId: 'clear' });
+    if (e && e.requiredLocation !== '') assert.equal(e.requiredLocation, 'bar');
+  }
+});
+
+test('tag-gated events only fire where the tag applies', () => {
+  const em = new EventManager(seeded());
+  em.initialize(['Geo']);
+  const library = getLocation('public_library');
+  for (let day = 1; day <= 300; day++) {
+    const e = em.selectEvent(day, day % 7, 'public_library', 0,
+      { tags: library.tags, weatherId: 'overcast' });
+    if (e?.requiredTag) assert.ok(library.tags.includes(e.requiredTag), `${e.id} fired at the library`);
+  }
+});
+
+test('weather-gated events never fire under the wrong sky', () => {
+  const em = new EventManager(seeded());
+  em.initialize(['Geo']);
+  const bar = getLocation('bar');
+  for (let day = 1; day <= 300; day++) {
+    const e = em.selectEvent(day, day % 7, 'bar', 0, { tags: bar.tags, weatherId: 'fog' });
+    if (e?.requiredWeather) assert.equal(e.requiredWeather, 'fog');
   }
 });
 
@@ -349,23 +419,24 @@ test('reset clears the schedule and repeat guard', () => {
   em.initialize(['Geo']);
   for (let day = 1; day <= 50; day++) em.selectEvent(day, day % 7, 'bar', 0);
   em.reset();
-  assert.equal(em._previousEventId, null);
+  assert.deepEqual(em._recentIds, [], 'recent-event memory is cleared');
   assert.ok(em._nextEventDay >= MIN_EVENT_GAP_DAYS);
 });
 
 // --------------------------------------------------------------- turn
 
 test('a full turn applies action, rent and event in order', () => {
-  const gs = new GameState();
+  const gs = new GameState({ seed: 4242 });
   const em = new EventManager(seeded());
   em.initialize(gs.getCharacterNames());
   for (let i = 0; i < 3; i++) gs.advanceDay();   // land on Sunday
   const before = gs.money;
+  const { total } = computeDayEffects(gs, 'bar');
   const r = resolveTurn(gs, em, 'bar');
-  assert.equal(r.rentCharged, true);
-  // +12 from the shift, −18 rent, plus any event delta.
-  const expected = before + MONEY_GAIN - RENT_AMOUNT + (r.event?.moneyDelta ?? 0);
-  assert.equal(gs.money, Math.min(Math.max(expected, 0), MAX_STAT));
+  assert.equal(r.rentCharged, RENT_AMOUNT);
+  // The day's money effect, minus rent, plus any event delta.
+  const expected = before + total.money - RENT_AMOUNT + (r.event?.moneyDelta ?? 0);
+  assert.equal(gs.money, Math.max(expected, 0));
 });
 
 test('a turn writes exactly one history line', () => {
@@ -374,7 +445,7 @@ test('a turn writes exactly one history line', () => {
   em.initialize(gs.getCharacterNames());
   resolveTurn(gs, em, 'bar');
   assert.equal(gs.recentHistory.length, 1);
-  assert.match(gs.recentHistory[0], /Worked at the Bar/);
+  assert.match(gs.recentHistory[0], /Worked at Le Dernier Verre/);
 });
 
 test('reported deltas match the actual stat change', () => {
@@ -403,7 +474,7 @@ test('a long random playthrough never produces invalid state', () => {
     for (let turn = 0; turn < 300 && !gs.gameOver; turn++) {
       resolveTurn(gs, em, rng.random() < 0.5 ? 'bar' : 'spiritual_community');
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT, `sanity ${gs.sanity} out of range`);
-      assert.ok(gs.money >= 0 && gs.money <= MAX_STAT, `money ${gs.money} out of range`);
+      assert.ok(gs.money >= 0 && gs.money <= MONEY_HARD_CEILING, `money ${gs.money} out of range`);
       assert.ok(Number.isFinite(gs.sanity) && Number.isFinite(gs.money));
       assert.ok(gs.recentHistory.length <= 5);
       if (!gs.gameOver) gs.advanceDay();
@@ -508,7 +579,7 @@ test('every character has full biography text', () => {
     const minRel = c.role === Role.PROTAGONIST ? 4 : 10;
     assert.ok(c.relationship.length >= minRel, `${c.id} relationship too short`);
     assert.ok(c.location.length > 0, `${c.id} location`);
-    assert.match(c.portrait, /^assets\/portraits\/.+\.(webp|svg)$/, `${c.id} portrait path`);
+    assert.match(c.portrait, /^assets\/portraits\/.+\.(webp|svg|png)$/, `${c.id} portrait path`);
   }
 });
 

@@ -1,9 +1,20 @@
 # secondbarnone
 
-A small narrative balance game. You play Léon, who runs a spiritual community by
-day and tends bar by night. Every day you pick one. The community restores your
-sanity but costs money; the bar pays but grinds you down. Rent hits every Sunday.
-Let either stat reach zero and the run ends.
+A small narrative balance game. You play **Léon**, who runs a spiritual community
+by day and tends bar by night. Every day you pick one place to be. The community
+restores your sanity but costs money; the bar pays but grinds you down. Rent hits
+every Sunday. Let sanity or money reach zero and the run ends.
+
+Those two places are where you start. There are **22 locations across five
+districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
+night market, a pirate radio station, a temple ruin an hour out on the bus.
+Every location has a **host** from the cast; every event belongs to someone you
+know. Every portrait — HUD, host banners, the People screen, event cards — is
+**clickable/tappable**, and the small avatar is a preview: tapping it opens the
+artwork full-size and nothing else. Bios stay on the People screen.
+Weather is written down four days in advance and closes the outdoor ones.
+Insight buys practices, and a gentle daily focus cue makes the next decision easier to read. Survive **100 days**
+and the run acknowledges it — without forcing you to stop.
 
 **Play:** https://56eli.github.io/secondbarnone/
 
@@ -11,32 +22,21 @@ For design details and internals, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 
 ---
 
-## Branches
-
-| Branch | What it is |
-|---|---|
-| **`main`** | The HTML/CSS/JS game. Deployed to GitHub Pages from `/docs`. |
-| **`godot`** | The original Godot 4.7 project, preserved verbatim. Not deployed. |
-
-The two are separate implementations, not versions to reconcile. **Never merge
-`godot` into `main`** — it would restore a 39.5 MB `docs/` and clobber the web
-build.
-
 ## Why this is plain HTML/CSS/JS
 
-Shipping a Godot web build requires running the Godot binary to compile a `.pck`
-archive. That binary isn't reachable from an agent sandbox, so the game couldn't
-be built or deployed automatically — and an attempt to hand-assemble a `.pck`
-produced a corrupt, unplayable file.
-
-Rewritten as vanilla ES modules, the source **is** the build:
+Shipping a Godot web build required a binary the agent sandbox could not reach.
+The game was rewritten as vanilla ES modules so the source **is** the build:
 
 | | Godot version | This version |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~940 KB** (40× smaller) |
+| Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **107** |
+| Automated tests | 0 | **293** |
 | Coverage | — | **~99%** |
+
+Legacy Godot sources have been removed from this branch. The original engine
+project may still exist on a historical `godot` branch if one was preserved
+remotely; it is not part of the shipped game.
 
 ## Running locally
 
@@ -54,40 +54,47 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 107 tests
+npm test                # 293 tests, ~40s
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
 
-Three layers:
-
-- **`tests/game.test.js`** — 50 rule tests, no DOM. Calendar maths including leap
-  years, stat clamping, Sunday rent charged exactly once, the burnout threshold,
-  the 2–5 day event schedule, weighted rarity, game-over conditions, and 25
-  seeded 300-turn playthroughs asserting state never goes invalid.
-- **`tests/dom.test.js`** — 23 tests that boot the real `index.html` in jsdom,
-  call the real `initGame()`, and drive the UI by clicking actual buttons:
-  navigation, the result modal, stat rendering, double-click protection, the
-  portrait fallback, reduced-motion, game over and restart.
-- **`tests/coverage.test.js`** — 34 edge-case tests: the unseeded RNG branch,
-  signal unsubscribe, and defensive paths normal play never reaches.
-
-Current coverage — `npm run coverage`:
+Current coverage — `npm run coverage:check`:
 
 ```
-all files    99.94 line | 96.32 branch | 99.02 funcs
+all files    99.42 line | 90.60 branch | 95.47 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
 deterministic while normal play stays random.
 
-Asset integrity is checked separately, which catches a broken portrait path
-before it ships as a missing image:
+Asset integrity is checked separately:
 
 ```bash
 node scripts/check-assets.js
 ```
+
+## Balance
+
+The game is tuned against a simulator that drives the real turn resolver over
+many seeded runs:
+
+```bash
+npm run simulate                       # 100 seeds, 200-day horizon
+node scripts/simulate.js --verbose     # + per-location pick rates
+```
+
+Current bands (100 seeds, 200 days):
+
+| Play style | Dies | Reaches day 100 |
+|---|---|---|
+| `random` — picks blindly | 97% | 3% |
+| `alternate` — the classic bar/community loop | 10% | 90% |
+| `greedy` — reads the preview, picks the best day | 25% | 75% |
+
+`tests/balance.test.js` asserts these stay inside sane bands, so a retune that
+makes the game unloseable — or brutally unfair — fails CI.
 
 ## Project layout
 
@@ -97,98 +104,106 @@ docs/                      ← deployed by GitHub Pages (main /docs)
   css/style.css
   js/
     main.js                entry point (three lines)
-    app.js                 wiring: HUD, screens, modal, game over
+    app.js                 wiring: HUD, screens, modal, autosave, game over
     core/
-      game-state.js        stats, calendar, history, mood/season
+      game-state.js        stats, calendar, practices, save/load
       event-manager.js     scheduling, weighted selection
       turn.js              one turn, resolved in order
       rng.js               seedable RNG
     data/
       characters.js        78 characters
-      events.js            29 events
-    ui/screens.js          hub, location, characters, modal, game over
-  assets/                  optimised WebP + SVG (~940 KB)
+      locations.js         22 locations (each with a host)
+      events.js            64 events (each with a character)
+      weather.js / perks.js
+      festivals.js / achievements.js
+    ui/screens.js          hub, map, location, practice, portrait lightbox
+  assets/
+    portraits/             288px thumbnails, one per character
+    portraits/hi/          896px sheets for the enlarge-on-tap lightbox
+    backgrounds/           1000px location art
 
-assets/                    full-resolution source art (~26 MB, not deployed)
-scripts/                   dev tooling + legacy Godot .gd sources
-tests/
+assets/                    full-resolution source art (not deployed)
+                           one canonical master per id
+scripts/
+  serve.js                 zero-dependency dev server
+  simulate.js              balance simulator (npm run simulate)
+  check-assets.js          asset integrity + payload budget
+  build-portraits.js       288px thumb + 896px lightbox tiers
+  optimize-assets.sh       rebuild docs/assets from assets/
+  coverage-gate.js         enforces the coverage floor
+tests/                     nine suites, incl. balance.test.js
+notes/                     internal notes (not deployed)
+  ci-workflow.yml          CI config, pending a manual move to .github/
 ```
-
-`docs/js/core/` and `docs/js/data/` have no DOM references, which is what makes
-the rules testable in isolation.
 
 ## Cast
 
-78 characters. Léon is the protagonist; **Kaden** is the arch nemesis (a
-developer circling the community's land); **Sato** and **Alex** are rivals who
-run a competing wellness studio and cocktail bar. The remaining 74 are side
-characters drawn from the community, the bar, and the neighbourhood.
+78 characters. Léon is the protagonist; **Kaden** is the arch nemesis; **Sato**
+and **Alex** are rivals with multi-beat arcs. The remaining 74 are side
+characters. Every location has a host with their own small-talk list, and **51 of 64 events**
+are tied to side characters, so the city feels peopled rather than abstract.
 
-The character screen groups them by role — antagonists first — and has a search
-box that filters on name, role, location or biography text.
+Léon's portrait and name sit in the HUD on every screen.
 
-Character ids are ASCII slugs derived from display names, so portraits map onto
-filenames safely even for names written in Cyrillic, fraktur, Hangul or emoji
-(`𝕽𝖆𝖚𝖑` → `raul.svg`, `Kopung (고풍)` → `kopung.svg`). Display names keep their
-original spelling everywhere in the UI.
+## Resources
 
-## Assets
-
-Source art in `assets/` is ~26 MB of 1024×1024 PNGs — far more than the game
-displays. One command regenerates avatars, downscales the painted portraits,
-converts to WebP and prunes orphans:
-
-```bash
-npm run assets      # ~26 MB → ~940 KB, needs ImageMagick
-```
-
-Portraits go to 512px (they render at ~84px, so this covers retina), backgrounds
-to 1000px wide.
-
-**Eleven characters have painted portraits** (Léon, the six community and bar
-regulars, plus Kaden, Sato and Alex). The other 67 get deterministic SVG avatars
-from `scripts/generate-avatars.js` — the same id always produces the same face,
-so diffs stay clean, and each file is under 1 KB. Bots render as machines and
-Cat renders as a cat. Portraits fall back to an initials chip if a file is ever
-missing.
-
-## Deploying
-
-GitHub Pages serves `main` → `/docs`. Any push to `main` that touches `docs/`
-goes live in about a minute:
-
-```bash
-npm run check && git add -A && git commit -m "..." && git push origin main
-```
-
-No settings to change, no export step.
+| | Start | Cap | Notes |
+|---|---|---|---|
+| **Sanity** | 50 | 100% | Gauge. 0 ends the run. |
+| **Energy** | 100 | 100% | Gauge. Exhaustion costs sanity. |
+| **Reputation** | 10 | 100% | Gauge. Gates places. |
+| **Money** | 50 | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100. |
+| **Insight** | 0 | uncapped | Spent on perks. |
 
 ## Game rules
 
-- Start at 50 sanity / 50 money, capped at 100, on Thursday 1 January 2026.
+- Start Thursday 1 January 2026.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
-- Rent: **−18 money** every Sunday, charged once.
-- A random event fires every 2–5 days, drawn from the pool for the location you
-  chose. Weights are 10 for Common and 2 for each Rare, so roughly one event in
-  six is rare.
+- Rent: **−18 money** every Sunday, charged once. It rises by 3 every 24
+  days (capped at 42) so a long run has to keep earning.
+- A random event fires every 2–5 days. Weights are 10 for Common and 2 for each
+  Rare, so roughly one event in six is rare.
 - Burnout unlocks only after 3 consecutive bar days.
 - The same event never fires twice in a row.
-- Reaching 0 in either stat ends the run.
+- Reaching 0 sanity or 0 money ends the run.
+- Reaching journey day **100** awards a soft win without ending the run.
+- Runs autosave to `localStorage` after every day and resume on reload.
+
+## Homely design notes
+
+Eleven things that make the city feel like a home:
+
+1. **Léon is always on screen** — portrait + name in the HUD.
+2. **Day one begins with a friend.** Brian keeps a place for Léon at the
+   House of Middleway, pinned to the fourth card of the hub (row 2, column 1)
+   and playable straight away. From day two the chapel goes back behind its
+   ordinary gate.
+3. **Every location has a host** you will likely see there.
+4. **Most events belong to side characters** — 51 of 64 — with their face on the result.
+5. **Daily greetings** that change with weekday and season.
+6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
+7. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
+8. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
+9. **Soft 100-day endurance goal** — a reason to keep a long run going.
+10. **Uncapped money** — tips stack; broke still kills the run.
+11. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
 
 ## Accessibility
 
 Semantic buttons and headings throughout, visible focus rings, `aria-selected`
 on the character list, `role="dialog"` with `aria-modal` on the result modal,
-and full keyboard operability. `prefers-reduced-motion` disables particles and
-collapses transitions.
+`role="meter"` on the stat bars, and full keyboard operability.
+`prefers-reduced-motion` disables particles and collapses transitions.
 
 ## Known gaps
 
-- The UI was verified with jsdom, not a real browser — Chromium couldn't be
-  downloaded in the environment this was built in. Layout and animation should
-  get a human eye on a real device.
-- No save/resume; a refresh restarts the run. `localStorage` persistence would
-  be a natural next step.
+- The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - No audio.
-- The three antagonists have profiles but no dedicated events yet.
+- `flea_market` still has rain baked into its art, which contradicts a Clear
+  day. Next on the art list — see [HANDOFF.md](HANDOFF.md).
+- Insight and reputation both run out of things to buy late in a long run.
+
+For a full picture of the current state, recent changes and the open list, see
+[HANDOFF.md](HANDOFF.md). For the review that prompted them, see
+[ASSESSMENT.md](ASSESSMENT.md).

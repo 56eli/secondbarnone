@@ -1,8 +1,15 @@
 /**
  * Character database — ported 1:1 from scripts/character_data.gd.
  *
- * `portrait` is resolved at load time by trying .webp then .svg, mirroring the
- * original's ResourceLoader.exists() probe over .png then .svg.
+ * Every character carries two portrait paths:
+ *
+ *   portrait    small sheet used for every inline avatar in the game
+ *   portraitHi  large sheet used only by the tap-to-enlarge lightbox
+ *
+ * Both are produced by scripts/build-portraits.js. The split exists because
+ * the biggest inline avatar is 84 CSS px while the lightbox renders up to
+ * 560 CSS px — one file cannot serve both without being wasteful in normal
+ * play or soft when enlarged. `portraitHi` is only ever fetched on demand.
  */
 
 export const Role = Object.freeze({
@@ -22,16 +29,23 @@ export function roleLabel(role) {
   }
 }
 
-/** Characters whose portrait is a painted raster image (WebP, circular, vignette). */
-const WEBP_PORTRAITS = new Set([
-  'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-  'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
-  'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
-]);
-
+/**
+ * Every character now has a painted raster portrait. The procedural SVG
+ * avatars that used to stand in for the last of the side cast were replaced
+ * in the July 2026 art pass, so there is no longer a painted/generated split
+ * to encode here — the build emits `<id>.webp` (thumb) and `hi/<id>.webp`
+ * (lightbox) for every id in the catalogue.
+ *
+ * scripts/check-assets.js verifies both files exist for every character, so a
+ * missing portrait fails CI rather than shipping a broken <img>.
+ */
 function portraitFor(id) {
-  const ext = WEBP_PORTRAITS.has(id) ? 'webp' : 'svg';
-  return `assets/portraits/${id}.${ext}`;
+  return `assets/portraits/${id}.webp`;
+}
+
+/** Full-size sheet for the enlarge-on-tap lightbox. */
+function portraitHiFor(id) {
+  return `assets/portraits/hi/${id}.webp`;
 }
 
 const RAW = [
@@ -58,17 +72,17 @@ const RAW = [
     id: 'lakshay',
     name: 'Lakshay',
     role: Role.SIDE_CHARACTER,
-    bio: 'A warm-hearted community member who manages the daily logistics: cooking, supplies, and schedules. Lakshay\u2019s practical skills keep the community running smoothly while his infectious optimism lifts everyone\u2019s spirits.',
-    relationship: 'Lakshay looks up to Léon as a leader and often brings him chai during long meditation sessions.',
+    bio: 'Runs the IT department nobody upstairs knows they have. Two floors below the meditation hall, in a vaulted cellar that used to hold wine, Lakshay keeps racks of servers humming through the night — a digitised library of scanned sutras, out-of-print commentaries, recorded dharma talks and every session the community has ever taped. He calls it the archive. Everyone else calls it the basement. He has never lost a byte, mirrors everything three times, and gets genuinely emotional about backup schedules. A brass singing bowl sits on top of rack one, which he insists is for humidity and not for luck.',
+    relationship: 'Lakshay quietly digitised Léon\u2019s earliest, worst guided meditations and refuses to delete them, on the grounds that an archive that only keeps the good parts is not an archive. He brings chai down the stairs and forgets to drink it.',
     location: 'Spiritual Community',
   },
   {
     id: 'arian',
     name: 'Arian',
     role: Role.SIDE_CHARACTER,
-    bio: 'A charismatic and sometimes skeptical member who pushes the community to evolve. Arian believes spirituality should engage with the modern world, not retreat from it. His debates keep the community intellectually honest.',
-    relationship: 'Arian and Léon have a productive but occasionally tense relationship. Arian challenges Léon\u2019s decisions, but always with the community\u2019s best interests at heart.',
-    location: 'Spiritual Community',
+    bio: 'Drinks, and tells Léon\u2019s stories better than Léon does. Give Arian a glass and a room and he will produce the founding legend of the community — the burst pipe, the first winter, the night the landlord came round — polished, timed, funnier every year and only loosely true. He is the community\u2019s unofficial memory and its least reliable narrator. Nobody has settled whether he drinks to keep the demons out or because they are already in and drinking with him. Arian tells it both ways depending on the hour, and laughs either way.',
+    relationship: 'Arian was there for most of what he describes, which is why Léon cannot simply correct him. He is fond of Arian and worried about him in roughly equal measure, and has never once found the right evening to say so.',
+    location: 'Spiritual Community & The Bar',
   },
   {
     id: 'simon',
@@ -82,8 +96,8 @@ const RAW = [
     id: 'kaj',
     name: 'Kaj',
     role: Role.SIDE_CHARACTER,
-    bio: 'A quiet artist who found in the community a canvas for spiritual expression. Kaj paints mandalas and leads visual meditation workshops. Their art adorns the community hall walls.',
-    relationship: 'Kaj is deeply grateful to Léon for creating a space where creativity and spirituality intertwine.',
+    bio: 'Reads. That is the whole of it, and it turns out to be a lot. Kaj arrives early, takes the corner of the hall with the good lamp, and disappears into a book until someone needs something — philosophy, poetry, a battered thriller, the instruction manual for the boiler, it genuinely does not matter. Towers of finished books fence the cushion in. Kaj is the person the community asks when nobody can remember where an idea came from, and is usually right, and never makes a thing of it.',
+    relationship: 'Kaj hands Léon a book roughly once a month without explanation or recommendation, and has never once asked whether he read it. He has read most of them.',
     location: 'Spiritual Community',
   },
 
@@ -92,8 +106,8 @@ const RAW = [
     id: 'dorian',
     name: 'Dorian',
     role: Role.SIDE_CHARACTER,
-    bio: 'A silver-tongued regular at the bar who claims to have been everything from a jazz pianist to a diamond smuggler. Nobody knows which stories are true, but they are always worth hearing.',
-    relationship: 'Dorian treats Léon as a kindred spirit, another soul navigating the space between who they were and who they want to be.',
+    bio: 'Known throughout the bar for one sentence: \u201cI\u2019m old. I don\u2019t want to do anything.\u201d He deploys it against fundraisers, karaoke, group photographs, the quiz, moving one seat along, and the suggestion that he might enjoy some fresh air. It is not bitterness — Dorian is perfectly content, arriving at the same hour, occupying the same red armchair, declining everything with enormous warmth. He has reached the stage of life where doing nothing is a considered position, and he defends it with the calm of a man who knows he has earned it.',
+    relationship: 'Dorian has refused every single thing Léon has ever proposed and has never once missed a shift Léon was working. Léon has stopped asking and started simply setting the glass down, which Dorian regards as real progress.',
     location: 'The Bar',
   },
   {
@@ -142,9 +156,9 @@ const RAW = [
     id: 'brian',
     name: 'Brian',
     role: Role.SIDE_CHARACTER,
-    bio: 'A former finance guy who burned out and found his way to Léon\u2019s community. Brian now helps manage the community\u2019s modest finances and occasionally bartends. He is proof that transformation is possible.',
-    relationship: 'Brian sees his own past in Léon\u2019s current struggle and offers financial advice born of hard experience.',
-    location: 'Spiritual Community & The Bar',
+    bio: 'Léon\u2019s good old friend from way back, long before either of them talked about community. Brian started his own church community out in the woods called The House of Middleway — a converted barn chapel where the tea is always hot and the sermons run long. He\u2019s always grinning, warm in a way that fills the room a little too completely, like a would-be Jesus who forgot to stop smiling. His people adore him. People outside his community are not too sure about him.',
+    relationship: 'Brian and Léon go back years — shared flats, shared ideas, divergent paths. Brian actually built something of his own in the woods, and Léon respects that, even if the ever-present grin and the gathering crowd around him make Léon uneasy. They still meet for coffee and argue kindly about what community is meant to be.',
+    location: 'The House of Middleway',
   },
   {
     id: 'susan',
@@ -282,7 +296,7 @@ const RAW = [
     id: 'carl_bot',
     name: 'Carl-bot',
     role: Role.SIDE_CHARACTER,
-    bio: 'The community\u2019s scheduling assistant — a secondhand tablet on a stand that announces meditation times in a cheerful synthetic voice. Someone taught it to tell jokes. Nobody has admitted to it.',
+    bio: 'The community\u2019s scheduling assistant — a secondhand tablet on a stand that announces meditation times in a cheerful synthetic voice. It tells terrible dad jokes about spreadsheet formulas and refuses to compute Sunday schedules unless offered virtual cookies.',
     relationship: 'Reminds Léon of commitments he was actively avoiding. He has considered unplugging it and could not go through with it.',
     location: 'Spiritual Community',
   },
@@ -402,7 +416,7 @@ const RAW = [
     id: 'mrone',
     name: 'Mrone',
     role: Role.SIDE_CHARACTER,
-    bio: 'A minimalist who owns nineteen possessions and mentions this more than nineteen times a week. Genuinely serene, mildly insufferable, ultimately good company.',
+    bio: 'A minimalist who owns nineteen possessions and mentions this more than nineteen times a week. He recently decluttered his last name down to a single phoneme and refuses to use adjectives because they are "frivolous syntax weight."',
     relationship: 'Keeps offering to help Léon "declutter." Léon keeps declining.',
     location: 'Spiritual Community',
   },
@@ -674,7 +688,11 @@ const RAW = [
 
 /** Build the full character list, with portrait paths resolved. */
 export function createAllProfiles() {
-  return RAW.map((c) => ({ ...c, portrait: portraitFor(c.id) }));
+  return RAW.map((c) => ({
+    ...c,
+    portrait: portraitFor(c.id),
+    portraitHi: portraitHiFor(c.id),
+  }));
 }
 
 /** Two-letter-ish initials, used as the portrait fallback. */
@@ -688,4 +706,131 @@ export function getInitials(displayName) {
     .toUpperCase();
   // A whitespace-only or symbol-stripped name would otherwise render blank.
   return initials || '?';
+}
+
+/**
+ * Things a host can say when Léon arrives. These are deliberately separate
+ * from event copy and location descriptions: a visit is a small meeting, not
+ * a dossier. The day-based picker keeps a line stable while a screen rerenders
+ * and rotates it on future visits without consuming gameplay randomness.
+ */
+export const SMALL_TALK = Object.freeze({
+  geo: Object.freeze([
+    'The kettle is on. We can begin where the breath is.',
+    'No need to make the day impressive. Just make it honest.',
+    'You are allowed to arrive exactly as you are.',
+  ]),
+  barret: Object.freeze([
+    'Apron is clean. The rest of the night can sort itself out.',
+    'Good to see you, kid. There is a stool with your name on it.',
+    'We have got enough lemons and just enough patience. Let us work.',
+  ]),
+  leon: Object.freeze([
+    'The plants made it through the night. So did you.',
+    'A slow breakfast still counts as keeping things going.',
+    'The window is open a crack. The room can breathe.',
+  ]),
+  yume: Object.freeze([
+    'The sky is doing most of the decorating today.',
+    'I saved the quiet corner by the rail for you.',
+    'Up here the city sounds like it is thinking before it speaks.',
+  ]),
+  susan: Object.freeze([
+    'Drink some water before you tell me you are fine.',
+    'The kettle is working. That is already a good sign.',
+    'We will take this one person at a time.',
+  ]),
+  siekamcebule: Object.freeze([
+    'There is always enough for one more bowl.',
+    'Do not cry because of the onions. Cry because of the beautiful harmony of the soup.',
+    'Pull up a chair. Standing all day is not a personality.',
+  ]),
+  joar: Object.freeze([
+    'The river is cold, but it is not in a bad mood.',
+    'Walk until your thoughts stop trying to win.',
+    'I brought an extra thermos. Pretend this was planned.',
+  ]),
+  brock_lee: Object.freeze([
+    'The tomatoes are finally deciding what they want to be.',
+    'I am root-ing for you, Léon! Remember, lettuce always do our best.',
+    'Mind the mint. It has global domination ambitions.',
+  ]),
+  ahyeon: Object.freeze([
+    'The honey jars are lined up like they have somewhere to be.',
+    'Take the good chair before somebody notices it is empty.',
+    'A little haggling is just conversation with numbers.',
+  ]),
+  renata: Object.freeze([
+    'The water will still be warm if you take your time.',
+    'Nothing important happens quickly in here.',
+    'Leave the clock outside. It does not know how to soak.',
+  ]),
+  cheezl: Object.freeze([
+    'The first grill is hot. That is the whole plan so far.',
+    'Eat something before midnight turns you into a philosopher.',
+    'The best stall is the one that smells like somebody is happy.',
+  ]),
+  baris: Object.freeze([
+    'Everything has a story. Most of them are negotiable.',
+    'If it works, it is vintage. If it does not, it is a project.',
+    'Keep your hands in your pockets until you know what you want.',
+  ]),
+  lou: Object.freeze([
+    'I put aside a book with your sort of weather in it.',
+    'The good table is free. The radiator is trying its best.',
+    'You do not have to finish anything today to be here.',
+  ]),
+  stephen: Object.freeze([
+    'No rush. The scale does not get impatient.',
+    'Things can be useful and sentimental. We can hold both truths.',
+    'I have heard worse weeks. Sit for a minute.',
+  ]),
+  hawkinstv: Object.freeze([
+    'The red light means we are live. The rest is just talking.',
+    'Someone out there needs to hear a human voice tonight.',
+    'I found the cable that crackles. We are practically professionals.',
+  ]),
+  klaudia: Object.freeze([
+    'The room is kind if you give it a chance.',
+    'You can borrow my first chord if the silence gets too loud.',
+    'Nobody remembers the perfect set. They remember the true one.',
+  ]),
+  kaden: Object.freeze([
+    'I brought the revised forms. No urgency, of course.',
+    'The waiting room is surprisingly comfortable today.',
+    'A signature is only a mark on paper. That is what makes it interesting.',
+  ]),
+  sato: Object.freeze([
+    'There is tea in the break room if you want the good kind.',
+    'Your class had a nice rhythm last week. Do not let it go to your head.',
+    'We can disagree without making a sport of it.',
+  ]),
+  alex: Object.freeze([
+    'The garnish tray is labelled now. Try not to look so pleased.',
+    'We are busy, not at war. Take the good ice.',
+    'Your hands remember the work. Trust them.',
+  ]),
+  marlies: Object.freeze([
+    'The roses do better when nobody rushes them.',
+    'There is a bench in the shade with your name on it. Not literally.',
+    'Some places ask you to speak softly. This is one of them.',
+  ]),
+  iulian: Object.freeze([
+    'The stones have waited longer than either of us.',
+    'Take the hill slowly. It will still be there at the top.',
+    'Listen for the wind under the arch. It knows the old tune.',
+  ]),
+  brian: Object.freeze([
+    'Welcome, welcome! The middle way is not in the middle — it is everywhere at once.',
+    'Grin first, questions later. That is how we do it here.',
+    'You knew me before the beard, Léon. Some things do not need to be explained twice.',
+  ]),
+});
+
+/** Return a host-specific line for the given journey day. */
+export function smallTalkFor(characterId, journeyDay = 1) {
+  const lines = SMALL_TALK[characterId];
+  if (!lines || lines.length === 0) return 'It is good to see you.';
+  const offset = [...characterId].reduce((sum, char) => sum + char.codePointAt(0), 0);
+  return lines[(Math.max(1, journeyDay) - 1 + offset) % lines.length];
 }

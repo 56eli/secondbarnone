@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import { createRng, defaultRng } from '../docs/js/core/rng.js';
 import { GameState, MAX_STAT, RENT_AMOUNT } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
-import { resolveTurn, LOCATION_COPY } from '../docs/js/core/turn.js';
+import { resolveTurn } from '../docs/js/core/turn.js';
+import { resourceBarClass } from '../docs/js/core/resource-bar.js';
 import {
   buildEventPool, rarityName, Rarity, Category,
   WEIGHT_STANDARD, WEIGHT_RARE_HELPFUL, WEIGHT_RARE_HURTFUL,
@@ -108,16 +109,6 @@ test('the exported event weights match the values used in the pool', () => {
   }
 });
 
-test('LOCATION_COPY describes both playable locations', () => {
-  for (const key of ['spiritual_community', 'bar']) {
-    const copy = LOCATION_COPY[key];
-    assert.ok(copy, `missing copy for ${key}`);
-    assert.ok(copy.name.length > 0);
-    assert.ok(copy.actionDesc.length > 20);
-    assert.ok(copy.historyLabel.length > 0);
-  }
-});
-
 // ------------------------------------------------------- signal plumbing
 
 test('on() returns an unsubscribe function that works', () => {
@@ -125,11 +116,11 @@ test('on() returns an unsubscribe function that works', () => {
   let calls = 0;
   const unsubscribe = gs.on('stats_changed', () => { calls += 1; });
 
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(calls, 1);
 
   unsubscribe();
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(calls, 1, 'handler should not fire after unsubscribe');
 });
 
@@ -142,12 +133,12 @@ test('off() removes a specific handler and ignores unknown ones', () => {
 
   gs.on('stats_changed', handlerA);
   gs.on('stats_changed', handlerB);
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(a, 1);
   assert.equal(b, 1);
 
   gs.off('stats_changed', handlerA);
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(a, 1, 'removed handler must not fire');
   assert.equal(b, 2, 'remaining handler must still fire');
 
@@ -188,16 +179,19 @@ test('multiple listeners on the same signal all fire', () => {
 test('an unknown location id leaves stats untouched', () => {
   const gs = new GameState();
   const { sanity, money } = gs;
-  gs.applyLocationAction('not_a_place');
+  gs.noteVisit('not_a_place');
   assert.equal(gs.sanity, sanity);
   assert.equal(gs.money, money);
   assert.equal(gs.lastLocationVisited, 'not_a_place');
 });
 
-test('resolveTurn on an unknown location produces empty copy and no history label', () => {
-  const gs = new GameState();
+test('resolveTurn on an unknown location produces empty copy and no location label', () => {
+  const gs = new GameState({ seed: 77 });
   const em = new EventManager(createRng(3));
   em.initialize(gs.getCharacterNames());
+  // Push the next event well out of reach so the history line is only ever
+  // built from the location part, which is what this test is about.
+  em._nextEventDay = 9999;
 
   const result = resolveTurn(gs, em, 'nowhere');
   assert.equal(result.actionDesc, '');
@@ -212,18 +206,6 @@ test('getSeason returns Unknown for an out-of-range month', () => {
   assert.equal(gs.getSeason(), 'Unknown');
 });
 
-test('getMood covers the mid-range and single-stat-high branches', () => {
-  const gs = new GameState();
-
-  gs.sanity = 50; gs.money = 50;
-  assert.match(gs.getMood(), /managing/);
-
-  gs.sanity = 90; gs.money = 50;
-  assert.match(gs.getMood(), /spirit soars/);
-
-  gs.sanity = 50; gs.money = 90;
-  assert.match(gs.getMood(), /Financially comfortable/);
-});
 
 test('checkGameOver returns early once the game is already over', () => {
   const gs = new GameState();
@@ -253,9 +235,11 @@ test('resolveTurn skips event selection when the game is already over', () => {
 test('an empty eligible pool schedules the next event without firing', () => {
   const em = new EventManager(createRng(11));
   em.initialize([]);
-  // No event has requiredLocation 'void', so the pool is always empty.
+  // Force every event to require a location that does not exist, so the pool
+  // is guaranteed empty and the "nothing eligible" branch is the one taken.
+  em._allEvents = buildEventPool().map((e) => ({ ...e, requiredLocation: 'void' }));
   for (let day = 1; day <= 60; day++) {
-    assert.equal(em.selectEvent(day, day % 7, 'void', 0), null);
+    assert.equal(em.selectEvent(day, day % 7, 'nowhere', 0), null);
   }
 });
 
@@ -326,16 +310,16 @@ test('an event with a minimumDay does not fire before it', () => {
 test('rent is skipped when the calendar has already charged that day', () => {
   const gs = new GameState();
   for (let i = 0; i < 3; i++) gs.advanceDay();   // Sunday
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
 
   // Same Sunday, second attempt.
-  assert.equal(gs.applyRentIfSunday(), false);
+  assert.equal(gs.applyRentIfSunday(), 0);
 
   // Next Sunday charges again.
   for (let i = 0; i < 7; i++) gs.advanceDay();
   assert.equal(gs.getWeekdayName(), 'Sunday');
   const before = gs.money;
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.money, Math.max(before - RENT_AMOUNT, 0));
 });
 
@@ -345,7 +329,7 @@ test('resetGame clears the rent guard so Sunday charges again', () => {
   gs.applyRentIfSunday();
   gs.resetGame();
   for (let i = 0; i < 3; i++) gs.advanceDay();
-  assert.equal(gs.applyRentIfSunday(), true);
+  assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
 });
 
 test('stats stay clamped through a long adversarial event sequence', () => {
@@ -353,27 +337,43 @@ test('stats stay clamped through a long adversarial event sequence', () => {
   const swings = [999, -999, 50, -50, 0, MAX_STAT, -MAX_STAT];
   for (const s of swings) {
     for (const m of swings) {
-      gs.applyEventDeltas(s, m);
+      gs.applyDeltas({ sanity: s, money: m });
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT);
-      assert.ok(gs.money >= 0 && gs.money <= MAX_STAT);
+      assert.ok(gs.money >= 0 && gs.money <= 99999);
     }
   }
 });
 
 // ------------------------------------------------------------ characters
 
-test('portrait extensions match the painted / generated split', () => {
-  const painted = new Set([
-    'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-    'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
-    'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
-  ]);
+test('every character has a painted WebP portrait in both tiers', () => {
+  // The painted/generated split is gone: the July 2026 art pass gave the last
+  // ten side characters real portraits, so there are no procedural SVG
+  // placeholders left to special-case. Both tiers are now uniform WebP.
   for (const c of createAllProfiles()) {
-    const expected = painted.has(c.id) ? 'webp' : 'svg';
-    assert.ok(
-      c.portrait.endsWith(`.${expected}`),
-      `${c.id} should use .${expected}, got ${c.portrait}`,
+    assert.equal(
+      c.portrait, `assets/portraits/${c.id}.webp`,
+      `${c.id} thumbnail path`,
     );
+    assert.equal(
+      c.portraitHi, `assets/portraits/hi/${c.id}.webp`,
+      `${c.id} hi-res path`,
+    );
+  }
+});
+
+test('no character still points at a procedural SVG placeholder', () => {
+  for (const c of createAllProfiles()) {
+    assert.ok(!c.portrait.endsWith('.svg'), `${c.id} still on an SVG placeholder`);
+    assert.ok(!c.portraitHi.endsWith('.svg'), `${c.id} hi still on an SVG placeholder`);
+  }
+});
+
+test('the hi-res portrait is a distinct file from the thumbnail', () => {
+  // If these ever collapse to the same path the lightbox silently stops
+  // being high-resolution, which is invisible in jsdom and easy to miss.
+  for (const c of createAllProfiles()) {
+    assert.notEqual(c.portrait, c.portraitHi, `${c.id} tiers must differ`);
   }
 });
 
@@ -392,4 +392,15 @@ test('every character biography is distinct', () => {
 test('every character has a distinct display name', () => {
   const names = createAllProfiles().map((c) => c.name);
   assert.equal(new Set(names).size, names.length, 'duplicate display name found');
+});
+
+// ----------------------------------------------------------- HUD resources
+test('resource bars use percentage-proportional status bands', () => {
+  assert.equal(resourceBarClass(0, 100), 'bar-critical');
+  assert.equal(resourceBarClass(10, 100), 'bar-critical');
+  assert.equal(resourceBarClass(25, 100), 'bar-warning');
+  assert.equal(resourceBarClass(50, 100), 'bar-fair');
+  assert.equal(resourceBarClass(75, 100), 'bar-full');
+  assert.equal(resourceBarClass(100, 100), 'bar-full');
+  assert.equal(resourceBarClass(500, 100), 'bar-full');
 });

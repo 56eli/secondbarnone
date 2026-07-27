@@ -1,16 +1,18 @@
-# Background Images
+# Location background source art
 
-Place location background images in this directory.
+This directory contains full-resolution source PNGs for the browser game. The
+deployable counterparts live in `docs/assets/backgrounds/` as 1000px WebP.
 
-## Expected files and recommended sizes
+New scenes should use a calm, painterly environmental composition with darker
+edge space for the game overlay. Keep filenames equal to the location id, for
+example `soup_kitchen.png` → `docs/assets/backgrounds/soup_kitchen.webp`.
 
-| Scene                | Suggested filename          | Size   | Notes                          |
-|----------------------|-----------------------------|--------|--------------------------------|
-| Spiritual Community  | `spiritual_community.png`   | 800×600 | Interior, warm/calm aesthetic  |
-| Bar                  | `bar.png`                   | 800×600 | Dim/atmospheric aesthetic      |
+To create a deploy asset without rebuilding unrelated artwork:
 
-## Usage
+```bash
+convert assets/backgrounds/<location>.png -resize '1000x>' -quality 80 \
+  -define webp:method=6 docs/assets/backgrounds/<location>.webp
+```
 
-In each location scene, assign the texture to the `BackgroundTexture` TextureRect node
-via the editor inspector. Set stretch_mode to `keep_aspect_covered` and adjust the
-Rect2 offset values if needed for 800×600 or 16:9 displays.
+`node scripts/check-assets.js` verifies every background referenced by the
+location catalogue.

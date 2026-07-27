@@ -59,7 +59,7 @@ async function boot(opts = {}) {
   // cache-busting query instead would give each boot its own module instance,
   // which fragments coverage reporting and leaks state between tests.
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame();
+  window.__game = initGame({ fadeMs: 0, toastMs: 0 });
   return window;
 }
 
@@ -76,7 +76,8 @@ function cleanup(window) {
 }
 
 /** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+// Transitions are instant under test (fadeMs 0), so this is just a tick.
+const settle = () => new Promise((r) => setTimeout(r, 0));
 
 maybe('game boots and renders the hub', async () => {
   const window = await boot();
@@ -85,7 +86,7 @@ maybe('game boots and renders the hub', async () => {
     assert.ok(doc.querySelector('.hub'), 'hub screen should render');
     assert.match(doc.getElementById('hud-date').textContent, /Thursday, January 1, 2026/);
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
-    assert.equal(doc.querySelectorAll('.choice').length, 3, 'three hub choices');
+    assert.equal(doc.querySelectorAll('.choice').length, 6, 'two core locations plus 4 rotating locations');
   } finally { cleanup(window); }
 });
 
@@ -93,8 +94,9 @@ maybe('HUD reflects the starting stats', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    assert.match(doc.getElementById('sanity-num').textContent, /50 \/ 100/);
-    assert.match(doc.getElementById('money-num').textContent, /50 \/ 100/);
+    assert.match(doc.getElementById('sanity-num').textContent, /50%/);
+    assert.match(doc.getElementById('money-num').textContent, /^50$/);
+    assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
     assert.equal(doc.getElementById('sanity-bar').style.width, '50%');
   } finally { cleanup(window); }
 });
@@ -104,12 +106,12 @@ maybe('visiting the bar renders the location screen', async () => {
   try {
     const doc = window.document;
     const barBtn = [...doc.querySelectorAll('.choice')]
-      .find((b) => b.textContent.includes('The Bar'));
+      .find((b) => b.textContent.includes('Le Dernier Verre'));
     barBtn.click();
     await settle();
 
     assert.ok(doc.querySelector('.location'), 'location screen should render');
-    assert.match(doc.querySelector('.screen-title').textContent, /The Bar/);
+    assert.match(doc.querySelector('.screen-title').textContent, /Le Dernier Verre/);
     assert.ok(doc.querySelector('.btn-primary'), 'action button present');
   } finally { cleanup(window); }
 });
@@ -118,7 +120,7 @@ maybe('performing an action opens the result modal and updates stats', async () 
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     doc.querySelector('.btn-primary').click();
@@ -131,7 +133,7 @@ maybe('performing an action opens the result modal and updates stats', async () 
     // Bar shift: money 50 → 62, sanity 50 → 38 (before any event).
     const { gs } = window.__game;
     assert.ok(gs.money !== 50 || gs.sanity !== 50, 'stats should have moved');
-    assert.match(doc.getElementById('money-num').textContent, new RegExp(`${Math.round(gs.money)} / 100`));
+    assert.match(doc.getElementById('money-num').textContent, new RegExp(`^${Math.round(gs.money)}$`));
   } finally { cleanup(window); }
 });
 
@@ -139,7 +141,7 @@ maybe('continuing from the modal advances the day and returns to the hub', async
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -160,7 +162,7 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
@@ -179,7 +181,7 @@ maybe('characters are grouped with antagonists near the top', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     const groups = [...doc.querySelectorAll('.char-group')].map((g) => g.textContent);
@@ -194,7 +196,7 @@ maybe('searching filters the character list', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     const search = doc.querySelector('.char-search');
@@ -222,7 +224,7 @@ maybe('the arch nemesis and rivals have full profiles', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     doc.querySelector('.char-row.role-arch_nemesis').click();
@@ -237,7 +239,7 @@ maybe('back from characters returns to the hub', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
@@ -249,7 +251,7 @@ maybe('portrait images point at files that exist', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     const { existsSync } = await import('node:fs');
@@ -266,7 +268,7 @@ maybe('the action button cannot be double-fired', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     const btn = doc.querySelector('.btn-primary');
@@ -290,7 +292,7 @@ maybe('game over renders and restart resets the run', async () => {
 
     // Force a losing position, then take one more shift.
     gs.sanity = 1;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -315,7 +317,7 @@ maybe('leaving a location without acting returns to the hub unchanged', async ()
     const { gs } = window.__game;
     const before = { s: gs.sanity, m: gs.money, d: gs.journeyDay };
 
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
@@ -331,7 +333,7 @@ maybe('the hub shows history after a completed turn', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -341,25 +343,51 @@ maybe('the hub shows history after a completed turn', async () => {
 
     const history = doc.querySelector('.history');
     assert.ok(history, 'history block should render');
-    assert.match(history.textContent, /Visited the Spiritual Community/);
+    assert.match(history.textContent, /Visited La Maison Calme/);
   } finally { cleanup(window); }
 });
 
-maybe('clicking the modal backdrop dismisses it like Continue', async () => {
+maybe('clicking the modal backdrop does NOT dismiss the day result', async () => {
+  // Dismissing this dialog commits the turn and advances the calendar, so it
+  // must not fire on a stray tap beside the card. Continuing is explicit.
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
 
     const backdrop = doc.querySelector('.modal-backdrop');
     assert.ok(backdrop);
+    const dayBefore = window.__game.gs.journeyDay;
+
     backdrop.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await settle();
 
-    assert.equal(doc.querySelector('.modal-backdrop'), null, 'modal should close');
+    assert.ok(doc.querySelector('.modal-backdrop'), 'modal stays open on backdrop click');
+    assert.equal(window.__game.gs.journeyDay, dayBefore, 'the day must not advance');
+  } finally { cleanup(window); }
+});
+
+maybe('Escape closes the day result and advances the day', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    const backdrop = doc.querySelector('.modal-backdrop');
+    assert.ok(backdrop);
+    const dayBefore = window.__game.gs.journeyDay;
+
+    backdrop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+
+    assert.equal(doc.querySelector('.modal-backdrop'), null, 'Escape closes the modal');
+    assert.equal(window.__game.gs.journeyDay, dayBefore + 1, 'the day advances');
     assert.ok(doc.querySelector('.hub'), 'should land back on the hub');
   } finally { cleanup(window); }
 });
@@ -368,7 +396,7 @@ maybe('stat deltas are shown in the HUD after a turn', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -409,7 +437,7 @@ maybe('running out of money ends the run', async () => {
 
     // Visiting the community costs money; leave just less than the cost.
     gs.money = 1;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Spiritual')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -424,7 +452,7 @@ maybe('a missing portrait falls back to an initials chip', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Characters')).click();
+    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
     await settle();
 
     const img = doc.querySelector('.char-row img');
@@ -442,7 +470,7 @@ maybe('particles are suppressed when reduced motion is preferred', async () => {
   const window = await boot({ reducedMotion: true });
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
 
     const container = doc.querySelector('.particles');
@@ -455,9 +483,11 @@ maybe('particles spawn when motion is allowed', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('The Bar')).click();
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
-    await new Promise((r) => setTimeout(r, 900));
+    // Particles spawn on an interval, so this one genuinely needs wall time —
+    // just much less of it than the old 900ms.
+    await new Promise((r) => setTimeout(r, 250));
 
     const container = doc.querySelector('.particles');
     assert.ok(container.children.length > 0, 'motes should appear over time');
@@ -472,7 +502,7 @@ maybe('a ten-turn playthrough never throws', async () => {
       if (doc.querySelector('.gameover')) break;
 
       const choice = [...doc.querySelectorAll('.choice')]
-        .find((b) => b.textContent.includes(i % 2 ? 'The Bar' : 'Spiritual'));
+        .find((b) => b.textContent.includes(i % 2 ? 'Le Dernier Verre' : 'La Maison'));
       if (!choice) break;
       choice.click();
       await settle();
@@ -486,5 +516,35 @@ maybe('a ten-turn playthrough never throws', async () => {
     }
     // Reaching here without an exception is the assertion.
     assert.ok(true);
+  } finally { cleanup(window); }
+});
+
+maybe('the day-result modal traps Tab inside itself', async () => {
+  // role="dialog" aria-modal="true" is a promise that focus stays put. The
+  // portrait lightbox already honoured it; this dialog did not.
+  const window = await boot();
+  try {
+    const doc = window.document;
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    const backdrop = doc.querySelector('.modal-backdrop');
+    assert.ok(backdrop, 'modal is open');
+
+    const focusable = [...backdrop.querySelectorAll('button')];
+    assert.ok(focusable.length > 0, 'the dialog has something focusable');
+    const last = focusable[focusable.length - 1];
+    last.focus();
+    assert.equal(doc.activeElement, last);
+
+    // Tab from the last control wraps to the first, rather than escaping.
+    backdrop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    await settle();
+    assert.ok(
+      backdrop.contains(doc.activeElement),
+      'focus must stay inside the dialog',
+    );
   } finally { cleanup(window); }
 });

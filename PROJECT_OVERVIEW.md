@@ -7,8 +7,12 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 107 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 293 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
+>
+> Money is an uncapped wallet (still lethal at 0). Every location has a host
+> with small talk; 51 of 64 events belong to side characters. Léon stays prominent
+> in the HUD. Weather stays calm and useful. Soft win at day 100.
 
 ---
 
@@ -27,13 +31,13 @@ As plain ES modules the source *is* the build:
 
 | | Godot | Current |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~940 KB** |
+| Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **107** |
+| Automated tests | 0 | **293** |
 | Coverage | — | **~99%** |
 
-The legacy `scripts/*.gd`, `scenes/*.tscn` and `project.godot` files remain in
-the repository for reference. They are not deployed and not maintained.
+Legacy Godot sources have been removed from this branch. The shipped game is
+the HTML/CSS/JS build under `docs/` only.
 
 ---
 
@@ -46,18 +50,27 @@ the document lives in `ui/` and `app.js`.
 ```
 docs/js/
   main.js            entry point — calls initGame() and nothing else
-  app.js             wiring: HUD, screen switching, modal, game over
+  app.js             wiring: HUD, screens, modal, toasts, autosave, game over
   core/
-    game-state.js    stats, calendar, history, season/mood, signals
+    game-state.js    stats, calendar, practices, save/load
     event-manager.js event scheduling and weighted selection
-    turn.js          resolves one turn in a fixed order
+    turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
     characters.js    78 character profiles
-    events.js        29 event definitions
+    locations.js     22 locations across 5 districts
+    events.js        64 event definitions
+    weather.js        9 weather types, derived per day
+    perks.js         10 perks in a prerequisite tree
+    festivals.js      9 fixed calendar events
+    achievements.js  22 predicates over a state snapshot
   ui/
-    screens.js       hub, location, characters, modal, game-over renderers
+    screens.js       hub, map, location, practice, almanac,
+                     characters, modal, game over
 ```
+
+Every module under `data/` is pure data plus pure helpers, which is why the
+test suite can assert over the whole catalogue rather than sampling it.
 
 ### Why `app.js` is separate from `main.js`
 
@@ -88,62 +101,107 @@ list, so a handler may safely unsubscribe mid-dispatch.
 
 ## Game rules
 
-### Stats
+### Resources
 
-Both start at **50**, capped at **100**, floored at **0**.
+| | Start | Max | What it is |
+|---|---|---|---|
+| **Sanity** | 50 | 100 | Reaching 0 ends the run |
+| **Money** | 50 | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100 |
+| **Energy** | 100 | 100 | Recovers overnight; running low costs sanity |
+| **Reputation** | 10 | 100 | Gates locations |
+| **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
 
-| Action | Sanity | Money |
-|---|---|---|
-| Spiritual Community | **+15** | **−10** |
-| The Bar | **−12** | **+12** |
-| Sunday rent | — | **−18** |
+The two founding locations keep their original numbers exactly — Spiritual
+Community is still +15/−10 and the Bar is still +12/−12 — so the opening of a
+run plays as it always did. Everything else is layered on top.
 
-Reaching **0** in either stat ends the run, with a message specific to which
-stat broke.
+**Exhaustion.** Below 25 energy every action costs extra sanity, scaling to −6
+at empty. `Second Wind` widens the threshold and softens the fall.
 
-### Calendar
+### Locations
 
-Starts **Thursday, 1 January 2026** and advances one day per completed action.
-Full Gregorian handling including month lengths, leap years and year rollover —
-so a long run correctly passes through 29 February 2028.
+**22 locations across 5 districts.** Each carries tags (`quiet`, `night`,
+`market`, `pilgrimage`, …) which are the join key for the whole game: weather
+modifies by tag, perks bonus by tag, and events gate by tag.
 
-Rent is charged on Sundays only, and at most once per Sunday. The guard is keyed
-on day-of-month and is cleared by `resetGame()`.
+Locations unlock on journey day, reputation, weekday, or a required perk/item.
+A fresh run can reach three places; a long, well-regarded one can reach all 22.
+
+**The day-one welcome.** Journey day 1 is the single exception. Brian keeps a
+place for Léon at the **House of Middleway**, so the chapel is offered on the
+first morning regardless of its own gate (day 6, 15 reputation) and is pinned
+to the fourth hub card — row 2, column 1 of the 3-wide grid — where the player
+cannot miss it. From day 2 the ordinary gate applies again and it rejoins the
+rotation like anywhere else, so the early economy is untouched.
+
+The exception lives in `evaluateUnlock()` rather than in the hub renderer,
+which matters: the map screen, the preview maths and the hub all agree without
+being told separately, and the rule is testable headlessly. The one thing the
+welcome does *not* override is the weather — a storm shuts the clearing for
+Brian the same as for anyone, because the alternative is a location whose
+"closed by the weather" contract has a hole in it.
+
+Every location costs something — money, energy or sanity. That invariant is
+enforced by test, because a free location would collapse the decision.
+
+### Weather
+
+**9 types, derived not rolled.** `weatherForDay(day, seed, season)` is a pure
+function of an FNV-1a hash, so the forecast can be read four days ahead in the
+almanac without rolling anything, and a save restores the exact same sky.
+
+Weather modifies effects by tag and can close tags outright — a storm shuts
+every outdoor location unless you are carrying the rain shell. Snow is
+winter-only, heatwaves are summer-only, blossom wind is spring-only.
+
+### Rent
+
+Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk,
+skippable by paying ahead at the letting office, and waived entirely on
+Rent Amnesty Day.
+
+### Practice and milestones
+
+- **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
+  acyclic and declared in a buyable order.
+- **9 festivals** on fixed calendar dates, and **21 achievements** expressed as
+  pure predicates over a state snapshot.
+
+The former task-contract system and long-form journal were deliberately retired
+so the run remains about one readable daily choice. The hub retains five concise
+history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-29 events, each gated to one location.
+**64 events.** **51 (79.7%)** belong to side characters, exceeding the
+50% catalogue floor enforced by test. Events are gated by location id, by
+location tag, by weather, or by a minimum day — so no event can fire anywhere
+at any time.
+Kaden finally has his own arc: four events that escalate the rent pressure
+from refiled paperwork to a buyout offer on very good paper.
 
-| Rarity | Weight | Count |
-|---|---|---|
-| Common | 10 | 20 |
-| Rare (Helpful) | 2 | 4 |
-| Rare (Hurtful) | 2 | 5 |
-
-Scheduling is **deterministic, not probabilistic**: after each event the next is
-scheduled 2–5 journey-days ahead, and when that day arrives an event fires.
-
-Additional gates:
-
-- **Location** — only events matching the chosen location are eligible.
-- **Burnout** — requires 3+ consecutive bar days.
-- **Friend events** — skipped when no character names are available.
-- **No immediate repeats** — the previous event is filtered out when possible.
-- `minimumDay` and `allowedWeekdays` are supported per event (unused by the
-  shipped pool, but honoured and tested).
+Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
+the last four events filtered out of the pool to avoid repetition.
 
 ### Turn order
 
 `resolveTurn()` in `core/turn.js` applies, in this exact order:
 
-1. the location action
-2. Sunday rent
-3. the scheduled random event
-4. the game-over check
-5. one history line
+1. the day's effects — location, weather, festival, perks, items
+2. the exhaustion penalty
+3. Sunday rent
+4. the scheduled random event, scaled by perks
+5. achievements
+6. the game-over check
+7. one concise history line
 
-Order matters: rent lands before the event, so an event can pull a player back
-from the brink that rent pushed them toward.
+Order still matters: rent lands before the event, so an event can pull a player
+back from the brink that rent pushed them toward.
+
+Step 1 is factored out as `computeDayEffects()`, which is also what the UI
+calls to show the exact numbers a location is offering *before* the player
+commits. The preview and the resolution cannot drift, because they are the
+same function.
 
 ---
 
@@ -173,10 +231,10 @@ derived from them, because ids map directly onto portrait filenames:
 
 | Display name | Id | Portrait |
 |---|---|---|
-| `𝕽𝖆𝖚𝖑` | `raul` | `raul.svg` |
+| `𝕽𝖆𝖚𝖑` | `raul` | `raul.webp` |
 | `Kopung (고풍)` | `kopung` | `kopung.svg` |
-| `Renata 🦥` | `renata` | `renata.svg` |
-| `Qusтoge` | `qustoge` | `qustoge.svg` |
+| `Renata 🦥` | `renata` | `renata.webp` |
+| `Qusтoge` | `qustoge` | `qustoge.webp` |
 
 The UI always renders the original spelling. Slug uniqueness is enforced by test.
 
@@ -184,43 +242,142 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**11 painted portraits** (Léon, six community and bar regulars, plus the three
-antagonists) rendered as WebP at 512px.
+**78 painted portraits — the whole cast.** Every character now has real
+painted art; the procedural SVG placeholders are gone, and a test fails the
+build if one comes back. `notes/art-status.md` is the canonical art
+tracker and now carries two deliberately empty tables for art that exists but
+should be *improved*.
 
-**67 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
-the same id always produces the same face, so regenerating never churns the
-diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
-hash of the id. Under 1 KB each, versus ~2 MB for a painted portrait. Bots
-(Carl-bot, DocBot) render as machines; Cat renders as a cat.
+**The off-style four.** Full coverage was not the same as a coherent cast.
+`kaj`, `arian` and `dorian` shipped as pixel-art sprites and `lakshay` as a
+flat cartoon vector with a third-party stock watermark baked into the
+deployed payload — four different games sitting next to each other in the
+People list. All four were repainted into the house style (warm
+semi-realistic oil painting, chest-up, circular distressed cream frame, a
+background detail that says who the person is) and each now carries the trait
+its rewritten profile turns on: Kaj reading, Lakshay at his cellar server
+rack, Arian mid-story over a glass, Dorian immovable in his armchair.
 
-Backgrounds are WebP at 1000px wide behind a dark scrim. Missing portraits fall
-back to an initials chip, which is exercised by test.
+### Portraits ship in two tiers
 
-Source art in `assets/` is ~26 MB; the deployed payload is ~940 KB.
-`scripts/optimize-assets.sh` regenerates avatars, downscales, converts and
-prunes orphans in one pass.
+| Tier | Path | Size | Used by |
+|---|---|---|---|
+| Thumbnail | `assets/portraits/<id>.webp` | 288px | every inline avatar |
+| Hi-res | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
+
+The largest avatar the game renders inline is **84 CSS px**, so the previous
+single 512px sheet was ~6x oversized on every page load — while being too
+*small* for the enlarged view, which renders up to 560 CSS px. Splitting the
+tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
+enlarged view genuinely sharp. `scripts/build-portraits.js` emits both tiers,
+picks the largest available source rather than the first matching format, and
+never upscales.
+
+### The portrait lightbox
+
+Every portrait — HUD, host banner, map, People screen, day-result event card —
+is a clickable/tappable button. It opens **the artwork and nothing else**: no
+name, no role, no bio, no relationship (see `renderPortraitPopup` /
+`openCharacterPopup` in `docs/js/ui/screens.js`). The reasoning is that the
+inline avatar is a *preview* of a picture, so the popup is that picture at
+full size; adding chrome would make it a second, worse character sheet
+competing with the People screen, which is where a player goes to read. The
+character's name survives only in `alt` text, for screen readers.
+
+The lightbox fetches the hi-res sheet lazily and falls back once to the
+thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
+rather than an empty frame.
+
+**22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+playable location. Background paths are derived from the location catalogue by
+`scripts/check-assets.js`, so adding a location cannot silently ship a broken
+image path, and an *unreferenced* background now fails a test rather than
+quietly adding weight.
+
+Six backgrounds were repainted in the July 2026 pass for **Paris coherence** —
+the night market had East Asian lanterns, the "mountain retreat" had alpine
+peaks in a game set in the Île-de-France, and the Saint-Denis crypt was drawn
+as an outdoor hilltop ruin. The hub's `hub_background.svg` — a 900-byte file of
+five blurred circles — was replaced with a painted Paris street corner showing
+the bar and the community room facing each other.
+
+A **second coherence pass** caught five the first one missed, because that
+pass fixed the scenes that were obviously wrong and stopped: the clinic had
+English-language posters, the community garden was a New York block of
+red-brick tenements and fire escapes, the rooftop looked out on a North
+American downtown of glass towers, the letting office onto British suburban
+terraces, and the loft onto an anonymous high-rise skyline. All five are now
+Haussmann limestone, wrought iron and zinc mansard roofs. Two of them
+(`free_clinic`, `home_loft`) had never had a committed PNG master, so
+`npm run assets` could not rebuild them at all; both now do, and a test
+asserts every repainted background keeps its master.
+
+Missing portraits fall back to an initials chip, which is exercised by test.
+
+Source art in `assets/` is well over 100 MB; the deployed payload in
+`docs/assets/` is ~2.9 MB eager plus ~4.4 MB of on-demand portrait sheets.
+`scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
+one pass.
 
 ---
 
 ## Testing
 
-**107 tests** across three files.
+**293 tests** across nine files.
 
 | File | Tests | Scope |
 |---|---|---|
-| `tests/game.test.js` | 50 | Rules, headless: calendar, stats, rent, events, characters |
-| `tests/dom.test.js` | 23 | Real `index.html` in jsdom, driven by clicking real buttons |
-| `tests/coverage.test.js` | 34 | Edge cases: unseeded RNG, signal teardown, defensive branches |
+| Nine test files | **293** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, portrait/background asset invariants, and **game balance** |
+
+`tests/portrait-assets.test.js` is new and checks the art itself rather than
+the code that renders it: both tiers exist for all 78 characters, thumbnails
+never exceed 288px, a hi-res sheet is never *smaller* than the thumbnail it
+enlarges, no orphaned or SVG portrait files ship, and every deployed
+background is referenced by a location. It skips cleanly if ImageMagick is
+unavailable.
+
+It also pins the four portraits repainted in the off-style pass (`kaj`,
+`lakshay`, `arian`, `dorian`) by content hash. Those four were pixel-art
+sprites and one watermarked cartoon vector sitting in an otherwise painterly
+cast, and no existing test could see the problem — the files existed, were the
+right dimensions, and were under budget. The guard is a hash rather than a
+"does this look painted" heuristic on purpose: blockiness and colour-count
+metrics were measured against the real files first and **overlap between the
+two styles**, so any threshold would fail on unrelated art sooner or later. A
+hash fails if and only if the exact retired file returns, which is the real
+regression — re-running the builder against a stale source. A companion test
+asserts the superseded 512px WebP sources stay deleted, since those are what
+the builder picked up the first time.
+
+It also measures the House of Middleway background rather than trusting the
+brief: the chapel was repainted from a dusk scene to a sunlit one, so the test
+asserts its mean luminance is above 0.35 *and* that it is the brightest
+background in the game — and then checks the same figure back through the
+`.location` scrim to prove the brighter art did not cost the panel its text
+legibility. A tonal regression there is invisible to jsdom and easy to
+reintroduce by re-running the optimiser against a stale source.
+
+That "hi is never smaller than the thumb" assertion is a regression test for a
+real bug: the first build picked sources by format preference, so three early
+characters with a 160px PNG sitting next to a 512px WebP got an *enlarged*
+view that was blurrier than the thumbnail.
+
+The data tests are written as invariants over the whole catalogue rather than
+spot checks, which is how they earn their keep — they caught three real design
+bugs during the expansion: two locations that cost the player nothing (a free
+lunch that would have broken the economy), a festival dated 29 September that
+could never fire in a 30-day month, and an exhaustion penalty that rounded to
+zero just below its own threshold.
 
 Coverage on shipped code:
 
 ```
-app.js            100.00 line | 94.12 branch | 100.00 funcs
+app.js             ~99-100 across the board
 core/*            ~99-100 across the board
-data/*            100.00 line | 100.00 branch | 100.00 funcs
-ui/screens.js     100.00 line | 91.03 branch |  96.43 funcs
+data/*            ~99-100 across the board
+ui/screens.js      99.72 line | 84.06 branch |  97.10 funcs
 ────────────────────────────────────────────────────────────
-all files          99.94 line | 96.32 branch |  99.02 funcs
+all files          99.42 line | 90.60 branch |  95.47 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -245,11 +402,7 @@ by a dedicated test that boots the app with the media query forced on.
 
 ## Known gaps
 
-- **Not verified in a real browser.** The UI is jsdom-verified; Chromium could
-  not be downloaded in the environment this was built in. Layout and animation
-  deserve a human eye on a real device.
-- **No save/resume.** A refresh restarts the run. `localStorage` persistence
-  would be the natural next step.
+- **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
+  a real phone is still worthwhile (HUD identity row + map grid).
 - **No audio.**
-- The three antagonists exist as profiles but have **no dedicated events yet** —
-  Kaden in particular is a natural fit for rent-pressure events.
+  has not bitten yet.
