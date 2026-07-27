@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 312 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 233 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -33,7 +33,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **312** |
+| Automated tests | 0 | **233** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -217,10 +217,10 @@ derived from them, because ids map directly onto portrait filenames:
 
 | Display name | Id | Portrait |
 |---|---|---|
-| `𝕽𝖆𝖚𝖑` | `raul` | `raul.svg` |
+| `𝕽𝖆𝖚𝖑` | `raul` | `raul.webp` |
 | `Kopung (고풍)` | `kopung` | `kopung.svg` |
-| `Renata 🦥` | `renata` | `renata.svg` |
-| `Qusтoge` | `qustoge` | `qustoge.svg` |
+| `Renata 🦥` | `renata` | `renata.webp` |
+| `Qusтoge` | `qustoge` | `qustoge.webp` |
 
 The UI always renders the original spelling. Slug uniqueness is enforced by test.
 
@@ -228,8 +228,15 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**26 painted portraits** of Léon, the major antagonists, and community and bar
-regulars, rendered as WebP at 512px.
+**68 painted portraits** of Léon, the major antagonists, and community and bar
+regulars, rendered as WebP (or PNG for a few early ones) at 512px. Every
+portrait — HUD, location host banner, map, People screen, day-result event
+card — is a clickable/tappable button that opens a read-only popup with that
+character's bio (see `renderPortraitPopup` / `openCharacterPopup` in
+`docs/js/ui/screens.js`). `docs/side_characters_report.md` tracks who still
+needs one; **10 side characters** remain on procedural SVG avatars, two of
+which (Carl-bot, DocBot) are meant to stay stylised machines rather than
+painted people.
 
 **22 location backgrounds** now cover every playable location. The five
 new environmental scenes (soup kitchen, flea market, pawn shop, open mic and
@@ -237,16 +244,18 @@ letting office) are optimized WebP at 1000px. Background paths are derived
 from the location catalogue by `scripts/check-assets.js`, so adding a location
 cannot silently ship a broken image path.
 
-**52 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
+**10 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
 the same id always produces the same face, so regenerating never churns the
 diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
-hash of the id. Under 1 KB each, versus ~2 MB for a painted portrait. Bots
-(Carl-bot, DocBot) render as machines; Cat renders as a cat.
+hash of the id. Under 1 KB each, versus tens of KB for a painted portrait. Bots
+(Carl-bot, DocBot) render as machines; Cat now has a painted portrait.
 
 Backgrounds are WebP at 1000px wide behind a dark scrim. Missing portraits fall
 back to an initials chip, which is exercised by test.
 
-Source art in `assets/` is ~26 MB; the deployed payload is ~940 KB.
+Source art in `assets/` is well over 100 MB (many portraits keep an
+uncompressed 1024px PNG source alongside the deployed WebP); the deployed
+payload in `docs/assets/` is under 5 MB.
 `scripts/optimize-assets.sh` regenerates avatars, downscales, converts and
 prunes orphans in one pass.
 
@@ -254,11 +263,11 @@ prunes orphans in one pass.
 
 ## Testing
 
-**312 tests** across six files.
+**233 tests** across seven files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Six test files | **312** | Rules, catalogues, systems, DOM, UI, coverage edges |
+| Seven test files | **233** | Rules, catalogues, systems, DOM, UI, coverage edges, clickable portrait popups |
 
 The data tests are written as invariants over the whole catalogue rather than
 spot checks, which is how they earn their keep — they caught three real design
@@ -270,12 +279,12 @@ zero just below its own threshold.
 Coverage on shipped code:
 
 ```
-app.js             99.68 line | 90.36 branch |  94.92 funcs
+app.js             ~99-100 across the board
 core/*            ~99-100 across the board
 data/*            ~99-100 across the board
-ui/screens.js      99.55 line | 94.15 branch |  98.59 funcs
+ui/screens.js      99.72 line | 84.06 branch |  97.10 funcs
 ────────────────────────────────────────────────────────────
-all files          99.78 line | 94.04 branch |  98.64 funcs
+all files          99.46 line | 90.38 branch |  96.03 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits

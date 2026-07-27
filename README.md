@@ -9,7 +9,9 @@ Those two places are where you start. There are **22 locations across five
 districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
-know. Weather is written down four days in advance and closes the outdoor ones.
+know. Every portrait — HUD, host banners, the People screen, event cards — is
+**clickable/tappable** and opens a quick popup with that character's bio.
+Weather is written down four days in advance and closes the outdoor ones.
 Insight buys practices, and a gentle daily focus cue makes the next decision easier to read. Survive **100 days**
 and the run acknowledges it — without forcing you to stop.
 
@@ -28,7 +30,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.8 MB** |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **312** |
+| Automated tests | 0 | **233** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -51,7 +53,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 312 tests
+npm test                # 233 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -60,7 +62,7 @@ npm run check           # tests + asset integrity
 Current coverage — `npm run coverage:check`:
 
 ```
-all files    99.78 line | 94.04 branch | 98.64 funcs
+all files    99.46 line | 90.38 branch | 96.03 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are

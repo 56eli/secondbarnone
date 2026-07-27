@@ -30,6 +30,15 @@ const BESPOKE = new Set([
   'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
   'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
   'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
+  'yun', 'marlies', 'yume', 'mateo', 'luca', 'cheezl', 'joar',
+  'brock_lee', 'ahyeon', 'renata', 'siekamcebule', 'lou',
+  'baris', 'stephen', 'iulian',
+  'tarrasqu', 'friend', 'nestomalt', 'self', 'daniela', 'crveni',
+  'gordon', 'oh', 'ricardoea', 'speedfire', 'scatmandu', 'cat',
+  'hanans', 'kaschem', 'vanna', 'sir_cruds',
+  'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
+  'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
+  'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
 ]);
 
 /** Characters rendered as machines rather than people. */

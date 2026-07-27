@@ -31,6 +31,15 @@ const WEBP_PORTRAITS = new Set([
   'yun', 'marlies', 'mateo', 'luca', 'cheezl',
   'brock_lee', 'ahyeon', 'renata', 'siekamcebule', 'lou',
   'baris', 'stephen', 'iulian',
+  // Clickable-portrait pass — replaced procedural SVG placeholders with
+  // painted portraits (see docs/side_characters_report.md for the running
+  // tally of who's left).
+  'tarrasqu', 'friend', 'nestomalt', 'self', 'daniela', 'crveni',
+  'gordon', 'oh', 'ricardoea', 'speedfire', 'scatmandu', 'cat',
+  'hanans', 'kaschem', 'vanna', 'sir_cruds',
+  'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
+  'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
+  'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
 ]);
 
 function portraitFor(id) {
