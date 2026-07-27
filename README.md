@@ -31,7 +31,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.1 MB of full-size portraits, fetched only when tapped) |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **249** |
+| Automated tests | 0 | **270** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -54,7 +54,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 249 tests
+npm test                # 270 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -141,18 +141,22 @@ Léon's portrait and name sit in the HUD on every screen.
 
 ## Homely design notes
 
-Ten things that make the city feel like a home:
+Eleven things that make the city feel like a home:
 
 1. **Léon is always on screen** — portrait + name in the HUD.
-2. **Every location has a host** you will likely see there.
-3. **Most events belong to side characters** — 51 of 64 — with their face on the result.
-4. **Daily greetings** that change with weekday and season.
-5. **Host small talk** gives every location a familiar voice without turning it into a biography page.
-6. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
-7. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
-8. **Soft 100-day endurance goal** — a reason to keep a long run going.
-9. **Uncapped money** — tips stack; broke still kills the run.
-10. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
+2. **Day one begins with a friend.** Brian keeps a place for Léon at the
+   House of Middleway, pinned to the fourth card of the hub (row 2, column 1)
+   and playable straight away. From day two the chapel goes back behind its
+   ordinary gate.
+3. **Every location has a host** you will likely see there.
+4. **Most events belong to side characters** — 51 of 64 — with their face on the result.
+5. **Daily greetings** that change with weekday and season.
+6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
+7. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
+8. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
+9. **Soft 100-day endurance goal** — a reason to keep a long run going.
+10. **Uncapped money** — tips stack; broke still kills the run.
+11. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
 
 ## Accessibility
 
