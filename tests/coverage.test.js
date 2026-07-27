@@ -356,27 +356,34 @@ test('stats stay clamped through a long adversarial event sequence', () => {
 
 // ------------------------------------------------------------ characters
 
-test('portrait extensions match the painted / generated split', () => {
-  const painted = new Set([
-    'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-    'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
-    'susan', 'hawkinstv', 'ricolewis', 'emily', 'kate',
-    'yun', 'marlies', 'mateo', 'luca', 'cheezl', 'yume', 'joar', 'susan',
-    'brock_lee', 'ahyeon', 'renata', 'siekamcebule', 'lou',
-    'baris', 'stephen', 'iulian',
-    'tarrasqu', 'friend', 'nestomalt', 'self', 'daniela', 'crveni',
-    'gordon', 'oh', 'ricardoea', 'speedfire', 'scatmandu', 'cat',
-    'hanans', 'kaschem', 'vanna', 'sir_cruds',
-    'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
-    'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
-    'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
-  ]);
+test('every character has a painted WebP portrait in both tiers', () => {
+  // The painted/generated split is gone: the July 2026 art pass gave the last
+  // ten side characters real portraits, so there are no procedural SVG
+  // placeholders left to special-case. Both tiers are now uniform WebP.
   for (const c of createAllProfiles()) {
-    const expected = ['yume', 'joar', 'susan'].includes(c.id) ? 'png' : painted.has(c.id) ? 'webp' : 'svg';
-    assert.ok(
-      c.portrait.endsWith(`.${expected}`),
-      `${c.id} should use .${expected}, got ${c.portrait}`,
+    assert.equal(
+      c.portrait, `assets/portraits/${c.id}.webp`,
+      `${c.id} thumbnail path`,
     );
+    assert.equal(
+      c.portraitHi, `assets/portraits/hi/${c.id}.webp`,
+      `${c.id} hi-res path`,
+    );
+  }
+});
+
+test('no character still points at a procedural SVG placeholder', () => {
+  for (const c of createAllProfiles()) {
+    assert.ok(!c.portrait.endsWith('.svg'), `${c.id} still on an SVG placeholder`);
+    assert.ok(!c.portraitHi.endsWith('.svg'), `${c.id} hi still on an SVG placeholder`);
+  }
+});
+
+test('the hi-res portrait is a distinct file from the thumbnail', () => {
+  // If these ever collapse to the same path the lightbox silently stops
+  // being high-resolution, which is invisible in jsdom and easy to miss.
+  for (const c of createAllProfiles()) {
+    assert.notEqual(c.portrait, c.portraitHi, `${c.id} tiers must differ`);
   }
 });
 

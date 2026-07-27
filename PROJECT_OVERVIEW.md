@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 233 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 249 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -31,9 +31,9 @@ As plain ES modules the source *is* the build:
 
 | | Godot | Current |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~2.8 MB** |
+| Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **233** |
+| Automated tests | 0 | **249** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -228,46 +228,83 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**68 painted portraits** of Léon, the major antagonists, and community and bar
-regulars, rendered as WebP (or PNG for a few early ones) at 512px. Every
-portrait — HUD, location host banner, map, People screen, day-result event
-card — is a clickable/tappable button that opens a read-only popup with that
-character's bio (see `renderPortraitPopup` / `openCharacterPopup` in
-`docs/js/ui/screens.js`). `docs/side_characters_report.md` tracks who still
-needs one; **10 side characters** remain on procedural SVG avatars, two of
-which (Carl-bot, DocBot) are meant to stay stylised machines rather than
-painted people.
+**78 painted portraits — the whole cast.** Every character now has real
+painted art; the procedural SVG placeholders are gone, and a test fails the
+build if one comes back. `docs/side_characters_report.md` is the canonical art
+tracker and now carries two deliberately empty tables for art that exists but
+should be *improved*.
 
-**22 location backgrounds** now cover every playable location. The five
-new environmental scenes (soup kitchen, flea market, pawn shop, open mic and
-letting office) are optimized WebP at 1000px. Background paths are derived
-from the location catalogue by `scripts/check-assets.js`, so adding a location
-cannot silently ship a broken image path.
+### Portraits ship in two tiers
 
-**10 generated SVG avatars** from `scripts/generate-avatars.js`. Deterministic —
-the same id always produces the same face, so regenerating never churns the
-diff. Palette, hair, eyes, mouth and accessory are each drawn from an FNV-1a
-hash of the id. Under 1 KB each, versus tens of KB for a painted portrait. Bots
-(Carl-bot, DocBot) render as machines; Cat now has a painted portrait.
+| Tier | Path | Size | Used by |
+|---|---|---|---|
+| Thumbnail | `assets/portraits/<id>.webp` | 288px | every inline avatar |
+| Hi-res | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
 
-Backgrounds are WebP at 1000px wide behind a dark scrim. Missing portraits fall
-back to an initials chip, which is exercised by test.
+The largest avatar the game renders inline is **84 CSS px**, so the previous
+single 512px sheet was ~6x oversized on every page load — while being too
+*small* for the enlarged view, which renders up to 560 CSS px. Splitting the
+tiers cut the eager payload from ~4.85 MB to **~2.86 MB** and made the
+enlarged view genuinely sharp. `scripts/build-portraits.js` emits both tiers,
+picks the largest available source rather than the first matching format, and
+never upscales.
 
-Source art in `assets/` is well over 100 MB (many portraits keep an
-uncompressed 1024px PNG source alongside the deployed WebP); the deployed
-payload in `docs/assets/` is under 5 MB.
-`scripts/optimize-assets.sh` regenerates avatars, downscales, converts and
-prunes orphans in one pass.
+### The portrait lightbox
+
+Every portrait — HUD, host banner, map, People screen, day-result event card —
+is a clickable/tappable button. It opens **the artwork and nothing else**: no
+name, no role, no bio, no relationship (see `renderPortraitPopup` /
+`openCharacterPopup` in `docs/js/ui/screens.js`). The reasoning is that the
+inline avatar is a *preview* of a picture, so the popup is that picture at
+full size; adding chrome would make it a second, worse character sheet
+competing with the People screen, which is where a player goes to read. The
+character's name survives only in `alt` text, for screen readers.
+
+The lightbox fetches the hi-res sheet lazily and falls back once to the
+thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
+rather than an empty frame.
+
+**22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+playable location. Background paths are derived from the location catalogue by
+`scripts/check-assets.js`, so adding a location cannot silently ship a broken
+image path, and an *unreferenced* background now fails a test rather than
+quietly adding weight.
+
+Six backgrounds were repainted in the July 2026 pass for **Paris coherence** —
+the night market had East Asian lanterns, the "mountain retreat" had alpine
+peaks in a game set in the Île-de-France, and the Saint-Denis crypt was drawn
+as an outdoor hilltop ruin. The hub's `hub_background.svg` — a 900-byte file of
+five blurred circles — was replaced with a painted Paris street corner showing
+the bar and the community room facing each other.
+
+Missing portraits fall back to an initials chip, which is exercised by test.
+
+Source art in `assets/` is well over 100 MB; the deployed payload in
+`docs/assets/` is ~2.9 MB eager plus ~4.1 MB of on-demand portrait sheets.
+`scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
+one pass.
 
 ---
 
 ## Testing
 
-**233 tests** across seven files.
+**249 tests** across eight files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Seven test files | **233** | Rules, catalogues, systems, DOM, UI, coverage edges, clickable portrait popups |
+| Eight test files | **249** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+
+`tests/portrait-assets.test.js` is new and checks the art itself rather than
+the code that renders it: both tiers exist for all 78 characters, thumbnails
+never exceed 288px, a hi-res sheet is never *smaller* than the thumbnail it
+enlarges, no orphaned or SVG portrait files ship, and every deployed
+background is referenced by a location. It skips cleanly if ImageMagick is
+unavailable.
+
+That "hi is never smaller than the thumb" assertion is a regression test for a
+real bug: the first build picked sources by format preference, so three early
+characters with a 160px PNG sitting next to a 512px WebP got an *enlarged*
+view that was blurrier than the thumbnail.
 
 The data tests are written as invariants over the whole catalogue rather than
 spot checks, which is how they earn their keep — they caught three real design

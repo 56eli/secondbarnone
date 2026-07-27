@@ -10,7 +10,8 @@ districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
 know. Every portrait — HUD, host banners, the People screen, event cards — is
-**clickable/tappable** and opens a quick popup with that character's bio.
+**clickable/tappable**, and the small avatar is a preview: tapping it opens the
+artwork full-size and nothing else. Bios stay on the People screen.
 Weather is written down four days in advance and closes the outdoor ones.
 Insight buys practices, and a gentle daily focus cue makes the next decision easier to read. Survive **100 days**
 and the run acknowledges it — without forcing you to stop.
@@ -28,9 +29,9 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 | | Godot version | This version |
 |---|---|---|
-| Deploy payload | 39.5 MB | **~2.8 MB** |
+| Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.1 MB of full-size portraits, fetched only when tapped) |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **233** |
+| Automated tests | 0 | **249** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -53,7 +54,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 233 tests
+npm test                # 249 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -94,8 +95,11 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       events.js            64 events (each with a character)
       weather.js / perks.js
       festivals.js / achievements.js
-    ui/screens.js          hub, map, location, practice, …
-  assets/                  optimised WebP + SVG
+    ui/screens.js          hub, map, location, practice, portrait lightbox
+  assets/
+    portraits/             288px thumbnails, one per character
+    portraits/hi/          896px sheets for the enlarge-on-tap lightbox
+    backgrounds/           1000px location art
 
 assets/                    full-resolution source art (not deployed)
 scripts/                   dev tooling (serve, assets, coverage gate)

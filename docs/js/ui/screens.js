@@ -68,11 +68,11 @@ export function effectChips(bundle, cls = 'chips') {
 
 /**
  * Portrait <img> with graceful fallback to an initials chip.
- * By default the portrait is wrapped in a button that opens a read-only
- * "who is this" popup (renderPortraitPopup) — tapping or clicking any
- * portrait in the game surfaces the character's bio without navigating
- * away. Pass `{ clickable: false }` where the portrait already sits inside
- * another interactive control (buttons cannot nest in valid HTML).
+ * By default the portrait is wrapped in a button that enlarges it — tapping
+ * or clicking any portrait in the game opens the full-size art on its own.
+ * The small avatar is a preview of the picture, so the picture is all the
+ * popup shows. Pass `{ clickable: false }` where the portrait already sits
+ * inside another interactive control (buttons cannot nest in valid HTML).
  */
 function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
   if (!profile) {
@@ -87,48 +87,85 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
     decoding: 'async',
     draggable: 'false',
   });
-  img.addEventListener('error', () => {
-    img.replaceWith(el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials));
-  }, { once: true });
+  // A broken portrait must not leave a clickable button that opens an empty
+  // lightbox, so the fallback replaces the whole control, button included.
+  const chip = () => el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials);
 
-  if (!clickable) return img;
+  if (!clickable) {
+    img.addEventListener('error', () => { img.replaceWith(chip()); }, { once: true });
+    return img;
+  }
 
-  return el('button', {
+  const btn = el('button', {
     class: 'avatar-btn',
     type: 'button',
-    'aria-label': `${profile.name} — view profile`,
+    'aria-label': `${profile.name} — view portrait`,
     onclick: (e) => {
       e.stopPropagation();
       openCharacterPopup(profile);
     },
   }, img);
+  img.addEventListener('error', () => { btn.replaceWith(chip()); }, { once: true });
+  return btn;
 }
 
 /**
- * A read-only popup shown when a portrait is clicked or tapped, anywhere in
- * the game. Reuses the same visual language as the end-of-day modal so it
- * feels native rather than bolted on. Closing never touches game state.
+ * The enlarged-portrait lightbox: opened by clicking or tapping any portrait
+ * in the game.
+ *
+ * Deliberately shows **the picture and nothing else** — no name, no role, no
+ * bio, no stat lines. The small avatar dotted around the UI is a thumbnail
+ * preview, and this is simply that thumbnail at full size, so any chrome
+ * would be competing with the art. Character bios live on the People screen,
+ * which is where a player goes to *read* about someone.
+ *
+ * The <img> loads `portraitHi` (896px) rather than the inline thumbnail
+ * (288px), and only at this moment — the large sheet is never part of the
+ * initial page weight. If the hi tier is missing for any reason the image
+ * silently falls back to the thumbnail rather than showing a broken frame.
+ *
+ * Closing never touches game state.
  */
 export function renderPortraitPopup(profile, { onClose } = {}) {
-  const modal = el('div', {
-    class: 'modal portrait-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': `${profile.name}’s profile`,
-  },
-  el('div', { class: 'detail-head' },
-    avatar(profile, 'avatar detail-avatar', { clickable: false }),
-    el('div', {},
-      el('h3', { text: profile.name }),
-      el('div', { class: `detail-role role-${profile.role}`, text: roleLabel(profile.role) }))),
-  el('p', { text: profile.bio }),
-  el('dl', {},
-    el('dt', { text: 'Relationship to Léon' }),
-    el('dd', { text: profile.relationship }),
-    el('dt', { text: 'Usually found at' }),
-    el('dd', { text: profile.location })),
-  el('div', { class: 'modal-actions' },
-    el('button', { class: 'btn btn-primary', text: 'Close', onclick: () => onClose?.() })));
+  const thumb = profile.portrait || `assets/portraits/${profile.id}.webp`;
+  const full = profile.portraitHi || `assets/portraits/hi/${profile.id}.webp`;
 
-  const backdrop = el('div', { class: 'modal-backdrop portrait-popup-backdrop' }, modal);
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) onClose?.(); });
+  const img = el('img', {
+    class: 'portrait-full',
+    src: full,
+    // The alt text is the one concession to a name: screen readers need to
+    // know whose face this is, but nothing is drawn on screen.
+    alt: `${profile.name} portrait, enlarged`,
+    decoding: 'async',
+    draggable: 'false',
+  });
+  img.addEventListener('error', () => {
+    // Fall back once to the small sheet; if that fails too, leave it be
+    // rather than looping.
+    if (img.getAttribute('src') !== thumb) img.setAttribute('src', thumb);
+  }, { once: true });
+
+  const close = el('button', {
+    class: 'portrait-close',
+    type: 'button',
+    'aria-label': 'Close portrait',
+    onclick: () => onClose?.(),
+  }, '×');
+
+  const figure = el('div', {
+    class: 'portrait-lightbox',
+    role: 'dialog',
+    'aria-modal': 'true',
+    'aria-label': `${profile.name} portrait`,
+  }, img, close);
+
+  const backdrop = el('div', { class: 'modal-backdrop portrait-popup-backdrop' }, figure);
+  // Tapping anywhere outside the picture dismisses it. Tapping the picture
+  // itself also dismisses — with no controls to hit, "tap again to put it
+  // away" is the behaviour people expect from a photo viewer.
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop || e.target === img || e.target === figure) onClose?.();
+  });
   return backdrop;
 }
 
@@ -154,7 +191,9 @@ export function openCharacterPopup(profile) {
   const backdrop = renderPortraitPopup(profile, { onClose: close });
   document.addEventListener('keydown', onKey);
   document.body.append(backdrop);
-  backdrop.querySelector('.btn')?.focus();
+  // The close affordance is the only focusable thing in the lightbox, so
+  // focus lands there and Escape/Enter both do the obvious thing.
+  backdrop.querySelector('.portrait-close')?.focus();
 }
 
 /** Look up a character profile by id from a GameState (or raw list). */
@@ -281,7 +320,7 @@ export function renderHub(gs, handlers) {
 
   const greeting = typeof gs.getGreeting === 'function' ? gs.getGreeting() : '';
 
-  return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.svg')" },
+  return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.webp')" },
     el('div', { class: 'hub-heading' },
       el('div', {},
         el('p', { class: 'eyebrow', text: 'Today’s choice' }),
