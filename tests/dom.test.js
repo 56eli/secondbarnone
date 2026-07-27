@@ -96,6 +96,7 @@ maybe('HUD reflects the starting stats', async () => {
     assert.match(doc.getElementById('sanity-num').textContent, /50%/);
     assert.match(doc.getElementById('money-num').textContent, /^50$/);
     assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
+    assert.equal(doc.querySelector('.hud-title'), null, 'no product label appears below Léon’s name');
     assert.equal(doc.getElementById('sanity-bar').style.width, '50%');
   } finally { cleanup(window); }
 });
