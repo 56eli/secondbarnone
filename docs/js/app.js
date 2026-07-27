@@ -18,7 +18,7 @@ import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
   renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderPerks, renderAlmanac, renderToast,
+  renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
@@ -46,6 +46,7 @@ export function initGame(opts = {}) {
     day: document.getElementById('hud-day'),
     weather: document.getElementById('hud-weather'),
     portrait: document.getElementById('hud-portrait'),
+    portraitBtn: document.getElementById('hud-portrait-btn'),
     name: document.getElementById('hud-name'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
@@ -64,6 +65,11 @@ export function initGame(opts = {}) {
 
   let stopParticles = null;
   let lastGameOverMessage = '';
+  let leonProfile = null;
+
+  dom.portraitBtn?.addEventListener('click', () => {
+    if (leonProfile) openCharacterPopup(leonProfile);
+  });
 
   // ---------------------------------------------------------------- HUD
 
@@ -86,6 +92,7 @@ export function initGame(opts = {}) {
     // Léon stays on every page — portrait + name in the HUD.
     const leon = typeof gs.getProtagonist === 'function' ? gs.getProtagonist() : null;
     if (leon) {
+      leonProfile = leon;
       if (dom.portrait && dom.portrait.getAttribute('src') !== leon.portrait) {
         dom.portrait.setAttribute('src', leon.portrait);
         dom.portrait.setAttribute('alt', leon.name);

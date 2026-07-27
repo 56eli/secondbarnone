@@ -66,8 +66,15 @@ export function effectChips(bundle, cls = 'chips') {
   return el('div', { class: cls }, ...chips);
 }
 
-/** Portrait <img> with graceful fallback to an initials chip. */
-function avatar(profile, cls = 'avatar') {
+/**
+ * Portrait <img> with graceful fallback to an initials chip.
+ * By default the portrait is wrapped in a button that opens a read-only
+ * "who is this" popup (renderPortraitPopup) — tapping or clicking any
+ * portrait in the game surfaces the character's bio without navigating
+ * away. Pass `{ clickable: false }` where the portrait already sits inside
+ * another interactive control (buttons cannot nest in valid HTML).
+ */
+function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
   if (!profile) {
     return el('div', { class: cls, 'aria-label': 'Unknown' }, '?');
   }
@@ -83,7 +90,71 @@ function avatar(profile, cls = 'avatar') {
   img.addEventListener('error', () => {
     img.replaceWith(el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials));
   }, { once: true });
-  return img;
+
+  if (!clickable) return img;
+
+  return el('button', {
+    class: 'avatar-btn',
+    type: 'button',
+    'aria-label': `${profile.name} — view profile`,
+    onclick: (e) => {
+      e.stopPropagation();
+      openCharacterPopup(profile);
+    },
+  }, img);
+}
+
+/**
+ * A read-only popup shown when a portrait is clicked or tapped, anywhere in
+ * the game. Reuses the same visual language as the end-of-day modal so it
+ * feels native rather than bolted on. Closing never touches game state.
+ */
+export function renderPortraitPopup(profile, { onClose } = {}) {
+  const modal = el('div', {
+    class: 'modal portrait-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': `${profile.name}’s profile`,
+  },
+  el('div', { class: 'detail-head' },
+    avatar(profile, 'avatar detail-avatar', { clickable: false }),
+    el('div', {},
+      el('h3', { text: profile.name }),
+      el('div', { class: `detail-role role-${profile.role}`, text: roleLabel(profile.role) }))),
+  el('p', { text: profile.bio }),
+  el('dl', {},
+    el('dt', { text: 'Relationship to Léon' }),
+    el('dd', { text: profile.relationship }),
+    el('dt', { text: 'Usually found at' }),
+    el('dd', { text: profile.location })),
+  el('div', { class: 'modal-actions' },
+    el('button', { class: 'btn btn-primary', text: 'Close', onclick: () => onClose?.() })));
+
+  const backdrop = el('div', { class: 'modal-backdrop portrait-popup-backdrop' }, modal);
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) onClose?.(); });
+  return backdrop;
+}
+
+/**
+ * Opens (or replaces) the portrait popup for a character, appended straight
+ * to <body> like the day-result modal. Self-contained so any screen can call
+ * it without threading a callback all the way up through app.js — nothing
+ * here mutates GameState, so it stays inside the "screens read, never
+ * write" rule.
+ */
+export function openCharacterPopup(profile) {
+  if (!profile) return;
+  document.querySelector('.portrait-popup-backdrop')?.remove();
+
+  const previouslyFocused = document.activeElement;
+  const close = () => {
+    backdrop.remove();
+    document.removeEventListener('keydown', onKey);
+    if (previouslyFocused?.focus) previouslyFocused.focus();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+
+  const backdrop = renderPortraitPopup(profile, { onClose: close });
+  document.addEventListener('keydown', onKey);
+  document.body.append(backdrop);
+  backdrop.querySelector('.btn')?.focus();
 }
 
 /** Look up a character profile by id from a GameState (or raw list). */
@@ -95,12 +166,17 @@ function findCharacter(gsOrList, id) {
   return list.find((p) => p.id === id) || null;
 }
 
-/** Small "kept by …" chip used on location cards and the location screen. */
-function hostChip(gs, hostId, cls = 'host-chip') {
+/**
+ * Small "kept by …" chip used on location cards and the location screen.
+ * `clickable` controls whether the mini avatar opens the character popup;
+ * it must be false when the chip sits inside another button (the map's
+ * location cards), since a <button> cannot contain another <button>.
+ */
+function hostChip(gs, hostId, cls = 'host-chip', { clickable = true } = {}) {
   const host = findCharacter(gs, hostId);
   if (!host) return null;
   return el('div', { class: cls },
-    avatar(host, 'avatar host-avatar'),
+    avatar(host, 'avatar host-avatar', { clickable }),
     el('span', { class: 'host-name', text: host.name }),
   );
 }
@@ -260,7 +336,7 @@ export function renderMap(gs, { onVisit, onBack }) {
         'data-location': location.id,
       },
       el('span', { class: 'loc-name', text: `${location.emoji} ${location.name}` }),
-      hostChip(gs, location.host, 'host-chip compact'),
+      hostChip(gs, location.host, 'host-chip compact', { clickable: false }),
       unlocked
         ? effectChips(total, 'chips loc-chips')
         : el('span', { class: 'loc-lock', text: `🔒 ${reason}` }),
@@ -492,7 +568,7 @@ export function renderCharacters(profiles, { onBack }) {
     const row = el('button', {
       class: `char-row role-${p.role}`, role: 'option', 'aria-selected': 'false',
     },
-    avatar(p),
+    avatar(p, 'avatar', { clickable: false }),
     el('div', { class: 'char-meta' },
       el('div', { class: 'char-name', text: p.name }),
       el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` })));
