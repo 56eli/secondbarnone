@@ -19,20 +19,6 @@
 import { RENT_AMOUNT } from './game-state.js';
 import { getLocation, Tag } from '../data/locations.js';
 
-/** Legacy copy table, still exported because the old tests and UI read it. */
-export const LOCATION_COPY = {
-  spiritual_community: {
-    name: 'La Maison Calme',
-    actionDesc: 'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
-    historyLabel: 'Visited La Maison Calme',
-  },
-  bar: {
-    name: 'Le Dernier Verre',
-    actionDesc: 'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
-    historyLabel: 'Worked at Le Dernier Verre',
-  },
-};
-
 const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
 
 const zero = () => ({ sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
@@ -62,6 +48,18 @@ export function computeDayEffects(gs, locationId) {
   const total = accumulate(zero(), base);
 
   // --- weather ---
+  //
+  // Weather modifiers STACK: one modifier is applied for every tag the
+  // location and the weather have in common. A heatwave hits `night_market`
+  // three times, via `night` (+3 money), `outdoor` (−8 energy) and `work`
+  // (−2 sanity); rain hits a `rooftop` twice, via `outdoor` (−3 sanity) and
+  // `quiet` (+2 sanity), which partly cancel.
+  //
+  // This is deliberate — a market that is also outdoors really is doubly
+  // exposed to rain, and the partial cancellations produce some of the
+  // game's nicer texture. It is called out here, and pinned by
+  // `tests/balance.test.js`, because it means **adding a tag to a location
+  // silently changes its weather profile**. Retag with that in mind.
   const weather = gs.getWeather();
   for (const tag of location.tags) {
     const mod = weather.tagEffects[tag];
@@ -146,6 +144,21 @@ export function scaleEventDeltas(event, perks) {
  *            festival:object|null}}
  */
 export function resolveTurn(gs, eventManager, locationId) {
+  // One action per day, enforced in the model rather than by whichever button
+  // happened to be clicked. Returns a no-op result so a double-submit cannot
+  // silently apply a second day of effects.
+  if (typeof gs.isTurnResolved === 'boolean' && gs.isTurnResolved) {
+    return {
+      actionDesc: '', event: null, rentCharged: 0, rentAmount: 0,
+      gameOver: gs.gameOver, justWon: false, winMessage: '',
+      deltas: zero(), reasons: [], achievements: [], exhaustion: 0,
+      weather: gs.getWeather(), festival: gs.getFestival(),
+      prevSanity: gs.sanity, prevMoney: gs.money,
+      sanityDelta: 0, moneyDelta: 0,
+      alreadyResolved: true,
+    };
+  }
+
   const prev = {
     sanity: gs.sanity, money: gs.money, energy: gs.energy,
     reputation: gs.reputation, insight: gs.insight,
@@ -156,9 +169,10 @@ export function resolveTurn(gs, eventManager, locationId) {
 
   // 1 — the day itself
   const { total, reasons } = computeDayEffects(gs, locationId);
+  if (typeof gs.markTurnResolved === 'function') gs.markTurnResolved();
   gs.applyDeltas(total);
   gs.noteVisit(locationId);
-  const actionDesc = location?.actionDesc ?? LOCATION_COPY[locationId]?.actionDesc ?? '';
+  const actionDesc = location?.actionDesc ?? '';
 
   // 2 — exhaustion
   const exhaustion = gs.exhaustionPenalty();
@@ -194,7 +208,6 @@ export function resolveTurn(gs, eventManager, locationId) {
   // 7 — history
   const parts = [];
   if (location) parts.push(location.historyLabel);
-  else if (LOCATION_COPY[locationId]) parts.push(LOCATION_COPY[locationId].historyLabel);
   if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
   if (event) parts.push(`Event: ${event.title}`);
   const line = parts.join(' / ');

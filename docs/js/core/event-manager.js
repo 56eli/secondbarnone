@@ -30,7 +30,6 @@ export class EventManager {
   constructor(rng = defaultRng) {
     this.rng = rng;
     this._allEvents = [];
-    this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;
@@ -85,7 +84,6 @@ export class EventManager {
   }
 
   _remember(id) {
-    this._previousEventId = id;
     this._recentIds.push(id);
     if (this._recentIds.length > RECENT_MEMORY) this._recentIds.shift();
   }
@@ -121,7 +119,6 @@ export class EventManager {
   }
 
   reset() {
-    this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;

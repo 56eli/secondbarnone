@@ -80,10 +80,17 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
     return el('div', { class: cls, 'aria-label': 'Unknown' }, '?');
   }
   const initials = getInitials(profile.name);
+  // Intrinsic width/height reserve the box before the image arrives. CSS
+  // always overrides the actual rendered size (.avatar variants range from
+  // 42px to 84px), but without an intrinsic ratio the browser lays out a
+  // zero-height image first and reflows every avatar-heavy screen — the
+  // People list and the event cards — as portraits stream in.
   const img = el('img', {
     class: cls,
     src: profile.portrait || `assets/portraits/${profile.id}.webp`,
     alt: `${profile.name} portrait`,
+    width: '42',
+    height: '42',
     loading: 'lazy',
     decoding: 'async',
     draggable: 'false',
@@ -253,13 +260,7 @@ export function renderHub(gs, handlers) {
   });
 
   // Calculate other locations on a deterministic randomly rotating basis.
-  const snap = {
-    journeyDay: gs.journeyDay,
-    reputation: gs.reputation,
-    weekday: gs.getWeekdayIndex ? gs.getWeekdayIndex() : 0,
-    perks: gs.perks,
-    closedTags: typeof gs.getClosedTags === 'function' ? gs.getClosedTags() : [],
-  };
+  const snap = gs.getUnlockSnapshot();
 
   const otherLocations = LOCATIONS.filter((l) => l.id !== 'spiritual_community' && l.id !== 'bar');
   const unlockedOther = otherLocations.filter((l) => evaluateUnlock(l, snap).unlocked);
@@ -375,13 +376,7 @@ export function renderHub(gs, handlers) {
 // ------------------------------------------------------------------- map
 
 export function renderMap(gs, { onVisit, onBack }) {
-  const snap = {
-    journeyDay: gs.journeyDay,
-    reputation: gs.reputation,
-    weekday: gs.getWeekdayIndex(),
-    perks: gs.perks,
-    closedTags: gs.getClosedTags(),
-  };
+  const snap = gs.getUnlockSnapshot();
 
   const districts = DISTRICT_ORDER.map((district) => {
     const here = LOCATIONS.filter((l) => l.district === district);
@@ -766,7 +761,43 @@ export function renderResultModal(result, gs, { onContinue }) {
   );
 
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) onContinue(); });
+
+  // Deliberately NOT closable by clicking the backdrop. This dialog is the
+  // only place the player sees what a day actually cost them, and dismissing
+  // it commits the turn and advances the calendar — far too consequential to
+  // fire on a stray tap beside the card. Continuing is an explicit choice.
+  //
+  // Escape does the same thing as the button (there is only one way forward
+  // from here), and focus is trapped inside the dialog while it is open so
+  // keyboard users cannot tab into the inert page behind it.
+  const focusables = () => [...backdrop.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  )].filter((n) => !n.disabled);
+
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onContinue();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || !backdrop.contains(active))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  backdrop.addEventListener('keydown', onKey);
+  // The listener lives on the backdrop, which is removed with the modal, so
+  // there is nothing to clean up on the document.
   return backdrop;
 }
 

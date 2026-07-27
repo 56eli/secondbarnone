@@ -1,7 +1,7 @@
 {
   "name": "secondbarnone",
-  "version": "2.2.0",
-  "description": "A narrative balance game \u2014 L\u00e9on, a spiritual community, a bar, and a city full of people.",
+  "version": "3.0.0",
+  "description": "A narrative balance game — Léon, a spiritual community, a bar, and a city full of people.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -10,10 +10,14 @@
     "coverage:check": "node scripts/coverage-gate.js",
     "serve": "node scripts/serve.js",
     "assets": "./scripts/optimize-assets.sh",
-    "check": "npm test && node scripts/check-assets.js"
+    "check": "npm test && node scripts/check-assets.js",
+    "simulate": "node scripts/simulate.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -149,17 +149,6 @@ test('applyDeltas ignores unknown keys and an empty bundle', () => {
   assert.equal(gs.energy, before.e);
 });
 
-test('the legacy applyEventDeltas signature still works', () => {
-  const gs = fresh();
-  gs.applyEventDeltas(-5, 7);
-  assert.equal(gs.sanity, 45);
-  assert.equal(gs.money, 57);
-  gs.applyEventDeltas(0, 0, -10, 5, 2);
-  assert.equal(gs.energy, START_ENERGY - 10);
-  assert.equal(gs.reputation, START_REPUTATION + 5);
-  assert.equal(gs.insight, 2);
-});
-
 test('stats_changed reports all four gauges', () => {
   const gs = fresh();
   let seen = null;
@@ -279,3 +268,53 @@ test('weather bends the numbers and says so', () => {
 // Removed obsolete inventory test.
 
 // Removed obsolete inventory test.
+
+// ------------------------------------------------- one action per day
+
+test('resolveTurn refuses to run twice on the same day', () => {
+  // The UI disables the button on click, but that made the rule a property of
+  // a DOM handler: calling resolveTurn() twice used to apply a full second
+  // day of effects. The guard lives in the model now.
+  const gs = new GameState({ seed: 42 });
+  const em = new EventManager(createRng(42));
+  em.initialize(gs.getCharacterNames());
+
+  const first = resolveTurn(gs, em, 'bar');
+  assert.ok(!first.alreadyResolved);
+  const snapshot = { sanity: gs.sanity, money: gs.money, energy: gs.energy };
+
+  const second = resolveTurn(gs, em, 'bar');
+  assert.ok(second.alreadyResolved, 'the second call must report itself as a no-op');
+  assert.equal(gs.sanity, snapshot.sanity, 'sanity must not move');
+  assert.equal(gs.money, snapshot.money, 'money must not move');
+  assert.equal(gs.energy, snapshot.energy, 'energy must not move');
+
+  gs.advanceDay();
+  const third = resolveTurn(gs, em, 'bar');
+  assert.ok(!third.alreadyResolved, 'a new day can be played again');
+});
+
+test('the turn guard survives a save/load round trip', () => {
+  const gs = new GameState({ seed: 7 });
+  const em = new EventManager(createRng(7));
+  em.initialize(gs.getCharacterNames());
+  resolveTurn(gs, em, 'bar');
+  assert.ok(gs.isTurnResolved);
+
+  const restored = new GameState({ seed: 7 });
+  assert.ok(restored.loadFrom(gs.toJSON()));
+  assert.ok(restored.isTurnResolved, 'a reloaded run must not offer a free extra turn');
+});
+
+// ------------------------------------------------- unlock snapshot
+
+test('getUnlockSnapshot carries every field evaluateUnlock reads', () => {
+  const gs = new GameState({ seed: 3 });
+  const snap = gs.getUnlockSnapshot();
+  for (const key of ['journeyDay', 'reputation', 'weekday', 'perks', 'closedTags']) {
+    assert.ok(key in snap, `snapshot is missing ${key}`);
+  }
+  assert.equal(snap.journeyDay, gs.journeyDay);
+  assert.equal(snap.reputation, gs.reputation);
+  assert.equal(snap.weekday, gs.getWeekdayIndex());
+});

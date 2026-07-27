@@ -460,9 +460,11 @@ test('getPerk resolves known ids and refuses unknown ones', () => {
 
 test('aggregatePerks sums owned effects and ignores junk', () => {
   const total = aggregatePerks(['steady_breath', 'open_hand', 'not_real']);
-  assert.equal(total.barSanityRelief, 3);
-  assert.equal(total.communityCostRelief, 4);
-  assert.equal(total.rentRelief, 0);
+  // Read the expected values from the catalogue rather than hardcoding them,
+  // so retuning a perk does not fail an unrelated aggregation test.
+  assert.equal(total.barSanityRelief, getPerk('steady_breath').effects.barSanityRelief);
+  assert.equal(total.communityCostRelief, getPerk('open_hand').effects.communityCostRelief);
+  assert.equal(total.rentRelief, 0, 'unowned perks contribute nothing');
 
   const none = aggregatePerks([]);
   assert.equal(Object.values(none).reduce((a, b) => a + b, 0), 0);

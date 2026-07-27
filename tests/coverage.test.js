@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { createRng, defaultRng } from '../docs/js/core/rng.js';
 import { GameState, MAX_STAT, RENT_AMOUNT } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
-import { resolveTurn, LOCATION_COPY } from '../docs/js/core/turn.js';
+import { resolveTurn } from '../docs/js/core/turn.js';
 import { resourceBarClass } from '../docs/js/core/resource-bar.js';
 import {
   buildEventPool, rarityName, Rarity, Category,
@@ -109,16 +109,6 @@ test('the exported event weights match the values used in the pool', () => {
   }
 });
 
-test('LOCATION_COPY describes both playable locations', () => {
-  for (const key of ['spiritual_community', 'bar']) {
-    const copy = LOCATION_COPY[key];
-    assert.ok(copy, `missing copy for ${key}`);
-    assert.ok(copy.name.length > 0);
-    assert.ok(copy.actionDesc.length > 20);
-    assert.ok(copy.historyLabel.length > 0);
-  }
-});
-
 // ------------------------------------------------------- signal plumbing
 
 test('on() returns an unsubscribe function that works', () => {
@@ -126,11 +116,11 @@ test('on() returns an unsubscribe function that works', () => {
   let calls = 0;
   const unsubscribe = gs.on('stats_changed', () => { calls += 1; });
 
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(calls, 1);
 
   unsubscribe();
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(calls, 1, 'handler should not fire after unsubscribe');
 });
 
@@ -143,12 +133,12 @@ test('off() removes a specific handler and ignores unknown ones', () => {
 
   gs.on('stats_changed', handlerA);
   gs.on('stats_changed', handlerB);
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(a, 1);
   assert.equal(b, 1);
 
   gs.off('stats_changed', handlerA);
-  gs.applyEventDeltas(1, 0);
+  gs.applyDeltas({ sanity: 1 });
   assert.equal(a, 1, 'removed handler must not fire');
   assert.equal(b, 2, 'remaining handler must still fire');
 
@@ -189,7 +179,7 @@ test('multiple listeners on the same signal all fire', () => {
 test('an unknown location id leaves stats untouched', () => {
   const gs = new GameState();
   const { sanity, money } = gs;
-  gs.applyLocationAction('not_a_place');
+  gs.noteVisit('not_a_place');
   assert.equal(gs.sanity, sanity);
   assert.equal(gs.money, money);
   assert.equal(gs.lastLocationVisited, 'not_a_place');
@@ -347,7 +337,7 @@ test('stats stay clamped through a long adversarial event sequence', () => {
   const swings = [999, -999, 50, -50, 0, MAX_STAT, -MAX_STAT];
   for (const s of swings) {
     for (const m of swings) {
-      gs.applyEventDeltas(s, m);
+      gs.applyDeltas({ sanity: s, money: m });
       assert.ok(gs.sanity >= 0 && gs.sanity <= MAX_STAT);
       assert.ok(gs.money >= 0 && gs.money <= 99999);
     }

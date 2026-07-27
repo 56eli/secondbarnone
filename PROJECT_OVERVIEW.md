@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 275 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 293 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -33,7 +33,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **275** |
+| Automated tests | 0 | **293** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -244,7 +244,7 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 **78 painted portraits — the whole cast.** Every character now has real
 painted art; the procedural SVG placeholders are gone, and a test fails the
-build if one comes back. `docs/side_characters_report.md` is the canonical art
+build if one comes back. `notes/art-status.md` is the canonical art
 tracker and now carries two deliberately empty tables for art that exists but
 should be *improved*.
 
@@ -323,11 +323,11 @@ one pass.
 
 ## Testing
 
-**275 tests** across eight files.
+**293 tests** across nine files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Eight test files | **275** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+| Nine test files | **293** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, portrait/background asset invariants, and **game balance** |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
@@ -377,7 +377,7 @@ core/*            ~99-100 across the board
 data/*            ~99-100 across the board
 ui/screens.js      99.72 line | 84.06 branch |  97.10 funcs
 ────────────────────────────────────────────────────────────
-all files          99.46 line | 90.38 branch |  96.03 funcs
+all files          99.42 line | 90.60 branch |  95.47 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits

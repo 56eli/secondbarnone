@@ -31,7 +31,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **275** |
+| Automated tests | 0 | **293** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -54,7 +54,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 275 tests
+npm test                # 293 tests, ~40s
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -63,7 +63,7 @@ npm run check           # tests + asset integrity
 Current coverage — `npm run coverage:check`:
 
 ```
-all files    99.46 line | 90.38 branch | 96.03 funcs
+all files    99.42 line | 90.60 branch | 95.47 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
@@ -74,6 +74,27 @@ Asset integrity is checked separately:
 ```bash
 node scripts/check-assets.js
 ```
+
+## Balance
+
+The game is tuned against a simulator that drives the real turn resolver over
+many seeded runs:
+
+```bash
+npm run simulate                       # 100 seeds, 200-day horizon
+node scripts/simulate.js --verbose     # + per-location pick rates
+```
+
+Current bands (100 seeds, 200 days):
+
+| Play style | Dies | Reaches day 100 |
+|---|---|---|
+| `random` — picks blindly | 97% | 3% |
+| `alternate` — the classic bar/community loop | 10% | 90% |
+| `greedy` — reads the preview, picks the best day | 25% | 75% |
+
+`tests/balance.test.js` asserts these stay inside sane bands, so a retune that
+makes the game unloseable — or brutally unfair — fails CI.
 
 ## Project layout
 
@@ -102,8 +123,17 @@ docs/                      ← deployed by GitHub Pages (main /docs)
     backgrounds/           1000px location art
 
 assets/                    full-resolution source art (not deployed)
-scripts/                   dev tooling (serve, assets, coverage gate)
-tests/
+                           one canonical master per id
+scripts/
+  serve.js                 zero-dependency dev server
+  simulate.js              balance simulator (npm run simulate)
+  check-assets.js          asset integrity + payload budget
+  build-portraits.js       288px thumb + 896px lightbox tiers
+  optimize-assets.sh       rebuild docs/assets from assets/
+  coverage-gate.js         enforces the coverage floor
+tests/                     nine suites, incl. balance.test.js
+notes/                     internal notes (not deployed)
+  ci-workflow.yml          CI config, pending a manual move to .github/
 ```
 
 ## Cast
@@ -130,7 +160,8 @@ Léon's portrait and name sit in the HUD on every screen.
 - Start Thursday 1 January 2026.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
-- Rent: **−18 money** every Sunday, charged once.
+- Rent: **−18 money** every Sunday, charged once. It rises by 3 every 24
+  days (capped at 42) so a long run has to keep earning.
 - A random event fires every 2–5 days. Weights are 10 for Common and 2 for each
   Rare, so roughly one event in six is rare.
 - Burnout unlocks only after 3 consecutive bar days.
@@ -169,3 +200,10 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - No audio.
+- `flea_market` still has rain baked into its art, which contradicts a Clear
+  day. Next on the art list — see [HANDOFF.md](HANDOFF.md).
+- Insight and reputation both run out of things to buy late in a long run.
+
+For a full picture of the current state, recent changes and the open list, see
+[HANDOFF.md](HANDOFF.md). For the review that prompted them, see
+[ASSESSMENT.md](ASSESSMENT.md).

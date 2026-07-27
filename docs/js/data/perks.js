@@ -37,7 +37,7 @@ export const PERKS = [
     emoji: '🤲',
     desc: 'You stopped apologising for the donation bowl. Community days cost less money.',
     cost: 5,
-    effects: { communityCostRelief: 4 },
+    effects: { communityCostRelief: 3 },
   }),
   perk({
     id: 'good_name',
@@ -54,7 +54,7 @@ export const PERKS = [
     emoji: '🦉',
     desc: 'You have made peace with 3am. Night work pays better and drains less.',
     cost: 6,
-    effects: { nightMoneyBonus: 3, nightEnergyRelief: 5 },
+    effects: { nightMoneyBonus: 2, nightEnergyRelief: 5 },
   }),
   perk({
     id: 'hard_bargain',
@@ -63,7 +63,7 @@ export const PERKS = [
     desc: 'You learned to let the silence sit after naming a price. Markets pay out more.',
     cost: 6,
     requires: ['night_owl'],
-    effects: { marketMoneyBonus: 4 },
+    effects: { marketMoneyBonus: 3 },
   }),
   perk({
     id: 'tenants_union',

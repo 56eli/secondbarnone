@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS, ENDURANCE_GOAL_DAYS,
+  ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
@@ -86,38 +86,42 @@ test('starting stats are 50/50', () => {
 
 test('spiritual community trades money for sanity', () => {
   const gs = new GameState();
-  gs.applyLocationAction('spiritual_community');
-  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
-  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
+  const before = { sanity: gs.sanity, money: gs.money };
+  gs.applyDeltas(getLocation('spiritual_community').effects);
+  gs.noteVisit('spiritual_community');
+  assert.ok(gs.sanity > before.sanity, 'community restores sanity');
+  assert.ok(gs.money < before.money, 'community costs money');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
-  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
+  const before = { sanity: gs.sanity, money: gs.money };
+  gs.applyDeltas(getLocation('bar').effects);
+  gs.noteVisit('bar');
+  assert.ok(gs.money > before.money, 'the bar pays');
+  assert.ok(gs.sanity < before.sanity, 'the bar costs spirit');
   assert.equal(gs.consecutiveBarDays, 1);
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
-  gs.applyLocationAction('spiritual_community');
+  gs.noteVisit('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyEventDeltas(999, 999);
+  gs.applyDeltas({ sanity: 999, money: 999 });
   assert.equal(gs.sanity, MAX_STAT);
   assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
   assert.ok(gs.money > MAX_STAT);
-  gs.applyEventDeltas(-99999, -99999);
+  gs.applyDeltas({ sanity: -99999, money: -99999 });
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
 });
@@ -125,7 +129,7 @@ test('sanity is capped; money is uncapped but floors at zero', () => {
 test('money can grow well past 100 without being clamped', () => {
   const gs = new GameState();
   gs.money = 95;
-  gs.applyLocationAction('bar');
+  gs.applyDeltas({ money: getLocation('bar').effects.money });
   assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
   gs.applyDeltas({ money: 500 });
   assert.ok(gs.money >= 500);
@@ -415,7 +419,7 @@ test('reset clears the schedule and repeat guard', () => {
   em.initialize(['Geo']);
   for (let day = 1; day <= 50; day++) em.selectEvent(day, day % 7, 'bar', 0);
   em.reset();
-  assert.equal(em._previousEventId, null);
+  assert.deepEqual(em._recentIds, [], 'recent-event memory is cleared');
   assert.ok(em._nextEventDay >= MIN_EVENT_GAP_DAYS);
 });
 

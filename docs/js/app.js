@@ -21,15 +21,27 @@ import {
   renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
 } from './ui/screens.js';
 
-const FADE_MS = 350;
-const TOAST_MS = 2600;
+/**
+ * Screen-fade and toast lifetimes.
+ *
+ * Exported, and overridable per-boot via `initGame({ fadeMs, toastMs })`,
+ * because the jsdom suite used to hardcode its own `setTimeout(480)` sleeps
+ * to wait these out. That duplicated the numbers in a second place — change
+ * one and the tests went flaky instead of failing — and cost ~96% of a
+ * 102-second test run in pure sleeping. Tests now pass 0 and run instantly.
+ */
+export const FADE_MS = 350;
+export const TOAST_MS = 2600;
 
 /**
  * Boot a game into the current document.
- * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
+ * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean,
+ *          fadeMs?: number, toastMs?: number}} [opts]
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
+  const fadeMs = opts.fadeMs ?? FADE_MS;
+  const toastMs = opts.toastMs ?? TOAST_MS;
   const gs = new GameState({ seed: opts.seed });
   const events = new EventManager(opts.rng);
   events.initialize(gs.getCharacterNames());
@@ -155,18 +167,24 @@ export function initGame(opts = {}) {
     if (!toastHost) return null;
     const node = renderToast(text);
     toastHost.append(node);
-    setTimeout(() => node.remove(), TOAST_MS);
+    setTimeout(() => node.remove(), toastMs);
     return node;
   }
 
   // ----------------------------------------------------- screen swapping
 
   function transitionTo(buildScreen) {
+    // With fadeMs 0 the swap happens synchronously, so tests do not have to
+    // sleep to observe the next screen.
+    if (fadeMs <= 0) {
+      showScreen(buildScreen());
+      return;
+    }
     fade.classList.add('on');
     setTimeout(() => {
       showScreen(buildScreen());
       fade.classList.remove('on');
-    }, FADE_MS);
+    }, fadeMs);
   }
 
   function showScreen(node) {

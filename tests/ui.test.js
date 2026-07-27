@@ -70,6 +70,10 @@ async function boot(opts = {}) {
     seed: opts.seed ?? 12345,
     storage: 'storage' in opts ? opts.storage : fakeStorage(),
     autoload: opts.autoload,
+    // Instant transitions: screens swap synchronously and toasts are torn
+    // down on a zero timer, so no test has to sleep out an animation.
+    fadeMs: opts.fadeMs ?? 0,
+    toastMs: opts.toastMs ?? 0,
   });
   return window;
 }
@@ -83,7 +87,9 @@ function cleanup(window) {
 }
 
 /** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+// With fadeMs 0 the screen swap is synchronous; a macrotask tick is still
+// enough to flush any queued microtask work the UI schedules.
+const settle = () => new Promise((r) => setTimeout(r, 0));
 
 /** Click a compact hub-tool button by its visible text. */
 function nav(doc, label) {
@@ -694,7 +700,9 @@ maybe('the modal reports weather, deltas and running totals', async () => {
 // Removed obsolete inventory test.
 
 maybe('achievements raise a toast when earned', async () => {
-  const window = await boot();
+  // Needs a non-zero toast lifetime: with toastMs 0 the removal timer can
+  // fire before the assertion reads the DOM.
+  const window = await boot({ toastMs: 5000 });
   try {
     const doc = window.document;
     const { gs } = window.__game;
@@ -721,7 +729,9 @@ maybe('toasts appear and clear themselves', async () => {
     assert.equal(doc.querySelectorAll('#toasts .toast').length, 1);
     assert.match(doc.querySelector('.toast').textContent, /hello/);
 
-    await new Promise((r) => setTimeout(r, 2800));
+    // toastMs is 0 under test, so the removal timer has already been queued;
+    // one tick is enough to let it run.
+    await new Promise((r) => setTimeout(r, 0));
     assert.equal(doc.querySelectorAll('#toasts .toast').length, 0);
   } finally { cleanup(window); }
 });
@@ -877,7 +887,7 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
   try {
     const doc = window.document;
     window.__game.api.goto.location('home_loft');
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 60));
     const container = doc.querySelector('.particles');
     assert.ok(container);
     assert.equal(container.children.length, 0);
