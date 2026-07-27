@@ -48,6 +48,31 @@ const eff = (sanity = 0, money = 0, energy = 0, reputation = 0, insight = 0) =>
   ({ sanity, money, energy, reputation, insight });
 
 /**
+ * Day one of a run has one fixed invitation: Brian keeps a place for Léon at
+ * the House of Middleway on the morning the journey starts.
+ *
+ * It is a *welcome*, not a permanent unlock — from journey day two the chapel
+ * goes back behind its ordinary gate (day 6, 15 reputation) and rejoins the
+ * rotation like anywhere else. That keeps the early economy exactly where it
+ * was while guaranteeing the run opens with a friend in it.
+ */
+export const WELCOME_DAY = 1;
+export const WELCOME_LOCATION_ID = 'house_of_middleway';
+/**
+ * Where the welcome sits on the hub. The six daily choices render as a 3-wide
+ * grid, so the fourth card — 0-based index 3 — is row 2, column 1, directly
+ * under the founding pair.
+ */
+export const WELCOME_SLOT_INDEX = 3;
+/** How many fixed cards (the founding two) precede the rotating four. */
+export const HUB_FIXED_CHOICES = 2;
+
+/** True on the one day the welcome location is offered unconditionally. */
+export function isWelcomeDay(journeyDay) {
+  return journeyDay === WELCOME_DAY;
+}
+
+/**
  * @param {object} cfg
  * @returns {object} a frozen location definition
  */
@@ -59,6 +84,8 @@ function loc(cfg) {
     bg: '',
     /** Side character who "keeps" this place — shown on the location card. */
     host: '',
+    /** Offered unconditionally on journey day one (see WELCOME_DAY). */
+    dayOneWelcome: false,
     ...cfg,
     effects: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.effects },
     unlock: { minDay: 1, minReputation: 0, ...cfg.unlock },
@@ -421,6 +448,9 @@ export const LOCATIONS = [
     tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.OUTDOOR, Tag.QUIET],
     effects: eff(13, -6, -14, 3, 2),
     unlock: { minDay: 6, minReputation: 15 },
+    // Brian invites Léon out on the first morning of the run. From day two
+    // the ordinary gate above applies again.
+    dayOneWelcome: true,
     bg: 'assets/backgrounds/house_of_middleway.webp',
   }),
 ];
@@ -462,6 +492,18 @@ export function evaluateUnlock(location, snap) {
   } = snap ?? {};
   const perkSet = perks instanceof Set ? perks : new Set(perks);
   const u = location.unlock;
+
+  // Day-one welcome: Brian's invitation ignores day, reputation and weekday
+  // gates on the first morning only. The weather still has the last word —
+  // a storm shuts the woods for him the same as for anyone.
+  if (location.dayOneWelcome && isWelcomeDay(journeyDay)) {
+    for (const tag of closedTags) {
+      if (location.tags.includes(tag)) {
+        return { unlocked: false, reason: 'Closed by the weather' };
+      }
+    }
+    return { unlocked: true, reason: '' };
+  }
 
   if (journeyDay < u.minDay) {
     return { unlocked: false, reason: `Opens on journey day ${u.minDay}` };

@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { LOCATIONS } from '../docs/js/data/locations.js';
+import { LOCATIONS, WELCOME_SLOT_INDEX } from '../docs/js/data/locations.js';
 import { ACHIEVEMENTS } from '../docs/js/data/achievements.js';
 import { PERKS } from '../docs/js/data/perks.js';
 import { SAVE_KEY } from '../docs/js/core/game-state.js';
@@ -331,6 +331,165 @@ maybe('the hub keeps weather visible and gives one gentle focus cue', async () =
     assert.ok(doc.querySelector('.daily-nudge'));
     assert.ok(doc.querySelectorAll('.choice-primary').length >= 2, 'the daily choices stand out');
   } finally { cleanup(window); }
+});
+
+// ================================================= the day-one welcome
+
+maybe('day one pins the House of Middleway to the fourth card — row 2, column 1', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const cards = [...doc.querySelectorAll('.choices button')];
+    assert.equal(cards.length, 6, 'the hub still offers six choices');
+
+    const fourth = cards[WELCOME_SLOT_INDEX];
+    assert.equal(fourth.dataset.location, 'house_of_middleway',
+      'the fourth card is Brian’s chapel on day one');
+
+    // Index 3 of a 3-wide grid is row two, column one.
+    assert.equal(Math.floor(WELCOME_SLOT_INDEX / 3) + 1, 2);
+    assert.equal((WELCOME_SLOT_INDEX % 3) + 1, 1);
+
+    // It must be the only copy on the board — the splice removes duplicates.
+    const copies = cards.filter((c) => c.dataset.location === 'house_of_middleway');
+    assert.equal(copies.length, 1, 'the chapel appears exactly once');
+  } finally { cleanup(window); }
+});
+
+maybe('the pinned welcome is playable immediately, not locked', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const card = [...doc.querySelectorAll('.choices button')]
+      .find((b) => b.dataset.location === 'house_of_middleway');
+
+    assert.ok(card, 'the chapel is on the hub');
+    assert.equal(card.disabled, false, 'day one must not lock Brian away');
+    assert.equal(card.classList.contains('locked'), false);
+    assert.ok(card.textContent.includes('Sit With Brian'), 'it offers its real action');
+    assert.ok(card.querySelectorAll('.chip').length > 0, 'and previews its numbers');
+  } finally { cleanup(window); }
+});
+
+maybe('the pinned welcome says Brian is expecting Léon', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const card = [...doc.querySelectorAll('.choices button')]
+      .find((b) => b.dataset.location === 'house_of_middleway');
+    assert.ok(card.classList.contains('welcome'), 'the card is badged as a welcome');
+    assert.equal(card.dataset.welcome, 'true');
+    const badge = card.querySelector('.choice-welcome');
+    assert.ok(badge, 'the welcome names who is waiting');
+    assert.match(badge.textContent, /Brian/);
+  } finally { cleanup(window); }
+});
+
+maybe('Léon can meet Brian on day one — entering and playing the chapel', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    assert.equal(gs.journeyDay, 1, 'this is the first day of the run');
+
+    [...doc.querySelectorAll('.choices button')]
+      .find((b) => b.dataset.location === 'house_of_middleway')
+      .click();
+    await settle();
+
+    // Brian himself is here, in his own voice.
+    assert.ok(doc.querySelector('.location'), 'we are at a location');
+    assert.match(doc.querySelector('.screen-title').textContent, /House of Middleway/);
+    assert.match(doc.querySelector('.host-name-lg').textContent, /Brian/);
+    assert.ok(doc.querySelector('.small-talk'), 'Brian greets Léon');
+
+    const beforeSanity = gs.sanity;
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    assert.ok(gs.sanity > beforeSanity, 'a day with Brian restores sanity');
+    assert.ok(gs.visitedLocations.has('house_of_middleway'), 'the visit is recorded');
+    assert.ok(doc.querySelector('.modal-backdrop'), 'the day resolves into a result');
+  } finally { cleanup(window); }
+});
+
+maybe('the welcome is gone from the hub on day two', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+
+    gs.journeyDay = 2;
+    api.goto.hub();
+    await settle();
+
+    const cards = [...doc.querySelectorAll('.choices button')];
+    const chapel = cards.find((b) => b.dataset.location === 'house_of_middleway');
+    // It may still be drawn as a locked filler card, but never as a playable
+    // one, and never with the welcome badge.
+    if (chapel) {
+      assert.equal(chapel.disabled, true, 'day two puts the chapel back behind its gate');
+      assert.equal(chapel.classList.contains('welcome'), false);
+      assert.equal(chapel.querySelector('.choice-welcome'), null);
+    }
+    assert.equal(doc.querySelector('.choice.welcome'), null, 'no welcome badge after day one');
+  } finally { cleanup(window); }
+});
+
+maybe('the day-one welcome never displaces the two founding locations', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const cards = [...doc.querySelectorAll('.choices button')];
+    assert.equal(cards[0].textContent.includes('La Maison Calme'), true, 'card 1 is the community');
+    assert.equal(cards[1].textContent.includes('Le Dernier Verre'), true, 'card 2 is the bar');
+    for (const c of [cards[0], cards[1]]) assert.equal(c.disabled, false);
+  } finally { cleanup(window); }
+});
+
+maybe('a day-one storm keeps the woods shut even for Brian', async () => {
+  // Seed 13 opens the run on a storm, which closes every outdoor tag. The
+  // invitation overrides progression gates, never the sky — so the chapel
+  // must appear as a locked card rather than a playable one.
+  const window = await boot({ seed: 13 });
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    assert.equal(gs.getWeather().id, 'storm', 'seed 13 should open on a storm');
+
+    const chapel = [...doc.querySelectorAll('.choices button')]
+      .find((b) => b.dataset.location === 'house_of_middleway');
+    if (chapel) {
+      assert.equal(chapel.disabled, true, 'the storm shuts the clearing');
+      assert.match(chapel.querySelector('.choice-action').textContent, /weather/i);
+      assert.equal(chapel.classList.contains('welcome'), false, 'no welcome badge on a shut door');
+    }
+    // The hub must still be whole and playable on a stormy first morning.
+    assert.equal(doc.querySelectorAll('.choices button').length, 6);
+    assert.ok(doc.querySelectorAll('.choices button:not([disabled])').length >= 2);
+  } finally { cleanup(window); }
+});
+
+maybe('the welcome is pinned for every seed, not just the lucky ones', async () => {
+  // The other four cards are a seeded shuffle; the invitation must not be.
+  for (const seed of [1, 7, 12345, 90210, 777777]) {
+    const window = await boot({ seed });
+    try {
+      const doc = window.document;
+      const cards = [...doc.querySelectorAll('.choices button')];
+      const fourth = cards[WELCOME_SLOT_INDEX];
+      // A storm shuts the woods; that is the one legitimate exception.
+      const stormed = window.__game.gs.getClosedTags().includes('outdoor');
+      if (stormed) {
+        assert.notEqual(fourth.dataset.location, 'house_of_middleway',
+          `seed ${seed}: a storm should keep the woods shut`);
+      } else {
+        assert.equal(fourth.dataset.location, 'house_of_middleway',
+          `seed ${seed}: the welcome should hold slot four`);
+        assert.equal(fourth.disabled, false, `seed ${seed}: and be playable`);
+      }
+    } finally { cleanup(window); }
+  }
 });
 
 maybe('the preview explains what adjusted the numbers', async () => {

@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 249 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 270 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -33,7 +33,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **249** |
+| Automated tests | 0 | **270** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -126,6 +126,20 @@ modifies by tag, perks bonus by tag, and events gate by tag.
 
 Locations unlock on journey day, reputation, weekday, or a required perk/item.
 A fresh run can reach three places; a long, well-regarded one can reach all 22.
+
+**The day-one welcome.** Journey day 1 is the single exception. Brian keeps a
+place for Léon at the **House of Middleway**, so the chapel is offered on the
+first morning regardless of its own gate (day 6, 15 reputation) and is pinned
+to the fourth hub card — row 2, column 1 of the 3-wide grid — where the player
+cannot miss it. From day 2 the ordinary gate applies again and it rejoins the
+rotation like anywhere else, so the early economy is untouched.
+
+The exception lives in `evaluateUnlock()` rather than in the hub renderer,
+which matters: the map screen, the preview maths and the hub all agree without
+being told separately, and the rule is testable headlessly. The one thing the
+welcome does *not* override is the weather — a storm shuts the clearing for
+Brian the same as for anyone, because the alternative is a location whose
+"closed by the weather" contract has a hole in it.
 
 Every location costs something — money, energy or sanity. That invariant is
 enforced by test, because a free location would collapse the decision.
@@ -288,11 +302,11 @@ one pass.
 
 ## Testing
 
-**249 tests** across eight files.
+**270 tests** across eight files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Eight test files | **249** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+| Eight test files | **270** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
@@ -300,6 +314,14 @@ never exceed 288px, a hi-res sheet is never *smaller* than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
 background is referenced by a location. It skips cleanly if ImageMagick is
 unavailable.
+
+It also measures the House of Middleway background rather than trusting the
+brief: the chapel was repainted from a dusk scene to a sunlit one, so the test
+asserts its mean luminance is above 0.35 *and* that it is the brightest
+background in the game — and then checks the same figure back through the
+`.location` scrim to prove the brighter art did not cost the panel its text
+legibility. A tonal regression there is invisible to jsdom and easy to
+reintroduce by re-running the optimiser against a stale source.
 
 That "hi is never smaller than the thumb" assertion is a regression test for a
 real bug: the first build picked sources by format preference, so three early

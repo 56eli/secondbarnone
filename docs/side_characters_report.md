@@ -71,6 +71,28 @@ every human had art: they were the only remaining visual outliers.
 
 All 22 locations have a deployed 1000px WebP background.
 
+### Repainted — House of Middleway, sunny pass
+
+Brian's chapel first shipped as a dusk scene: storm-grey cloud, bare autumn
+trees, a small dark barn set back and to one side of the frame. It read as a
+horror-film cold open, which is the opposite of what the location is for —
+Brian's whole problem is that he is *too* warm, too welcoming, grinning a
+little too long. The art has to carry the holy, sunlit tone so the unease
+comes from him and not from the weather.
+
+| | Was | Now |
+|---|---|---|
+| Light | Dusk under storm cloud, ~0.18 mean luminance | Late-morning sun, godrays through the canopy, ~0.44 |
+| Composition | Chapel small and off-centre | Converted barn chapel dead centre, doors open, path leading in |
+| Season | Bare autumn branches, mud | Green summer canopy, wildflower meadow |
+| Read | Ominous, abandoned | Radiant, tended, expecting you |
+
+Two tests guard it: mean luminance must exceed 0.35 *and* be the highest of
+any deployed background, and the same figure pushed back through the
+`.location` scrim must still be dark enough for white text. Brightening a
+background is exactly the change that quietly breaks legibility, and jsdom
+cannot see it.
+
 ### Repainted this pass — Paris coherence
 
 The game is set in Paris, but six backgrounds had drifted somewhere else

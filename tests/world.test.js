@@ -13,6 +13,7 @@ import {
   LOCATIONS, CORE_LOCATION_IDS, DISTRICT_ORDER, District, Tag,
   getLocation, locationIds, locationsInDistrict, hasTag,
   evaluateUnlock, availableLocations,
+  isWelcomeDay, WELCOME_DAY, WELCOME_LOCATION_ID, WELCOME_SLOT_INDEX, HUB_FIXED_CHOICES,
 } from '../docs/js/data/locations.js';
 import {
   WEATHER_TYPES, getWeather, weatherForDay, forecast, eligibleWeather, closedTags,
@@ -172,12 +173,113 @@ test('evaluateUnlock tolerates a missing snapshot entirely', () => {
   assert.equal(evaluateUnlock(bar, null).unlocked, true);
 });
 
-test('a fresh run opens with the two founding locations plus home', () => {
+// ------------------------------------------------- the day-one welcome
+
+test('exactly one location carries the day-one welcome, and it is Brian’s', () => {
+  const welcomes = LOCATIONS.filter((l) => l.dayOneWelcome);
+  assert.equal(welcomes.length, 1, 'the opening should hold one invitation, not several');
+  assert.equal(welcomes[0].id, WELCOME_LOCATION_ID);
+  assert.equal(welcomes[0].id, 'house_of_middleway');
+  assert.equal(welcomes[0].host, 'brian', 'the welcome is only meaningful if Brian keeps the place');
+});
+
+test('every other location leaves dayOneWelcome off', () => {
+  for (const l of LOCATIONS) {
+    if (l.id === WELCOME_LOCATION_ID) continue;
+    assert.equal(l.dayOneWelcome, false, `${l.id} should not be a day-one welcome`);
+  }
+});
+
+test('isWelcomeDay is true on journey day one and nothing else', () => {
+  assert.equal(isWelcomeDay(1), true);
+  for (const day of [0, 2, 3, 6, 7, 100]) {
+    assert.equal(isWelcomeDay(day), false, `day ${day} should not be the welcome day`);
+  }
+});
+
+test('the welcome opens the chapel on day one despite both of its own gates', () => {
+  const chapel = getLocation(WELCOME_LOCATION_ID);
+  // Its ordinary rule is day 6 + 15 reputation; a fresh run has neither.
+  assert.equal(chapel.unlock.minDay, 6);
+  assert.equal(chapel.unlock.minReputation, 15);
+
+  const fresh = { journeyDay: 1, reputation: 0, weekday: 3 };
+  assert.equal(evaluateUnlock(chapel, fresh).unlocked, true, 'day one must let Léon in');
+  assert.equal(evaluateUnlock(chapel, fresh).reason, '');
+});
+
+test('the welcome expires after day one and the ordinary gate returns', () => {
+  const chapel = getLocation(WELCOME_LOCATION_ID);
+  const day2 = evaluateUnlock(chapel, { journeyDay: 2, reputation: 0, weekday: 4 });
+  assert.equal(day2.unlocked, false);
+  assert.match(day2.reason, /day 6/);
+
+  // Reputation still bites between day 6 and the threshold.
+  const day6Poor = evaluateUnlock(chapel, { journeyDay: 6, reputation: 0, weekday: 4 });
+  assert.equal(day6Poor.unlocked, false);
+  assert.match(day6Poor.reason, /15 reputation/);
+
+  const earned = evaluateUnlock(chapel, { journeyDay: 6, reputation: 15, weekday: 4 });
+  assert.equal(earned.unlocked, true);
+});
+
+test('the welcome still bows to the weather', () => {
+  // A storm shuts the woods for Brian the same as for anyone; the invitation
+  // overrides progression gates, not the sky.
+  const chapel = getLocation(WELCOME_LOCATION_ID);
+  assert.ok(chapel.tags.includes(Tag.OUTDOOR), 'the chapel is out in the woods');
+  const stormy = evaluateUnlock(chapel, {
+    journeyDay: 1, reputation: 0, weekday: 3, closedTags: [Tag.OUTDOOR],
+  });
+  assert.equal(stormy.unlocked, false);
+  assert.match(stormy.reason, /weather/i);
+});
+
+test('the welcome does not rebalance the chapel itself', () => {
+  // Being handed the place early must not also make it a better day than it
+  // is later in the run — same numbers, same cost.
+  const chapel = getLocation(WELCOME_LOCATION_ID);
+  assert.deepEqual(chapel.effects, {
+    sanity: 13, money: -6, energy: -14, reputation: 3, insight: 2,
+  });
+  const { sanity, money, energy } = chapel.effects;
+  assert.ok(sanity < 0 || money < 0 || energy < 0, 'the welcome is still not a free lunch');
+});
+
+test('the hub welcome slot is the fourth card — row two, column one', () => {
+  // The hub renders six choices in a 3-wide grid: indices 0,1,2 are row one
+  // and 3,4,5 are row two, so index 3 is row 2 / column 1.
+  assert.equal(WELCOME_SLOT_INDEX, 3);
+  assert.equal(HUB_FIXED_CHOICES, 2, 'the founding pair leads the grid');
+  const columns = 3;
+  assert.equal(Math.floor(WELCOME_SLOT_INDEX / columns) + 1, 2, 'row two');
+  assert.equal((WELCOME_SLOT_INDEX % columns) + 1, 1, 'column one');
+  // …and it must land inside the rotating list the hub actually splices.
+  const rotatingIndex = WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES;
+  assert.ok(rotatingIndex >= 0 && rotatingIndex < 4, 'slot must exist among the four rotating cards');
+});
+
+test('a fresh run opens with the two founding locations, home, and Brian’s welcome', () => {
   const open = availableLocations({ journeyDay: 1, reputation: 10, weekday: 3 });
-  assert.deepEqual(open.map((l) => l.id).sort(), ['bar', 'home_loft', 'spiritual_community']);
+  assert.deepEqual(
+    open.map((l) => l.id).sort(),
+    ['bar', 'home_loft', 'house_of_middleway', 'spiritual_community'],
+  );
   for (const id of CORE_LOCATION_IDS) {
     assert.ok(open.some((l) => l.id === id), `${id} should be open on day one`);
   }
+});
+
+test('day two closes Brian’s welcome again', () => {
+  // The welcome is a one-morning invitation, not a permanent unlock: the
+  // early economy must be exactly what it was from journey day two onward.
+  // (river_walk opening on day 2 is the catalogue's own, unrelated rule.)
+  const open = availableLocations({ journeyDay: 2, reputation: 10, weekday: 4 });
+  assert.deepEqual(
+    open.map((l) => l.id).sort(),
+    ['bar', 'home_loft', 'river_walk', 'spiritual_community'],
+  );
+  assert.ok(!open.some((l) => l.id === WELCOME_LOCATION_ID), 'the chapel closes again on day two');
 });
 
 test('the city opens up as the run goes on', () => {

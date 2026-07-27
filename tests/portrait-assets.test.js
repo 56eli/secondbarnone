@@ -158,6 +158,51 @@ test('retired pre-Paris backgrounds stay retired', () => {
   }
 });
 
+/** Mean luminance 0..1 of an image, via ImageMagick. */
+const luminance = (file) => Number(
+  execFileSync('convert', [file, '-colorspace', 'gray', '-format', '%[fx:mean]', 'info:'])
+    .toString().trim(),
+);
+
+magickTest('the House of Middleway background is sunny, not the old night scene', () => {
+  // The first version of this art was a dusk-lit chapel under a storm-grey
+  // sky, which fought the holy, welcoming tone the location is meant to have.
+  // Rather than eyeball it, assert on the pixels: the sunlit repaint measures
+  // ~0.44 mean luminance against ~0.18 for the night scene it replaced.
+  const bg = join(DOCS, 'assets', 'backgrounds', 'house_of_middleway.webp');
+  assert.ok(existsSync(bg), 'the chapel background should ship');
+
+  const mean = luminance(bg);
+  assert.ok(mean > 0.35, `the chapel should read as daylight, got mean luminance ${mean.toFixed(3)}`);
+
+  // And it should be the brightest background in the game — it is the only
+  // one whose whole point is the light.
+  const bgDir = join(DOCS, 'assets', 'backgrounds');
+  for (const f of readdirSync(bgDir)) {
+    if (f === 'house_of_middleway.webp' || !f.endsWith('.webp')) continue;
+    assert.ok(
+      mean > luminance(join(bgDir, f)),
+      `${f} is brighter than the sunny chapel`,
+    );
+  }
+});
+
+magickTest('the sunny chapel still stays legible under the location scrim', () => {
+  // .location::before lays a rgba(8,8,16,.62)→.88 gradient over the art, so a
+  // brighter painting must not push the panel light enough to wash out text.
+  const bg = join(DOCS, 'assets', 'backgrounds', 'house_of_middleway.webp');
+  const SCRIM_MIN_ALPHA = 0.62;
+  const scrimmed = luminance(bg) * (1 - SCRIM_MIN_ALPHA) + (8 / 255) * SCRIM_MIN_ALPHA;
+  assert.ok(scrimmed < 0.4, `scrimmed background too light for white text: ${scrimmed.toFixed(3)}`);
+});
+
+magickTest('the chapel background is a landscape at the deployed background width', () => {
+  const bg = join(DOCS, 'assets', 'backgrounds', 'house_of_middleway.webp');
+  const { w, h } = dimensions(bg);
+  assert.equal(w, 1000, 'backgrounds deploy at 1000px wide');
+  assert.ok(w > h, 'backgrounds are landscape');
+});
+
 test('the hub background is real art, not the old SVG placeholder', () => {
   assert.ok(
     existsSync(join(DOCS, 'assets', 'backgrounds', 'hub_background.webp')),

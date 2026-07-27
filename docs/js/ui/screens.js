@@ -15,6 +15,7 @@ import {
 import { computeDayEffects } from '../core/turn.js';
 import {
   LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
+  isWelcomeDay, WELCOME_LOCATION_ID, WELCOME_SLOT_INDEX, HUB_FIXED_CHOICES,
 } from '../data/locations.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
@@ -291,19 +292,41 @@ export function renderHub(gs, handlers) {
     selected.push(...shuffledLocked.slice(0, needed));
   }
 
+  // Day one is not left to the shuffle. Brian's invitation is pinned to the
+  // fourth card of the six — row 2, column 1 of the 3-wide grid — so a new
+  // run always opens with a friend one click away. `WELCOME_SLOT_INDEX` is
+  // the index across all six choices, so the founding pair is subtracted to
+  // land in this rotating list.
+  const welcome = getLocation(WELCOME_LOCATION_ID);
+  if (welcome && isWelcomeDay(snap.journeyDay) && evaluateUnlock(welcome, snap).unlocked) {
+    const slot = WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES;
+    selected = selected.filter((l) => l.id !== welcome.id);
+    selected.splice(slot, 0, welcome);
+    selected = selected.slice(0, 4);
+  }
+
   const otherChoices = selected.map((location) => {
     const { total } = computeDayEffects(gs, location.id);
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
+    // The pinned day-one invitation gets a quiet badge so the player can see
+    // it is a one-off welcome rather than a place they have already earned.
+    const isWelcome = location.dayOneWelcome && isWelcomeDay(snap.journeyDay);
 
     if (unlocked) {
       return el('button', {
-        class: `choice choice-primary${visited ? ' visited' : ''}`,
+        class: `choice choice-primary${visited ? ' visited' : ''}${isWelcome ? ' welcome' : ''}`,
         onclick: () => onVisit(location.id),
-        'data-location': location.id
+        'data-location': location.id,
+        // Explicit string: the el() helper renders a boolean `true` as a bare
+        // valueless attribute, which reads back as '' rather than 'true'.
+        'data-welcome': isWelcome ? 'true' : false,
       },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
         el('span', { class: 'choice-action', text: location.actionLabel }),
+        isWelcome
+          ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
+          : null,
         effectChips(total, 'chips choice-eff')
       );
     } else {
