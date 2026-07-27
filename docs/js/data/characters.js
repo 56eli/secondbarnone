@@ -1,8 +1,15 @@
 /**
  * Character database — ported 1:1 from scripts/character_data.gd.
  *
- * `portrait` is resolved at load time by trying .webp then .svg, mirroring the
- * original's ResourceLoader.exists() probe over .png then .svg.
+ * Every character carries two portrait paths:
+ *
+ *   portrait    small sheet used for every inline avatar in the game
+ *   portraitHi  large sheet used only by the tap-to-enlarge lightbox
+ *
+ * Both are produced by scripts/build-portraits.js. The split exists because
+ * the biggest inline avatar is 84 CSS px while the lightbox renders up to
+ * 560 CSS px — one file cannot serve both without being wasteful in normal
+ * play or soft when enlarged. `portraitHi` is only ever fetched on demand.
  */
 
 export const Role = Object.freeze({
@@ -22,29 +29,23 @@ export function roleLabel(role) {
   }
 }
 
-/** Characters whose portrait is a painted raster image (WebP, circular, vignette). */
-const WEBP_PORTRAITS = new Set([
-  'leon', 'geo', 'lakshay', 'arian', 'simon', 'kaj', 'dorian', 'barret',
-  'kaden', 'sato', 'alex', 'ethan', 'matt', 'artem', 'klaudia', 'brian',
-  'hawkinstv', 'ricolewis', 'emily', 'kate',
-  // Newly painted portraits (homely cast expansion)
-  'yun', 'marlies', 'mateo', 'luca', 'cheezl',
-  'brock_lee', 'ahyeon', 'renata', 'siekamcebule', 'lou',
-  'baris', 'stephen', 'iulian',
-  // Clickable-portrait pass — replaced procedural SVG placeholders with
-  // painted portraits (see docs/side_characters_report.md for the running
-  // tally of who's left).
-  'tarrasqu', 'friend', 'nestomalt', 'self', 'daniela', 'crveni',
-  'gordon', 'oh', 'ricardoea', 'speedfire', 'scatmandu', 'cat',
-  'hanans', 'kaschem', 'vanna', 'sir_cruds',
-  'qustoge', 'groovyphoenix', 'cary', 'aril_stellar', 'alvigunilla', 'fraghis',
-  'mrone', 'raul', 'marlene_xoxo', 'diamndsdancin',
-  'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
-]);
-
+/**
+ * Every character now has a painted raster portrait. The procedural SVG
+ * avatars that used to stand in for the last of the side cast were replaced
+ * in the July 2026 art pass, so there is no longer a painted/generated split
+ * to encode here — the build emits `<id>.webp` (thumb) and `hi/<id>.webp`
+ * (lightbox) for every id in the catalogue.
+ *
+ * scripts/check-assets.js verifies both files exist for every character, so a
+ * missing portrait fails CI rather than shipping a broken <img>.
+ */
 function portraitFor(id) {
-  const ext = WEBP_PORTRAITS.has(id) ? 'webp' : ['yume', 'joar', 'susan'].includes(id) ? 'png' : 'svg';
-  return `assets/portraits/${id}.${ext}`;
+  return `assets/portraits/${id}.webp`;
+}
+
+/** Full-size sheet for the enlarge-on-tap lightbox. */
+function portraitHiFor(id) {
+  return `assets/portraits/hi/${id}.webp`;
 }
 
 const RAW = [
@@ -687,7 +688,11 @@ const RAW = [
 
 /** Build the full character list, with portrait paths resolved. */
 export function createAllProfiles() {
-  return RAW.map((c) => ({ ...c, portrait: portraitFor(c.id) }));
+  return RAW.map((c) => ({
+    ...c,
+    portrait: portraitFor(c.id),
+    portraitHi: portraitHiFor(c.id),
+  }));
 }
 
 /** Two-letter-ish initials, used as the portrait fallback. */

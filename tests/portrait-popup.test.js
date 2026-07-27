@@ -64,7 +64,7 @@ function cleanup(window) {
 
 const settle = () => new Promise((r) => setTimeout(r, 480));
 
-maybe('clicking the HUD portrait opens a popup with Léon\u2019s bio', async () => {
+maybe('clicking the HUD portrait enlarges the picture and nothing else', async () => {
   const window = await boot();
   try {
     const doc = window.document;
@@ -74,16 +74,86 @@ maybe('clicking the HUD portrait opens a popup with Léon\u2019s bio', async () 
 
     const popup = doc.querySelector('.portrait-popup-backdrop');
     assert.ok(popup, 'popup should appear');
-    assert.match(popup.textContent, /Léon/);
-    assert.match(popup.textContent, /Protagonist/);
-    assert.match(popup.textContent, /Relationship to Léon/);
+
+    const img = popup.querySelector('img.portrait-full');
+    assert.ok(img, 'the popup should contain the enlarged portrait');
+    assert.match(img.getAttribute('src'), /leon/);
 
     // Closing it removes it and does not touch game state.
     const { gs } = window.__game;
     const dayBefore = gs.journeyDay;
-    [...popup.querySelectorAll('button')].find((b) => b.textContent.includes('Close')).click();
+    popup.querySelector('.portrait-close').click();
     assert.equal(doc.querySelector('.portrait-popup-backdrop'), null, 'popup should close');
     assert.equal(gs.journeyDay, dayBefore, 'closing the popup must not advance the day');
+  } finally { cleanup(window); }
+});
+
+maybe('the portrait popup shows no name, role, bio or relationship text', async () => {
+  // The whole point of the popup is that the little avatar is a preview of a
+  // picture. Any prose here would make it a character sheet again.
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('hud-portrait-btn').click();
+    const popup = doc.querySelector('.portrait-popup-backdrop');
+
+    const visible = popup.textContent.replace(/[×\s]/g, '');
+    assert.equal(visible, '', `popup should render no text, got ${JSON.stringify(popup.textContent)}`);
+
+    const leon = window.__game.gs.getAllCharacters().find((c) => c.id === 'leon');
+    assert.ok(!popup.textContent.includes(leon.bio), 'bio must not be shown');
+    assert.ok(!popup.textContent.includes(leon.relationship), 'relationship must not be shown');
+    assert.ok(!popup.textContent.includes('Protagonist'), 'role must not be shown');
+    assert.equal(popup.querySelector('h3'), null, 'no heading in the popup');
+    assert.equal(popup.querySelector('dl'), null, 'no definition list in the popup');
+    assert.equal(popup.querySelector('p'), null, 'no paragraph in the popup');
+  } finally { cleanup(window); }
+});
+
+maybe('the popup loads the hi-res sheet, not the inline thumbnail', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const inlineSrc = doc.getElementById('hud-portrait').getAttribute('src');
+
+    doc.getElementById('hud-portrait-btn').click();
+    const img = doc.querySelector('.portrait-full');
+
+    assert.match(img.getAttribute('src'), /portraits\/hi\//, 'should use the hi tier');
+    assert.notEqual(img.getAttribute('src'), inlineSrc, 'must not just reuse the thumbnail');
+  } finally { cleanup(window); }
+});
+
+maybe('a missing hi-res sheet falls back to the thumbnail once', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('hud-portrait-btn').click();
+    const img = doc.querySelector('.portrait-full');
+    const hiSrc = img.getAttribute('src');
+
+    // jsdom never actually loads images, so drive the error path directly.
+    img.dispatchEvent(new window.Event('error'));
+    const after = img.getAttribute('src');
+    assert.notEqual(after, hiSrc, 'should swap away from the missing hi sheet');
+    assert.match(after, /assets\/portraits\/leon\.webp$/, 'falls back to the thumbnail');
+
+    // A second failure must not loop back round to the hi sheet.
+    img.dispatchEvent(new window.Event('error'));
+    assert.equal(img.getAttribute('src'), after, 'fallback should not re-trigger');
+  } finally { cleanup(window); }
+});
+
+maybe('tapping the enlarged picture itself dismisses it', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('hud-portrait-btn').click();
+    const img = doc.querySelector('.portrait-full');
+    assert.ok(img);
+
+    img.dispatchEvent(new window.Event('click', { bubbles: true }));
+    assert.equal(doc.querySelector('.portrait-popup-backdrop'), null, 'tapping the art closes it');
   } finally { cleanup(window); }
 });
 
@@ -115,7 +185,7 @@ maybe('pressing Escape closes the portrait popup', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('the location host banner portrait opens that host\u2019s popup', async () => {
+maybe('the location host banner portrait enlarges that host\u2019s picture', async () => {
   const window = await boot();
   try {
     const doc = window.document;
@@ -128,7 +198,11 @@ maybe('the location host banner portrait opens that host\u2019s popup', async ()
 
     const popup = doc.querySelector('.portrait-popup-backdrop');
     assert.ok(popup, 'popup should appear for the host');
-    assert.match(popup.textContent, /Barret/);
+    // Identity is carried by the image, not by any visible caption.
+    const img = popup.querySelector('.portrait-full');
+    assert.match(img.getAttribute('src'), /barret/);
+    assert.match(img.getAttribute('alt'), /Barret/);
+    assert.equal(popup.textContent.replace(/[×\s]/g, ''), '', 'still image-only');
   } finally { cleanup(window); }
 });
 

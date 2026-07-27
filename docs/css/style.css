@@ -592,12 +592,75 @@ h2.screen-title {
 
 .modal-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
 
-/* Portrait popup: opened by clicking/tapping any avatar in the game.
-   Reuses .modal / .detail-head / .detail-avatar so it looks like a native
-   part of the character sheet rather than a bolted-on lightbox. */
-.portrait-popup-backdrop { z-index: 60; }
-.portrait-modal { width: min(420px, 100%); }
-.portrait-modal .detail-head { margin-bottom: 14px; }
+/* Portrait lightbox: opened by clicking/tapping any avatar in the game.
+   Shows the artwork and nothing else — the inline avatar is a preview, so
+   this is that preview at full size. Deliberately does NOT reuse .modal:
+   there is no panel, no padding and no text, just the picture on a dimmed
+   backdrop, so the art is the whole interface. */
+.portrait-popup-backdrop {
+  z-index: 60;
+  /* Darker than the day-result modal so the painting carries the screen. */
+  background: rgba(3, 3, 8, 0.9);
+  padding: max(16px, env(safe-area-inset-top)) 16px;
+  cursor: zoom-out;
+}
+
+.portrait-lightbox {
+  position: relative;
+  display: block;
+  line-height: 0;
+  animation: portraitIn 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.portrait-full {
+  display: block;
+  /* Fit the viewport on any screen while never upscaling past the 896px
+     source. min() of both axes keeps tall phones and wide desktops honest. */
+  width: min(560px, 92vw, 78vh);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
+  background: #12121c;
+  cursor: zoom-out;
+}
+
+/* Small round dismiss affordance pinned to the corner of the picture.
+   Sized to a comfortable 40px touch target on phones. */
+.portrait-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  color: #f0e9da;
+  background: rgba(18, 18, 28, 0.94);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: transform 140ms ease, background 140ms ease;
+}
+.portrait-close:hover { background: #24243a; transform: scale(1.07); }
+.portrait-close:active { transform: scale(0.94); }
+.portrait-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@keyframes portraitIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* On narrow screens the corner button would hang off the edge. */
+@media (max-width: 480px) {
+  .portrait-close { top: -10px; right: -10px; width: 38px; height: 38px; }
+}
 
 /* ---------------- game over ---------------- */
 

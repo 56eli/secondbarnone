@@ -41,6 +41,16 @@ const BESPOKE = new Set([
   'seth', 'kopung', 'isra', 'kobideh', 'stijn12d', 'andre_watson',
 ]);
 
+/**
+ * True when a painted source image exists for this id, in which case the
+ * procedural avatar must not be generated. Checked against the filesystem so
+ * the generator cannot drift out of sync with the art the way the hardcoded
+ * BESPOKE list did.
+ */
+function hasPaintedArt(id) {
+  return existsSync(join(OUT, `${id}.png`)) || existsSync(join(OUT, `${id}.webp`));
+}
+
 /** Characters rendered as machines rather than people. */
 const BOTS = new Set(['carl_bot', 'docbot']);
 
@@ -578,7 +588,12 @@ let skipped = 0;
 
 for (const c of profiles) {
   const outPath = join(OUT, `${c.id}.svg`);
-  if (BESPOKE.has(c.id)) {
+  // A character with painted art on disk is never overwritten, regardless of
+  // what BESPOKE says. The hardcoded set had to be edited by hand every time
+  // a portrait was painted, and drifted: as of the July 2026 pass all 78
+  // characters have painted art, so this generator now writes nothing unless
+  // a new character is added before their portrait exists.
+  if (BESPOKE.has(c.id) || hasPaintedArt(c.id)) {
     skipped += 1;
     continue;
   }
@@ -591,4 +606,7 @@ for (const c of profiles) {
   written += 1;
 }
 
-console.log(`Generated ${written} SVG avatars (skipped ${skipped} bespoke).`);
+console.log(`Generated ${written} SVG avatars (skipped ${skipped} with painted art).`);
+if (written === 0) {
+  console.log('Every character has painted art — nothing to stand in for.');
+}
