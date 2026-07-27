@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 270 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 275 tests, ~99% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -33,7 +33,7 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **270** |
+| Automated tests | 0 | **275** |
 | Coverage | — | **~99%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -248,6 +248,16 @@ build if one comes back. `docs/side_characters_report.md` is the canonical art
 tracker and now carries two deliberately empty tables for art that exists but
 should be *improved*.
 
+**The off-style four.** Full coverage was not the same as a coherent cast.
+`kaj`, `arian` and `dorian` shipped as pixel-art sprites and `lakshay` as a
+flat cartoon vector with a third-party stock watermark baked into the
+deployed payload — four different games sitting next to each other in the
+People list. All four were repainted into the house style (warm
+semi-realistic oil painting, chest-up, circular distressed cream frame, a
+background detail that says who the person is) and each now carries the trait
+its rewritten profile turns on: Kaj reading, Lakshay at his cellar server
+rack, Arian mid-story over a glass, Dorian immovable in his armchair.
+
 ### Portraits ship in two tiers
 
 | Tier | Path | Size | Used by |
@@ -258,7 +268,7 @@ should be *improved*.
 The largest avatar the game renders inline is **84 CSS px**, so the previous
 single 512px sheet was ~6x oversized on every page load — while being too
 *small* for the enlarged view, which renders up to 560 CSS px. Splitting the
-tiers cut the eager payload from ~4.85 MB to **~2.86 MB** and made the
+tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
 enlarged view genuinely sharp. `scripts/build-portraits.js` emits both tiers,
 picks the largest available source rather than the first matching format, and
 never upscales.
@@ -291,10 +301,21 @@ as an outdoor hilltop ruin. The hub's `hub_background.svg` — a 900-byte file o
 five blurred circles — was replaced with a painted Paris street corner showing
 the bar and the community room facing each other.
 
+A **second coherence pass** caught five the first one missed, because that
+pass fixed the scenes that were obviously wrong and stopped: the clinic had
+English-language posters, the community garden was a New York block of
+red-brick tenements and fire escapes, the rooftop looked out on a North
+American downtown of glass towers, the letting office onto British suburban
+terraces, and the loft onto an anonymous high-rise skyline. All five are now
+Haussmann limestone, wrought iron and zinc mansard roofs. Two of them
+(`free_clinic`, `home_loft`) had never had a committed PNG master, so
+`npm run assets` could not rebuild them at all; both now do, and a test
+asserts every repainted background keeps its master.
+
 Missing portraits fall back to an initials chip, which is exercised by test.
 
 Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/assets/` is ~2.9 MB eager plus ~4.1 MB of on-demand portrait sheets.
+`docs/assets/` is ~2.9 MB eager plus ~4.4 MB of on-demand portrait sheets.
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -302,11 +323,11 @@ one pass.
 
 ## Testing
 
-**270 tests** across eight files.
+**275 tests** across eight files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Eight test files | **270** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+| Eight test files | **275** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
@@ -314,6 +335,19 @@ never exceed 288px, a hi-res sheet is never *smaller* than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
 background is referenced by a location. It skips cleanly if ImageMagick is
 unavailable.
+
+It also pins the four portraits repainted in the off-style pass (`kaj`,
+`lakshay`, `arian`, `dorian`) by content hash. Those four were pixel-art
+sprites and one watermarked cartoon vector sitting in an otherwise painterly
+cast, and no existing test could see the problem — the files existed, were the
+right dimensions, and were under budget. The guard is a hash rather than a
+"does this look painted" heuristic on purpose: blockiness and colour-count
+metrics were measured against the real files first and **overlap between the
+two styles**, so any threshold would fail on unrelated art sooner or later. A
+hash fails if and only if the exact retired file returns, which is the real
+regression — re-running the builder against a stale source. A companion test
+asserts the superseded 512px WebP sources stay deleted, since those are what
+the builder picked up the first time.
 
 It also measures the House of Middleway background rather than trusting the
 brief: the chapel was repainted from a dusk scene to a sunlit one, so the test

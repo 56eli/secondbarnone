@@ -9,7 +9,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, statSync, readdirSync } from 'node:fs';
+import { existsSync, statSync, readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -98,6 +99,85 @@ test('no procedural SVG placeholders remain in the deployed payload', () => {
   assert.deepEqual(svgs, [], `SVG placeholders still deployed: ${svgs.join(', ')}`);
 });
 
+// ------------------------------------------------- the off-style four
+
+/**
+ * Kaj, Lakshay, Arian and Dorian were the last portraits that were not in the
+ * house style: three pixel-art sprites and one flat cartoon vector that still
+ * carried a third-party stock watermark. Coverage tests could not see the
+ * problem — the files existed and were the right size — so they survived
+ * every previous art pass.
+ *
+ * They are pinned by content hash rather than by any "does this look painted"
+ * heuristic. Style metrics (blockiness, colour count) were measured against
+ * the real files first and overlap between the two styles, so a threshold
+ * would be a coin flip that fails on unrelated art. A hash cannot be
+ * ambiguous: it fails if and only if the exact retired file comes back, which
+ * is the actual regression — someone re-running the builder against a stale
+ * source in assets/portraits/.
+ */
+const RETIRED_ART = Object.freeze({
+  kaj: {
+    thumb: 'dbbfa3e9ed3c0d644dc980699f0bff21e67f615227ed606b57637444c3250cb9',
+    hi: 'c7fb3993cba4ecb56884ddef847e7b10b6fed60045445f7658ae9c8bb44821a5',
+  },
+  lakshay: {
+    thumb: 'e7c5c82745e9917f49a6cf394c3a9440f904c4203d4f0669087f49d50765c7bc',
+    hi: 'a0dbf3aa773b7ba8661e56fd696cefd15cb7f0c3e282b8a3e661c61a2cc0672f',
+  },
+  arian: {
+    thumb: '58bbee469e67f124bf9cf0f183b08afa4e362ee273660502271c03362560e078',
+    hi: '4e8f7bae5b3be28e3a5db8f5fac7848128cda03cd8cb0e31deb7510a00d02880',
+  },
+  dorian: {
+    thumb: 'da54adc7eeb4d2cf5af8f291a27ab49fe97a48437e4ade1feb2f066540b0063b',
+    hi: 'b2765cbeee7638e5b8ed4ac3a6459a9343116f346671251ebb8b5b546da92fa1',
+  },
+});
+
+const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
+
+test('the four off-style portraits stay retired', () => {
+  for (const [id, hashes] of Object.entries(RETIRED_ART)) {
+    assert.notEqual(
+      sha256(join(PORTRAITS, `${id}.webp`)), hashes.thumb,
+      `${id}: the retired off-style thumbnail is deployed again`,
+    );
+    assert.notEqual(
+      sha256(join(HI, `${id}.webp`)), hashes.hi,
+      `${id}: the retired off-style hi sheet is deployed again`,
+    );
+  }
+});
+
+test('the repainted four have a full-resolution painted master', () => {
+  // The stale 512px WebPs next to these ids are what the old build picked up.
+  // Deleting them was part of the fix: the PNG master must be the only source
+  // sourceFor() can resolve, otherwise a plain `npm run assets` silently
+  // reinstates whichever file happens to be larger.
+  const src = join(ROOT, 'assets', 'portraits');
+  for (const id of Object.keys(RETIRED_ART)) {
+    assert.ok(
+      existsSync(join(src, `${id}.png`)),
+      `${id}: the painted PNG master should be committed as the source of truth`,
+    );
+    assert.ok(
+      !existsSync(join(src, `${id}.webp`)),
+      `${id}: the superseded 512px WebP source should have been deleted`,
+    );
+  }
+});
+
+magickTest('the repainted four are painted at full lightbox resolution', () => {
+  // The old sprites were upscaled from small sources, so they could never be
+  // sharp in the lightbox. Their replacements must actually fill the hi tier.
+  for (const id of Object.keys(RETIRED_ART)) {
+    const { w, h } = dimensions(join(HI, `${id}.webp`));
+    assert.equal(w, HI_PX, `${id}: hi sheet should be a full ${HI_PX}px, got ${w}px`);
+    assert.equal(h, HI_PX, `${id}: hi sheet should be square at ${HI_PX}px, got ${h}px`);
+  }
+});
+
 test('the eager payload stays well under the lazy one', () => {
   // The tier split only pays off if the thumbnails really are the small ones.
   const sum = (dir, files) => files.reduce((n, f) => n + statSync(join(dir, f)).size, 0);
@@ -141,6 +221,51 @@ test('every location background exists and is referenced', () => {
 
   for (const f of readdirSync(join(DOCS, 'assets', 'backgrounds'))) {
     assert.ok(referenced.has(f), `unreferenced background shipped: ${f}`);
+  }
+});
+
+/**
+ * Five backgrounds were still set somewhere other than Paris after the first
+ * coherence pass, because that pass only looked at the six most obviously
+ * wrong scenes. These were the remainder:
+ *
+ *   free_clinic       English-language posters, non-Paris street outside
+ *   community_garden  red-brick tenements with fire escapes — New York
+ *   rooftop           generic North American downtown skyline of glass towers
+ *   landlord_office   British suburban terraced houses through the window
+ *   home_loft         anonymous high-rise skyline, no Paris roofline
+ *
+ * Same reasoning as the portrait hashes: pinned by content rather than by a
+ * "does this look French" heuristic, which no cheap image metric can express.
+ */
+const RETIRED_BACKGROUNDS = Object.freeze({
+  free_clinic: '5c5d977f466a0c369693579b3d2c4cab1655b3677a9f8cb7a4794a89ce1dd262',
+  community_garden: 'e45011004940496a586e0cbc49bb6ae74013f7c495d72c6ef6fb20ba92b91fde',
+  rooftop: '8801f66d09bc1f68a14ccd574baa6330d89d33dd209f0d581310e4dd77b64f9c',
+  landlord_office: '66f23ddfc6955ffe5555aaa25357c1150b1c31af0ba99abab4f81cb4e184a566',
+  home_loft: '4ebbf25297e9bbb5c72ba771c8ad59c1284c0022966166e2847c1c4ce1629d68',
+});
+
+test('the off-theme backgrounds stay repainted for Paris', () => {
+  const bgDir = join(DOCS, 'assets', 'backgrounds');
+  for (const [name, hash] of Object.entries(RETIRED_BACKGROUNDS)) {
+    assert.notEqual(
+      sha256(join(bgDir, `${name}.webp`)), hash,
+      `${name}.webp: the retired non-Paris background is deployed again`,
+    );
+  }
+});
+
+test('every repainted Paris background keeps a full-resolution master', () => {
+  // These five had no committed PNG source before (two never had one at all),
+  // so `npm run assets` could not rebuild them and a regression would be
+  // unrecoverable from the repo alone.
+  const src = join(ROOT, 'assets', 'backgrounds');
+  for (const name of Object.keys(RETIRED_BACKGROUNDS)) {
+    assert.ok(
+      existsSync(join(src, `${name}.png`)),
+      `${name}: the painted PNG master should be committed so the WebP can be rebuilt`,
+    );
   }
 });
 
