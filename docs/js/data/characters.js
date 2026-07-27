@@ -29,6 +29,8 @@ const WEBP_PORTRAITS = new Set([
   'hawkinstv', 'ricolewis', 'emily', 'kate',
   // Newly painted portraits (homely cast expansion)
   'yun', 'marlies', 'mateo', 'luca', 'cheezl',
+  'brock_lee', 'ahyeon', 'renata', 'siekamcebule', 'lou',
+  'baris', 'stephen', 'iulian',
 ]);
 
 function portraitFor(id) {
@@ -284,7 +286,7 @@ const RAW = [
     id: 'carl_bot',
     name: 'Carl-bot',
     role: Role.SIDE_CHARACTER,
-    bio: 'The community\u2019s scheduling assistant — a secondhand tablet on a stand that announces meditation times in a cheerful synthetic voice. Someone taught it to tell jokes. Nobody has admitted to it.',
+    bio: 'The community\u2019s scheduling assistant — a secondhand tablet on a stand that announces meditation times in a cheerful synthetic voice. It tells terrible dad jokes about spreadsheet formulas and refuses to compute Sunday schedules unless offered virtual cookies.',
     relationship: 'Reminds Léon of commitments he was actively avoiding. He has considered unplugging it and could not go through with it.',
     location: 'Spiritual Community',
   },
@@ -404,7 +406,7 @@ const RAW = [
     id: 'mrone',
     name: 'Mrone',
     role: Role.SIDE_CHARACTER,
-    bio: 'A minimalist who owns nineteen possessions and mentions this more than nineteen times a week. Genuinely serene, mildly insufferable, ultimately good company.',
+    bio: 'A minimalist who owns nineteen possessions and mentions this more than nineteen times a week. He recently decluttered his last name down to a single phoneme and refuses to use adjectives because they are "frivolous syntax weight."',
     relationship: 'Keeps offering to help Léon "declutter." Léon keeps declining.',
     location: 'Spiritual Community',
   },
@@ -726,7 +728,7 @@ export const SMALL_TALK = Object.freeze({
   ]),
   siekamcebule: Object.freeze([
     'There is always enough for one more bowl.',
-    'Taste this before you salt it. It needs a second opinion.',
+    'Do not cry because of the onions. Cry because of the beautiful harmony of the soup.',
     'Pull up a chair. Standing all day is not a personality.',
   ]),
   joar: Object.freeze([
@@ -736,8 +738,8 @@ export const SMALL_TALK = Object.freeze({
   ]),
   brock_lee: Object.freeze([
     'The tomatoes are finally deciding what they want to be.',
-    'There is a job with your name on it, but it can wait five minutes.',
-    'Mind the mint. It has ambitions.',
+    'I am root-ing for you, Léon! Remember, lettuce always do our best.',
+    'Mind the mint. It has global domination ambitions.',
   ]),
   ahyeon: Object.freeze([
     'The honey jars are lined up like they have somewhere to be.',

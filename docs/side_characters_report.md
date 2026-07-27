@@ -1,0 +1,96 @@
+# Side Characters Portrait Status Report
+
+This document lists all side characters in **secondbarnone** and tracks which ones have high-quality painted raster portraits (WebP/PNG) and which ones still use procedural SVG placeholders.
+
+Through our latest senior development cycle, we have generated **8 new high-quality portraits** using advanced AI styling to match the game's homely, painted vignette aesthetic.
+
+---
+
+## 👥 Summary
+- **Total Side Characters:** 51
+- **High-Quality Portratis Done:** 32 (including the 8 newly generated)
+- **Still Using SVG Placeholders:** 19 (most are very minor/niche characters or non-human entities like bots/cats)
+
+---
+
+## 🎨 Portrait Status List
+
+### Done (High-Quality WebP/PNG Images)
+1. **Geo** (`geo`) — WebP (Mentor & confidant)
+2. **Lakshay** (`lakshay`) — WebP (Logistics coordinator)
+3. **Arian** (`arian`) — WebP (Charismatic intellectual)
+4. **Simon** (`simon`) — WebP (Veteran realist)
+5. **Kaj** (`kaj`) — WebP (Mandalas artist)
+6. **Dorian** (`dorian`) — WebP (Silver-tongued jazz regular)
+7. **Barret** (`barret`) — WebP (Owner of Le Dernier Verre)
+8. **Ethan** (`ethan`) — WebP (Part-time student helper)
+9. **Matt** (`matt`) — WebP (Weekend bartender surfer)
+10. **Artem** (`artem`) — WebP (Skeptical corporate regular)
+11. **Klaudia** (`klaudia`) — WebP (Musician regular)
+12. **Brian** (`brian`) — WebP (Burned-out financial advisor)
+13. **Susan** (`susan`) — PNG/WebP (Healing nurse seeker)
+14. **HawkinsTV** (`hawkinstv`) — WebP (Livestreamer regular)
+15. **RicoLewis** (`ricolewis`) — WebP (Former footballer regular)
+16. **Yun** (`yun`) — WebP (Zen calligrapher)
+17. **Marlies** (`marlies`) — WebP (Caring retired schoolteacher)
+18. **Yume** (`yume`) — PNG (Late-night illustrator)
+19. **Mateo** (`mateo`) — WebP (Generous carpenter)
+20. **Luca** (`luca`) — WebP (butter-scented pastry chef)
+21. **Cheezl** (`cheezl`) — WebP (Toastie cart vendor)
+22. **Kate** (`kate`) — WebP (Investigative journalist)
+23. **Emily** (`emily`) — WebP (Foster vet nurse)
+24. **Joar** (`joar`) — PNG (Nordic cold-swimmer)
+25. **Brock Lee** (`brock_lee`) — WebP 🌟 *[NEW]* (Vegetable seller)
+26. **Ahyeon** (`ahyeon`) — WebP 🌟 *[NEW]* (Creative florist)
+27. **Renata** (`renata`) — WebP 🌟 *[NEW]* (Slow bathhouse operator)
+28. **SiekamCebulę** (`siekamcebule`) — WebP 🌟 *[NEW]* (Efficient kitchen cook)
+29. **Lou** (`lou`) — WebP 🌟 *[NEW]* (Retired bookseller regular)
+30. **Baris** (`baris`) — WebP 🌟 *[NEW]* (Corner shop owner)
+31. **Stephen** (`stephen`) — WebP 🌟 *[NEW]* (Dry precise accountant)
+32. **Iulian** (`iulian`) — WebP 🌟 *[NEW]* (Patient church stonemason)
+
+---
+
+### Still Needs High-Quality Images (Currently SVGs)
+1. **Hanans** (`hanans`) — SVG (Skeptical herbal pharmacist)
+2. **Tarrasqu** (`tarrasqu`) — SVG (Tabletop GM regular)
+3. **Kaschem** (`kaschem`) — SVG (Cold-brew enthusiast)
+4. **Vanna** (`vanna`) — SVG (Passing-through travel writer)
+5. **Carl-bot** (`carl_bot`) — SVG (Meditation scheduling tablet)
+6. **Friend** (`friend`) — SVG (Mysterious helper)
+7. **DocBot** (`docbot`) — SVG (First-aid kiosk)
+8. **Sir Cruds** (`sir_cruds`) — SVG (Arrogant cheese knight)
+9. **nestomalt** (`nestomalt`) — SVG (Night-shift nurse)
+10. **Qusтoge** (`qustoge`) — SVG (Deep poetry translator)
+11. **groovyphoenix** (`groovyphoenix`) — SVG (Ecstatic dance DJ)
+12. **Cary** (`cary`) — SVG (Existential philosopher locksmith)
+13. **Self** (`self`) — SVG (Contented silent meditator)
+14. **Daniela** (`daniela`) — SVG (Posture correcting physiotherapist)
+15. **Aril Stellar☯** (`aril_stellar`) — SVG (Astrology newsletter writer)
+16. **Alvigunilla** (`alvigunilla`) — SVG (Patient tapestry weaver)
+17. **Fraghis** (`fraghis`) — SVG (Midnight competitive gamer)
+18. **Mrone** (`mrone`) — SVG (Minimalist with 19 possessions)
+19. **𝕽𝖆𝖚𝖑** (`raul`) — SVG (Gothic metal-flyer tattoo artist)
+20. **Marlène xoxo** (`marlene_xoxo`) — SVG (Cabaret performer)
+21. **diamndsdancin** (`diamndsdancin`) — SVG (Ecstatic dance movement teacher)
+22. **Seth** (`seth`) — SVG (Long-haul regional driver)
+23. **Kopung (고풍)** (`kopung`) — SVG (Antique-style ceramicist)
+24. **Isra** (`isra`) — SVG (Refuge architecture student)
+25. **Kobideh** (`kobideh`) — SVG (Grill house owner)
+26. **stijn12d** (`stijn12d`) — SVG (Volunteer booking software dev)
+27. **Andre Watson** (`andre_watson`) — SVG (Jazz trumpeter regular)
+28. **Air-Vaisselle** (`air_vaisselle`) — SVG (Transcendent dishwasher)
+29. **Crveni** (`crveni`) — SVG (Fast union organizer)
+30. **blokely** (`blokely`) — SVG (Salvaged material sculptor)
+31. **Jits** (`jits`) — SVG (Jiu-jitsu master meditator)
+32. **Gordon** (`gordon`) — SVG (Retired quiet firefighter)
+33. **Oh** (`oh`) — SVG (Devout 11-word poet)
+34. **Jared** (`jared`) — SVG (Audio PA sound engineer)
+35. **RicardoEA** (`ricardoea`) — SVG (Rigorous electrical engineer)
+36. **SpeedFire** (`speedfire`) — SVG (Ultra-fast supply courier)
+37. **Orshi** (`orshi`) — SVG (Melancholic translator of poetry)
+38. **Brendan** (`brendan`) — SVG (Lonely grading schoolteacher)
+39. **Hazel** (`hazel`) — SVG (Medicinal tea-blend herbalist)
+40. **Scatmandu** (`scatmandu`) — SVG (Loud alley scat singer)
+41. **yungnosaj** (`yungnosaj`) — SVG (Field-recording beat producer)
+42. **Cat** (`cat`) — SVG (Actual cat who loves underfloor heating)
