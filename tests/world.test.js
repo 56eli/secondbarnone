@@ -32,7 +32,7 @@ import { buildEventPool } from '../docs/js/data/events.js';
 // ============================================================== locations
 
 test('the catalogue holds twenty-two locations with unique ids', () => {
-  assert.equal(LOCATIONS.length, 22);
+  assert.equal(LOCATIONS.length, 23);
   const ids = locationIds();
   assert.equal(new Set(ids).size, ids.length);
 });

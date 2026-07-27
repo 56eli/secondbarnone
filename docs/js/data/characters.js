@@ -156,9 +156,9 @@ const RAW = [
     id: 'brian',
     name: 'Brian',
     role: Role.SIDE_CHARACTER,
-    bio: 'A former finance guy who burned out and found his way to Léon\u2019s community. Brian now helps manage the community\u2019s modest finances and occasionally bartends. He is proof that transformation is possible.',
-    relationship: 'Brian sees his own past in Léon\u2019s current struggle and offers financial advice born of hard experience.',
-    location: 'Spiritual Community & The Bar',
+    bio: 'Léon\u2019s good old friend from way back, long before either of them talked about community. Brian started his own church community out in the woods called The House of Middleway — a converted barn chapel where the tea is always hot and the sermons run long. He\u2019s always grinning, warm in a way that fills the room a little too completely, like a would-be Jesus who forgot to stop smiling. His people adore him. People outside his community are not too sure about him.',
+    relationship: 'Brian and Léon go back years — shared flats, shared ideas, divergent paths. Brian actually built something of his own in the woods, and Léon respects that, even if the ever-present grin and the gathering crowd around him make Léon uneasy. They still meet for coffee and argue kindly about what community is meant to be.',
+    location: 'The House of Middleway',
   },
   {
     id: 'susan',
@@ -819,6 +819,11 @@ export const SMALL_TALK = Object.freeze({
     'The stones have waited longer than either of us.',
     'Take the hill slowly. It will still be there at the top.',
     'Listen for the wind under the arch. It knows the old tune.',
+  ]),
+  brian: Object.freeze([
+    'Welcome, welcome! The middle way is not in the middle — it is everywhere at once.',
+    'Grin first, questions later. That is how we do it here.',
+    'You knew me before the beard, Léon. Some things do not need to be explained twice.',
   ]),
 });
 

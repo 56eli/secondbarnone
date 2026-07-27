@@ -408,6 +408,21 @@ export const LOCATIONS = [
     special: 'long_trip',
     bg: 'assets/backgrounds/mountain_retreat.webp',
   }),
+  loc({
+    id: 'house_of_middleway',
+    host: 'brian',
+    name: 'House of Middleway',
+    emoji: '⛪',
+    district: District.OUTSKIRTS,
+    desc: 'A converted barn chapel in a clearing north of Paris, where Fontainebleau woods thin into fields. Brian built it with reclaimed timber and an unshakable grin. Inside: cushions, warm tea, a hand-painted sign that says THE MIDDLE WAY IS NOT IN THE MIDDLE. His congregation adores him; the neighbours keep their distance.',
+    actionLabel: 'Sit With Brian',
+    actionDesc: 'You spent the day at Brian\u2019s House of Middleway. He talked, you listened, everyone smiled a little too long. Oddly restorative, vaguely unsettling, and the woods outside were beautifully quiet.',
+    historyLabel: 'Visited the House of Middleway',
+    tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.OUTDOOR, Tag.QUIET],
+    effects: eff(13, -6, -14, 3, 2),
+    unlock: { minDay: 6, minReputation: 15 },
+    bg: 'assets/backgrounds/house_of_middleway.webp',
+  }),
 ];
 
 /** Ids of the two locations the game opens with. */
