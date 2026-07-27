@@ -7,6 +7,7 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
+import { createRng } from '../core/rng.js';
 import {
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS,
@@ -125,8 +126,7 @@ export function renderHub(gs, handlers) {
     ? el('ul', {}, ...gs.recentHistory.map((h) => el('li', { text: h })))
     : el('p', { class: 'empty', text: 'Nothing yet — your journey begins today.' });
 
-  // The two founding places are the primary choices. The city remains one
-  // clear route outward instead of competing with a wall of feature buttons.
+  // The two founding places are the primary choices.
   const quick = ['spiritual_community', 'bar'].map((id) => {
     const location = getLocation(id);
     const { total } = computeDayEffects(gs, id);
@@ -134,6 +134,73 @@ export function renderHub(gs, handlers) {
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
       effectChips(total, 'chips choice-eff'));
+  });
+
+  // Calculate other locations on a deterministic randomly rotating basis.
+  const snap = {
+    journeyDay: gs.journeyDay,
+    reputation: gs.reputation,
+    weekday: gs.getWeekdayIndex ? gs.getWeekdayIndex() : 0,
+    perks: gs.perks,
+    closedTags: typeof gs.getClosedTags === 'function' ? gs.getClosedTags() : [],
+  };
+
+  const otherLocations = LOCATIONS.filter((l) => l.id !== 'spiritual_community' && l.id !== 'bar');
+  const unlockedOther = otherLocations.filter((l) => evaluateUnlock(l, snap).unlocked);
+  const lockedOther = otherLocations.filter((l) => !evaluateUnlock(l, snap).unlocked);
+
+  const dailySeed = (gs.weatherSeed || 12345) + gs.journeyDay;
+  const rng = createRng(dailySeed);
+
+  // Select exactly 4 other locations
+  let selected = [];
+  if (unlockedOther.length >= 4) {
+    const shuffled = [...unlockedOther];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = rng.randInt(0, i);
+      const temp = shuffled[i];
+      shuffled[i] = shuffled[j];
+      shuffled[j] = temp;
+    }
+    selected = shuffled.slice(0, 4);
+  } else {
+    selected = [...unlockedOther];
+    const needed = 4 - selected.length;
+    const shuffledLocked = [...lockedOther];
+    for (let i = shuffledLocked.length - 1; i > 0; i--) {
+      const j = rng.randInt(0, i);
+      const temp = shuffledLocked[i];
+      shuffledLocked[i] = shuffledLocked[j];
+      shuffledLocked[j] = temp;
+    }
+    selected.push(...shuffledLocked.slice(0, needed));
+  }
+
+  const otherChoices = selected.map((location) => {
+    const { total } = computeDayEffects(gs, location.id);
+    const visited = gs.visitedLocations.has(location.id);
+    const { unlocked, reason } = evaluateUnlock(location, snap);
+
+    if (unlocked) {
+      return el('button', {
+        class: `choice choice-primary${visited ? ' visited' : ''}`,
+        onclick: () => onVisit(location.id),
+        'data-location': location.id
+      },
+        el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+        el('span', { class: 'choice-action', text: location.actionLabel }),
+        effectChips(total, 'chips choice-eff')
+      );
+    } else {
+      return el('button', {
+        class: 'choice locked',
+        disabled: true,
+        'data-location': location.id
+      },
+        el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+        el('span', { class: 'choice-action', text: `Locked: ${reason}` })
+      );
+    }
   });
 
   const greeting = typeof gs.getGreeting === 'function' ? gs.getGreeting() : '';
@@ -153,10 +220,7 @@ export function renderHub(gs, handlers) {
       ? el('p', { class: 'festival-banner', text: `${festival.emoji} ${festival.name} — ${festival.line}` })
       : null,
 
-    el('div', { class: 'choices' }, ...quick,
-      el('button', { class: 'choice choice-map', onclick: onMap },
-        el('span', { class: 'choice-name', text: '🗺️ The City' }),
-        el('span', { class: 'choice-eff', text: 'See every place that is open to you' }))),
+    el('div', { class: 'choices' }, ...quick, ...otherChoices),
 
     el('div', { class: 'hub-tools', 'aria-label': 'Journey tools' },
       el('span', { class: 'tool-label', text: 'Keep close' }),

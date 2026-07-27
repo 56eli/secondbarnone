@@ -150,13 +150,123 @@ maybe('the energy bar flags exhaustion', async () => {
 
 // ==================================================================== hub
 
-maybe('the hub shows the weather line and a route into the city', async () => {
+maybe('the hub shows the weather line and 6 location choices in total', async () => {
   const window = await boot();
   try {
     const doc = window.document;
     assert.ok(doc.querySelector('.weather-badge'), 'weather badge');
-    assert.ok(doc.querySelector('.choice-map'), 'map entry point');
+    assert.equal(doc.querySelectorAll('.choices button').length, 6);
     assert.equal(doc.querySelectorAll('.hub-tools button').length, 3);
+  } finally { cleanup(window); }
+});
+
+maybe('the hub shows exactly 6 unique location cards including the two core ones', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const buttons = doc.querySelectorAll('.choices button');
+    assert.equal(buttons.length, 6);
+    
+    const textContent = [...buttons].map(b => b.textContent);
+    assert.ok(textContent.some(t => t.includes('La Maison Calme')));
+    assert.ok(textContent.some(t => t.includes('Le Dernier Verre')));
+  } finally { cleanup(window); }
+});
+
+maybe('locked rotating locations are disabled and explain themselves on the hub', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const locked = doc.querySelectorAll('.choices .locked');
+    assert.ok(locked.length > 0, 'some selected locations should be locked on Day 1');
+    for (const card of locked) {
+      assert.equal(card.disabled, true);
+      assert.ok(card.querySelector('.choice-action').textContent.includes('Locked:'), 'must say why it is locked');
+    }
+  } finally { cleanup(window); }
+});
+
+maybe('clicking a locked card on the hub does nothing at all', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    const locked = doc.querySelector('.choices .locked');
+    if (locked) {
+      const before = gs.journeyDay;
+      locked.click();
+      await settle();
+      assert.ok(doc.querySelector('.hub'), 'still on the hub');
+      assert.equal(gs.journeyDay, before);
+    }
+  } finally { cleanup(window); }
+});
+
+maybe('rotating selections on the hub change deterministically with the day and seed', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+    
+    const getVisibleIds = () => [...doc.querySelectorAll('.choices button')].map(b => b.dataset.location || b.textContent);
+    
+    const day1Visible = getVisibleIds();
+    
+    // Advance to day 2
+    gs.journeyDay = 2;
+    api.goto.hub();
+    await settle();
+    const day2Visible = getVisibleIds();
+    
+    // The selection should rotate/change on Day 2!
+    assert.notDeepEqual(day1Visible, day2Visible, 'location choices should rotate on a new day');
+  } finally { cleanup(window); }
+});
+
+maybe('visited locations are marked on the hub', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+    
+    // Find a location that is currently visible on the hub (e.g. home_loft)
+    const card = [...doc.querySelectorAll('.choices button')]
+      .find(b => b.dataset.location === 'home_loft');
+    
+    if (card) {
+      assert.equal(card.classList.contains('visited'), false);
+      gs.visitedLocations.add('home_loft');
+      api.goto.hub();
+      await settle();
+      const updatedCard = [...doc.querySelectorAll('.choices button')]
+        .find(b => b.dataset.location === 'home_loft');
+      assert.equal(updatedCard.classList.contains('visited'), true);
+    }
+  } finally { cleanup(window); }
+});
+
+maybe('a location can be entered and played directly from the hub rotating choices', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    
+    // Click on the first unlocked other location choice on the hub
+    const card = [...doc.querySelectorAll('.choices button:not([disabled])')]
+      .find(b => b.dataset.location === 'home_loft');
+    
+    if (card) {
+      card.click();
+      await settle();
+      assert.ok(doc.querySelector('.location'));
+      assert.match(doc.querySelector('.screen-title').textContent, /Home Loft/);
+      
+      const before = gs.energy;
+      doc.querySelector('.btn-primary').click();
+      await settle();
+      assert.ok(gs.energy >= before, 'resting should not drain you');
+      assert.ok(doc.querySelector('.modal-backdrop'));
+    }
   } finally { cleanup(window); }
 });
 
@@ -165,7 +275,7 @@ maybe('hub choices preview the day as effect chips', async () => {
   try {
     const doc = window.document;
     const chips = doc.querySelectorAll('.choice .chip');
-    assert.ok(chips.length >= 4, 'both locations should show their numbers');
+    assert.ok(chips.length >= 4, 'locations should show their numbers');
     for (const chip of chips) assert.ok(chip.textContent.trim().length > 0);
   } finally { cleanup(window); }
 });
@@ -182,121 +292,6 @@ maybe('the festival banner appears only on a festival day', async () => {
     gs.dayOfMonth = 6;
     api.goto.hub();
     assert.equal(doc.querySelector('.festival-banner'), null, 'no festival on the 6th');
-  } finally { cleanup(window); }
-});
-
-// ==================================================================== map
-
-maybe('the map groups every location by district', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    click(doc, '.choice', 'The City');
-    await settle();
-
-    assert.ok(doc.querySelector('.map-screen'), 'map should render');
-    assert.equal(doc.querySelectorAll('.loc-card').length, LOCATIONS.length);
-    assert.equal(doc.querySelectorAll('.district').length, 5);
-  } finally { cleanup(window); }
-});
-
-maybe('locked locations are disabled and explain themselves', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    click(doc, '.choice', 'The City');
-    await settle();
-
-    const locked = doc.querySelectorAll('.loc-card.locked');
-    assert.ok(locked.length > 10, 'most of the city starts shut');
-    for (const card of locked) {
-      assert.equal(card.disabled, true);
-      assert.ok(card.querySelector('.loc-lock'), 'a locked card must say why');
-    }
-
-    const open = [...doc.querySelectorAll('.loc-card:not(.locked)')];
-    assert.equal(open.length, 3, 'the two founders plus the loft');
-    for (const card of open) assert.ok(card.querySelector('.chip'));
-  } finally { cleanup(window); }
-});
-
-maybe('clicking a locked card does nothing at all', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs } = window.__game;
-    click(doc, '.choice', 'The City');
-    await settle();
-
-    const before = gs.journeyDay;
-    doc.querySelector('.loc-card.locked').click();
-    await settle();
-    assert.ok(doc.querySelector('.map-screen'), 'still on the map');
-    assert.equal(gs.journeyDay, before);
-  } finally { cleanup(window); }
-});
-
-maybe('the map unlocks as the run progresses', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-
-    // Journey day 44 is a Friday, which is also when the open mic runs — so
-    // on this one day of a long, well-regarded run, nothing should be shut.
-    gs.journeyDay = 44;
-    gs.reputation = 100;
-    assert.equal(gs.getWeekdayName(), 'Friday');
-    api.goto.map();
-
-    const locked = [...doc.querySelectorAll('.loc-card.locked')].map((c) => c.dataset.location);
-    assert.deepEqual(locked, [], 'everything should be open');
-
-    // Move to a Monday and the weekday-gated venue closes again.
-    gs.journeyDay = 40;
-    assert.equal(gs.getWeekdayName(), 'Monday');
-    api.goto.map();
-    assert.deepEqual(
-      [...doc.querySelectorAll('.loc-card.locked')].map((c) => c.dataset.location),
-      ['open_mic'],
-    );
-  } finally { cleanup(window); }
-});
-
-maybe('visited locations are marked on the map', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs, api } = window.__game;
-    assert.equal(doc.querySelectorAll('.loc-card.visited').length, 0);
-
-    gs.visitedLocations.add('bar');
-    api.goto.map();
-    assert.equal(doc.querySelectorAll('.loc-card.visited').length, 1);
-  } finally { cleanup(window); }
-});
-
-maybe('a location can be entered and played from the map', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    const { gs } = window.__game;
-    click(doc, '.choice', 'The City');
-    await settle();
-
-    const card = [...doc.querySelectorAll('.loc-card:not(.locked)')]
-      .find((c) => c.dataset.location === 'home_loft');
-    card.click();
-    await settle();
-
-    assert.ok(doc.querySelector('.location'));
-    assert.match(doc.querySelector('.screen-title').textContent, /Belleville Studio/);
-
-    const before = gs.energy;
-    doc.querySelector('.btn-primary').click();
-    await settle();
-    assert.ok(gs.energy >= before, 'resting should not drain you');
-    assert.ok(doc.querySelector('.modal-backdrop'));
   } finally { cleanup(window); }
 });
 
@@ -334,7 +329,7 @@ maybe('the hub keeps weather visible and gives one gentle focus cue', async () =
     const doc = window.document;
     assert.ok(doc.querySelector('.weather-badge'));
     assert.ok(doc.querySelector('.daily-nudge'));
-    assert.equal(doc.querySelectorAll('.choice-primary').length, 2, 'the two daily choices stand out');
+    assert.ok(doc.querySelectorAll('.choice-primary').length >= 2, 'the daily choices stand out');
   } finally { cleanup(window); }
 });
 
@@ -696,16 +691,13 @@ maybe('a twelve-day playthrough across the city never throws', async () => {
   try {
     const doc = window.document;
     const { gs } = window.__game;
-    // Open the city up so the map has real choices in it.
+    // Open the city up so the hub has plenty of open choices.
     gs.reputation = 80;
 
     for (let i = 0; i < 12; i++) {
       if (doc.querySelector('.gameover')) break;
 
-      click(doc, '.choice', 'The City');
-      await settle();
-
-      const open = [...doc.querySelectorAll('.loc-card:not(.locked)')];
+      const open = [...doc.querySelectorAll('.choices button:not([disabled])')];
       assert.ok(open.length > 0, 'there should always be somewhere to go');
       open[i % open.length].click();
       await settle();

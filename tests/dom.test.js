@@ -85,7 +85,7 @@ maybe('game boots and renders the hub', async () => {
     assert.ok(doc.querySelector('.hub'), 'hub screen should render');
     assert.match(doc.getElementById('hud-date').textContent, /Thursday, January 1, 2026/);
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
-    assert.equal(doc.querySelectorAll('.choice').length, 3, 'two locations plus the map');
+    assert.equal(doc.querySelectorAll('.choice').length, 6, 'two core locations plus 4 rotating locations');
   } finally { cleanup(window); }
 });
 
