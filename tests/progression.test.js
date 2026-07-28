@@ -70,6 +70,31 @@ test('rent steps up on schedule and then stops', () => {
   assert.equal(gs.baseRentOn(100000), RENT_MAX_AMOUNT, 'escalation must have a ceiling');
 });
 
+test('the rent schedule matches the documented promise, in literals', () => {
+  // The pair above asserts against the constants, so a mutant *in the
+  // constants* passes both — the mutation harness shipped exactly that
+  // unnoticed (scripts/mutation-test.js, roadmap 3.4). The contract from
+  // PROJECT_OVERVIEW: 18, +4 every 14 days from day 15, ceiling 42. Written
+  // in numbers, once, so a changed constant is a red test.
+  const gs = new GameState({ seed: 1 });
+  const expected = new Map([
+    [1, 18],
+    [14, 18],
+    [15, 22],
+    [28, 22],
+    [29, 26],
+    [42, 26],
+    [43, 30],
+    [56, 30],
+    [57, 34],
+    [99, 42], // 18 + 4·7 = 46 at the raw schedule — the ceiling binds
+    [200, 42],
+  ]);
+  for (const [day, rent] of expected) {
+    assert.equal(gs.baseRentOn(day), rent, `rent on day ${day}`);
+  }
+});
+
 test('the player can always see the next rise coming', () => {
   // A pressure the player cannot anticipate is an ambush, not a difficulty
   // curve. The almanac reads this.

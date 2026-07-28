@@ -553,3 +553,39 @@ test('legacy save keys migrate into Run 1 only, never into a side slot', () => {
   assert.equal(saveStore.load(restored, storage), true);
   assert.equal(restored.journeyDay, 8);
 });
+
+test('a launch-day v3 save still loads, walking every migration step to today', () => {
+  // The mutation harness found that nobody exercised migrateSave() end to
+  // end: dropping v3–v6 from SUPPORTED_SAVE_VERSIONS shipped with the suite
+  // green (roadmap 3.4). Older saves are the one thing this game must never
+  // brick, so the fixture below is the schema as it shipped at launch.
+  const storage = fakeStorage();
+  const v3Save = {
+    v: 3,
+    sanity: 40,
+    money: 33.7,
+    journeyDay: 12,
+    dayOfMonth: 12,
+    monthIndex: 0,
+    year: 2026,
+    consecutiveBarDays: 2,
+    lastLocationVisited: 'bar',
+    recentHistory: [],
+  };
+  storage.setItem(SLOT_A_KEY, JSON.stringify(v3Save));
+
+  const gs = fresh(1);
+  assert.equal(saveStore.load(gs, storage), true, 'a v3 envelope must still load');
+
+  // It walked the whole chain: v3-era defaults applied, then the v5/v6
+  // additions, then v7 — each default landing exactly once, the run intact.
+  assert.equal(gs.journeyDay, 12);
+  assert.equal(Math.round(gs.money * 10) / 10, 33.7);
+  assert.equal(gs.reputation, 10, 'v3 had no reputation; migration seeds it');
+  assert.equal(gs.energy, 100, 'v3 had no energy; migration fills it');
+  assert.equal(gs.insight, 0);
+  assert.equal(gs.masteryWon, false);
+  assert.equal(gs.observancesKept, 0, 'v6 observance counter added empty');
+  assert.deepEqual(gs.affinity, {}, 'v6 relationship map added empty');
+  assert.equal(gs.toJSON().v, CURRENT_SAVE_VERSION, 'the next save writes today’s schema');
+});

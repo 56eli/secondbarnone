@@ -22,6 +22,8 @@ import {
   evaluateUnlock,
   availableLocations,
   isWelcomeDay,
+  varianceForDay,
+  VARIANCE_KEYS,
   WELCOME_DAY,
   WELCOME_LOCATION_ID,
   WELCOME_SLOT_INDEX,
@@ -106,6 +108,30 @@ test('every location effect bundle has all five keys', () => {
   for (const l of LOCATIONS) {
     for (const k of ['sanity', 'money', 'energy', 'reputation', 'insight']) {
       assert.equal(typeof l.effects[k], 'number', `${l.id}.${k}`);
+    }
+  }
+});
+
+test('variance never inverts a resource the location is built around', () => {
+  // The hub card's promise: a bar shift always pays, a retreat always costs.
+  // The mutation harness caught the un-clamped version surviving the suite
+  // (roadmap 3.4); sweeping locations × days × seeds settles it as a
+  // property, not a spot check.
+  for (const l of LOCATIONS) {
+    for (const day of [1, 5, 15, 31, 60]) {
+      for (let seed = 0; seed < 50; seed += 1) {
+        const swing = varianceForDay(l, day, seed);
+        for (const key of VARIANCE_KEYS) {
+          const base = l.effects[key] ?? 0;
+          if (base === 0) continue;
+          const total = base + (swing[key] ?? 0);
+          if (base > 0) {
+            assert.ok(total >= 0, `${l.id} ${key}: ${base}${swing[key] >= 0 ? '+' : ''}${swing[key]} inverts (day ${day}, seed ${seed})`);
+          } else {
+            assert.ok(total <= 0, `${l.id} ${key}: ${base}${swing[key] >= 0 ? '+' : ''}${swing[key]} inverts (day ${day}, seed ${seed})`);
+          }
+        }
+      }
     }
   }
 });

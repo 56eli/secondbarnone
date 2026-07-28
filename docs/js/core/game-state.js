@@ -170,7 +170,13 @@ export const SAVE_SLOTS = [
 const ACTIVE_SLOT_KEY = 'secondbarnone.save.active';
 const SLOT_NAMES_KEY = 'secondbarnone.save.names';
 
-/** Schema versions `loadFrom()` accepts after migration. */
+/**
+ * Schema versions this build can walk forward to the current one — i.e. the
+ * *input* versions `migrateSave()` accepts. The gate is the input, not the
+ * migrated payload (which always carries the current version; a check placed
+ * there could never fail, and did not, until the mutation harness deleted
+ * every entry but the current one and no test died — roadmap 3.4).
+ */
 export const SUPPORTED_SAVE_VERSIONS = Object.freeze([3, 4, 5, 6, 7]);
 export const CURRENT_SAVE_VERSION = 7;
 
@@ -1222,6 +1228,10 @@ export function migrateSave(data) {
   // rejected import leaves the current run untouched.
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const currentVersion = data.v ?? 3;
+  // Reject versions this build cannot walk forward — older than the
+  // migration chain or newer than it (a save from a future build must fail
+  // loudly here, not be "migrated" by stamping it current).
+  if (!SUPPORTED_SAVE_VERSIONS.includes(currentVersion)) return null;
   if (currentVersion >= CURRENT_SAVE_VERSION) return data;
 
   const migrated = { ...data, v: CURRENT_SAVE_VERSION };
