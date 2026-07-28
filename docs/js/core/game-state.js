@@ -21,6 +21,7 @@ import {
   EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
   MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
   ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 /**
@@ -37,6 +38,7 @@ export {
   EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
   MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
   ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 export const WEEKDAY_NAMES = [
@@ -291,9 +293,16 @@ export class GameState {
     return true;
   }
 
-  /** What rent actually costs after the union card. */
+  /** What rent actually costs after perks and reputation discounts. */
   rentDue() {
-    return Math.max(RENT_AMOUNT - this.getPerkEffects().rentRelief, 0);
+    const perkRelief = this.getPerkEffects().rentRelief;
+    let repDiscount = 0;
+    if (this.reputation >= RENT_DISCOUNT_REP_HIGH) {
+      repDiscount = RENT_DISCOUNT_REP_HIGH_BONUS;
+    } else if (this.reputation >= RENT_DISCOUNT_REP_THRESHOLD) {
+      repDiscount = RENT_DISCOUNT_REP_BONUS;
+    }
+    return Math.max(RENT_AMOUNT - perkRelief - repDiscount, 0);
   }
 
   /** Charge rent once per Sunday. Returns the amount charged (0 if none). */
@@ -362,6 +371,19 @@ export class GameState {
       return true;
     }
     return false;
+  }
+
+  /** Second mastery layer: survive 100 days with reputation, exploration and stability. */
+  checkSecondWin() {
+    if (this.gameOver || this.journeyDay < 100) return false;
+    if (this.reputation < 80) return false;
+    if (this.money < 200) return false;
+    if (this.visitedLocations.size < 18) return false;
+    // No more than 5 consecutive bar days in this run
+    if (this.consecutiveBarDays > 5) return false;
+    this.winMessage = 'A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone\'s.';
+    this.emit('win_triggered', this.winMessage);
+    return true;
   }
 
   /**
@@ -463,7 +485,8 @@ export class GameState {
       return { emoji: '🫧', label: 'A little room', text: 'Your sanity is low. A quieter plan may help you come back to yourself.' };
     }
     if (this.energy < EXHAUSTION_THRESHOLD) {
-      return { emoji: '🫖', label: 'Pace yourself', text: 'Your energy is running thin. Small, restorative plans still count.' };
+      const predictive = this.consecutiveBarDays >= 2 ? 'A bar night will put you near empty quickly. Consider rest tomorrow.' : 'Your energy is running thin. Small, restorative plans still count.';
+      return { emoji: '🫖', label: 'Pace yourself', text: predictive };
     }
     if (this.isRentDue()) {
       return { emoji: '🧾', label: 'Sunday rent', text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.` };
@@ -526,39 +549,40 @@ export class GameState {
 
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
-    if (!data || typeof data !== 'object' || ![3, 4].includes(data.v)) return false;
+    const migrated = migrateSave(data);
+    if (!migrated || typeof migrated !== 'object' || ![3, 4].includes(migrated.v)) return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
-    this.sanity = clamp(num(data.sanity, START_SANITY), 0, MAX_STAT);
-    this.money = clamp(num(data.money, START_MONEY), 0, MONEY_HARD_CEILING);
-    this.energy = clamp(num(data.energy, START_ENERGY), 0, MAX_ENERGY);
-    this.reputation = clamp(num(data.reputation, START_REPUTATION), 0, MAX_REPUTATION);
-    this.insight = Math.max(num(data.insight, 0), 0);
+    this.sanity = clamp(num(migrated.sanity, START_SANITY), 0, MAX_STAT);
+    this.money = clamp(num(migrated.money, START_MONEY), 0, MONEY_HARD_CEILING);
+    this.energy = clamp(num(migrated.energy, START_ENERGY), 0, MAX_ENERGY);
+    this.reputation = clamp(num(migrated.reputation, START_REPUTATION), 0, MAX_REPUTATION);
+    this.insight = Math.max(num(migrated.insight, 0), 0);
 
-    this.journeyDay = Math.max(num(data.journeyDay, 1), 1);
-    this.dayOfMonth = clamp(num(data.dayOfMonth, 1), 1, 31);
-    this.monthIndex = clamp(num(data.monthIndex, 0), 0, 11);
-    this.year = num(data.year, 2026);
-    this.gameOver = Boolean(data.gameOver);
-    this.gameOverMessage = typeof data.gameOverMessage === 'string' ? data.gameOverMessage : '';
-    this.won = Boolean(data.won);
-    this.winMessage = typeof data.winMessage === 'string' ? data.winMessage : '';
+    this.journeyDay = Math.max(num(migrated.journeyDay, 1), 1);
+    this.dayOfMonth = clamp(num(migrated.dayOfMonth, 1), 1, 31);
+    this.monthIndex = clamp(num(migrated.monthIndex, 0), 0, 11);
+    this.year = num(migrated.year, 2026);
+    this.gameOver = Boolean(migrated.gameOver);
+    this.gameOverMessage = typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
+    this.won = Boolean(migrated.won);
+    this.winMessage = typeof migrated.winMessage === 'string' ? migrated.winMessage : '';
 
-    this.consecutiveBarDays = num(data.consecutiveBarDays, 0);
-    this.lastLocationVisited = typeof data.lastLocationVisited === 'string' ? data.lastLocationVisited : '';
-    this._lastRentDayOfMonth = num(data.lastRentDayOfMonth, -1);
-    this._lastRentJourneyDay = num(data.lastRentJourneyDay, -1);
-    this.rentPrepaidUntilDay = num(data.rentPrepaidUntilDay, 0);
-    this.rentPaidCount = num(data.rentPaidCount, 0);
-    this.recentHistory = arr(data.recentHistory).slice(0, 5);
+    this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
+    this.lastLocationVisited = typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
+    this._lastRentDayOfMonth = num(migrated.lastRentDayOfMonth, -1);
+    this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
+    this.rentPrepaidUntilDay = num(migrated.rentPrepaidUntilDay, 0);
+    this.rentPaidCount = num(migrated.rentPaidCount, 0);
+    this.recentHistory = arr(migrated.recentHistory).slice(0, 5);
 
-    this.perks = new Set(arr(data.perks).filter((id) => getPerk(id)));
-    this.achievements = new Set(arr(data.achievements));
-    this.visitedLocations = new Set(arr(data.visitedLocations));
-    this.nightDays = num(data.nightDays, 0);
-    this.festivalsSeen = num(data.festivalsSeen, 0);
-    this.weatherSeed = num(data.weatherSeed, 0);
+    this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
+    this.achievements = new Set(arr(migrated.achievements));
+    this.visitedLocations = new Set(arr(migrated.visitedLocations));
+    this.nightDays = num(migrated.nightDays, 0);
+    this.festivalsSeen = num(migrated.festivalsSeen, 0);
+    this.weatherSeed = num(migrated.weatherSeed, 0);
     this.pendingAchievements = [];
 
     this._statsChanged();
@@ -568,6 +592,30 @@ export class GameState {
 }
 
 // ------------------------------------------------------------- persistence
+
+/** Migrate a save from older schema versions to current v4. */
+export function migrateSave(data) {
+  if (!data || typeof data !== 'object') return null;
+  const currentVersion = data.v ?? 3;
+  if (currentVersion >= 4) return data;
+
+  const migrated = { ...data, v: 4 };
+
+  // v3 -> v4: add missing fields with safe defaults
+  if (currentVersion === 3) {
+    if (typeof migrated.reputation !== 'number') migrated.reputation = 10;
+    if (typeof migrated.energy !== 'number') migrated.energy = 100;
+    if (typeof migrated.insight !== 'number') migrated.insight = 0;
+    if (typeof migrated.visitedLocations === 'undefined') migrated.visitedLocations = [];
+    if (typeof migrated.perks === 'undefined') migrated.perks = [];
+    if (typeof migrated.achievements === 'undefined') migrated.achievements = [];
+    if (typeof migrated.nightDays !== 'number') migrated.nightDays = 0;
+    if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
+    if (typeof migrated.weatherSeed !== 'number') migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+  }
+
+  return migrated;
+}
 
 /**
  * Thin, failure-tolerant wrapper over localStorage. Private browsing, disabled

@@ -56,12 +56,13 @@ const STAT_META = [
 ];
 
 /** A compact row of +N / −N chips for a delta bundle. */
-export function effectChips(bundle, cls = 'chips') {
+export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
   const chips = STAT_META
     .filter(([key]) => Math.round(bundle[key] ?? 0) !== 0)
     .map(([key, emoji]) => {
       const v = Math.round(bundle[key]);
-      return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, `${emoji} ${fmtDelta(v)}`);
+      const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${fmtDelta(v)}` : `${emoji} ${fmtDelta(v)}`;
+      return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, label);
     });
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
   return el('div', { class: cls }, ...chips);
@@ -245,7 +246,8 @@ export function renderHub(gs, handlers) {
   // The two founding places are the primary choices.
   const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
-    const { total } = computeDayEffects(gs, id);
+    const { total, reasons } = computeDayEffects(gs, id);
+    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
     return el('button', {
       class: 'choice choice-primary',
       onclick: () => onVisit(id),
@@ -296,7 +298,7 @@ export function renderHub(gs, handlers) {
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-        effectChips(total, 'chips choice-eff')
+      effectChips(total, 'chips choice-eff', weatherEmoji)
       );
     } else {
       return el('button', {
@@ -397,6 +399,7 @@ export function renderMap(gs, { onVisit, onBack }) {
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
   const location = getLocation(locationId);
   const { total, reasons } = computeDayEffects(gs, locationId);
+  const weatherEmojiForLocation = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -436,7 +439,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
 
     el('div', { class: 'preview' },
       el('h3', { text: "Today, here" }),
-      effectChips(total, 'chips preview-chips'),
+      effectChips(total, 'chips preview-chips', weatherEmojiForLocation),
       reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
         : null),
@@ -515,7 +518,7 @@ export function renderPerks(gs, { onBuy, onBack }) {
         : el('button', {
           class: 'btn btn-small',
           disabled: !check.ok,
-          title: check.ok ? '' : check.reason,
+          title: check.ok ? `Estimated: reachable ~day ${Math.ceil(perk.cost / 1.2 + (perk.requires.length || 0) * 5)}` : check.reason,
           text: `${perk.cost} 🔮`,
           onclick: () => onBuy(perk.id),
         }));
@@ -536,9 +539,18 @@ export function renderAlmanac(gs, { onBack }) {
   const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
   const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
 
+  // Energy forecast: predict trajectory based on current energy level
+  const energyNow = gs.energy;
+  const forecastEnergy = energyNow < 25 ? 'Low — rest will restore quickly.'
+    : energyNow > 75 ? 'Strong — you can push a little.'
+    : 'Moderate — keep an eye on it.';
+
   return el('div', { class: 'screen' },
     el('h2', { class: 'screen-title', text: '📖 The Almanac' }),
     el('p', { class: 'screen-sub', text: 'Weather is not luck. It is written down, and you can read ahead.' }),
+
+    el('h3', { class: 'section-h', text: 'Energy Outlook' }),
+    el('p', { class: 'energy-forecast', text: forecastEnergy }),
 
     el('h3', { class: 'section-h', text: 'Forecast' }),
     el('div', { class: 'forecast' }, ...days.map(({ day, weather }, i) => el('div', { class: `fc${i === 0 ? ' today' : ''}` },
@@ -603,6 +615,7 @@ export function renderCharacters(profiles, { onBack }) {
     avatar(p, 'avatar', { clickable: false }),
     el('div', { class: 'char-meta' },
       el('div', { class: 'char-name', text: p.name }),
+      el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
       el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` })));
 
     row.addEventListener('click', () => {

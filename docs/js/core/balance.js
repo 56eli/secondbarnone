@@ -99,5 +99,11 @@ export const ENDURANCE_GOAL_DAYS = 60;
 /** Rent deducted every Sunday. */
 export const RENT_AMOUNT = 18.0;
 
+/** Reputation-based rent discount thresholds. */
+export const RENT_DISCOUNT_REP_THRESHOLD = 50;
+export const RENT_DISCOUNT_REP_BONUS = 2;
+export const RENT_DISCOUNT_REP_HIGH = 80;
+export const RENT_DISCOUNT_REP_HIGH_BONUS = 4;
+
 /** Offset so journey day 1 maps to Thursday (Jan 1, 2026). Mon=0 … Sun=6. */
 export const START_WEEKDAY_OFFSET = 3;

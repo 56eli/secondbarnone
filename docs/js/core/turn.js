@@ -19,20 +19,6 @@
 import { RENT_AMOUNT } from './game-state.js';
 import { getLocation, Tag, varianceForDay } from '../data/locations.js';
 
-/** Legacy copy table, still exported because the old tests and UI read it. */
-export const LOCATION_COPY = {
-  spiritual_community: {
-    name: 'La Maison Calme',
-    actionDesc: 'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
-    historyLabel: 'Visited La Maison Calme',
-  },
-  bar: {
-    name: 'Le Dernier Verre',
-    actionDesc: 'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
-    historyLabel: 'Worked at Le Dernier Verre',
-  },
-};
-
 const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
 
 const zero = () => ({ sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
@@ -169,7 +155,7 @@ export function resolveTurn(gs, eventManager, locationId) {
   const { total, reasons } = computeDayEffects(gs, locationId);
   gs.applyDeltas(total);
   gs.noteVisit(locationId);
-  const actionDesc = location?.actionDesc ?? LOCATION_COPY[locationId]?.actionDesc ?? '';
+  const actionDesc = location?.actionDesc ?? getLocation(locationId)?.actionDesc ?? '';
 
   // 2 — exhaustion
   const exhaustion = gs.exhaustionPenalty();
@@ -199,13 +185,16 @@ export function resolveTurn(gs, eventManager, locationId) {
   // 5b — soft win (does not end the run)
   const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
 
+  // 5c — mastery layer (does not end the run)
+  const masteryWon = typeof gs.checkSecondWin === 'function' ? gs.checkSecondWin() : false;
+
   // 6 — game over
   const gameOver = gs.checkGameOver();
 
   // 7 — history
   const parts = [];
   if (location) parts.push(location.historyLabel);
-  else if (LOCATION_COPY[locationId]) parts.push(LOCATION_COPY[locationId].historyLabel);
+  else if (getLocation(locationId)?.historyLabel) parts.push(getLocation(locationId).historyLabel);
   if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
   if (event) parts.push(`Event: ${event.title}`);
   const line = parts.join(' / ');
@@ -226,6 +215,8 @@ export function resolveTurn(gs, eventManager, locationId) {
     rentAmount: rentCharged || RENT_AMOUNT,
     gameOver,
     justWon,
+    masteryWon,
+    masteryMessage: masteryWon ? gs.winMessage : '',
     winMessage: justWon ? gs.winMessage : '',
     deltas,
     reasons,
