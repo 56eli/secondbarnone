@@ -360,6 +360,9 @@ test('any reachable state survives a save/load round trip', () => {
       'nightDays',
       'festivalsSeen',
       'observancesKept',
+      'retired',
+      'endingOutcome',
+      'resilience',
     ]) {
       assert.deepEqual(
         restored[key],
@@ -374,6 +377,7 @@ test('any reachable state survives a save/load round trip', () => {
       'visits lost',
     );
     assert.deepEqual(restored.affinity, gs.affinity, 'affinity lost');
+    assert.deepEqual(restored.locationVisitCounts, gs.locationVisitCounts, 'visit counts lost');
     assert.deepEqual(restored.pendingObservance, gs.pendingObservance, 'observance lost');
   }
 });
@@ -425,6 +429,28 @@ test('every supported schema version migrates without throwing', () => {
       pendingObservance: { id: 'steady_hands', untilDay: 10 },
       observancesKept: 1,
       affinity: { geo: 3 },
+    },
+    7: {
+      v: 7,
+      sanity: 44,
+      money: 61,
+      energy: 55,
+      reputation: 30,
+      insight: 4,
+      journeyDay: 9,
+      dayOfMonth: 9,
+      monthIndex: 0,
+      year: 2026,
+      perks: [],
+      achievements: [],
+      visitedLocations: ['spiritual_community'],
+      locationVisitCounts: { spiritual_community: 3 },
+      pendingObservance: null,
+      observancesKept: 1,
+      affinity: { geo: 3 },
+      resilience: 8,
+      retired: false,
+      endingOutcome: '',
     },
   };
 

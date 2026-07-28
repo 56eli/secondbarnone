@@ -97,6 +97,15 @@ export const START_INSIGHT = 0;
 export const ENDURANCE_GOAL_DAYS = 60;
 
 /**
+ * Visiting the founding community earns a small buffer against future event
+ * losses. It protects only against random-event damage, not rent or bad daily
+ * choices, so it makes the community feel like a support network without
+ * turning it into a heal-all.
+ */
+export const COMMUNITY_RESILIENCE_GAIN = 4;
+export const COMMUNITY_RESILIENCE_MAX = 12;
+
+/**
  * ## The mastery layer
  *
  * A second, optional acknowledgement for a player who keeps going past the
@@ -142,7 +151,7 @@ export const RENT_AMOUNT = 18.0;
  *     it ("the rent went up again") rather than feeling a slow squeeze;
  *   - the first step lands on day 15, after the early unlocks have opened the
  *     city, so the opening of a run is untouched;
- *   - by the day-60 endurance goal rent is 26 — noticeably heavier than the
+ *   - by the day-60 endurance goal rent is 34 — noticeably heavier than the
  *     opening 18, still payable by one good market day;
  *   - the ceiling exists so a 300-day run does not become arithmetic. Past
  *     the cap the game is asking you to sustain a hard equilibrium, not to
@@ -153,9 +162,9 @@ export const RENT_AMOUNT = 18.0;
  * instead of discounting a static one.
  */
 export const RENT_ESCALATION_PERIOD_DAYS = 14;
-export const RENT_ESCALATION_STEP = 2.0;
+export const RENT_ESCALATION_STEP = 4.0;
 export const RENT_ESCALATION_FIRST_DAY = 15;
-export const RENT_MAX_AMOUNT = 34.0;
+export const RENT_MAX_AMOUNT = 42.0;
 
 /** Reputation-based rent discount thresholds. */
 export const RENT_DISCOUNT_REP_THRESHOLD = 50;

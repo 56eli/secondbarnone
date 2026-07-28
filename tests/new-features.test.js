@@ -116,3 +116,45 @@ describe('mastery bar-streak memory', () => {
     assert.strictEqual(gs.checkSecondWin(), false);
   });
 });
+
+describe('tier one systems pass', () => {
+  it('relationship-gated events stay locked until affinity is earned', () => {
+    const em = new EventManager({ random: () => 0, randInt: () => 1, pick: (xs) => xs[0] });
+    em.initialize(['Geo']);
+    const locked = em._buildPool(80, 1, 'bar', { tags: ['work', 'night'], affinity: {} });
+    assert.ok(!locked.some((e) => e.id === 'barret_counts_you_in'));
+    const open = em._buildPool(80, 1, 'bar', { tags: ['work', 'night'], affinity: { barret: 3 } });
+    assert.ok(open.some((e) => e.id === 'barret_counts_you_in'));
+  });
+
+  it('community resilience only cushions event losses', () => {
+    const gs = new GameState();
+    gs.resilience = 5;
+    const shielded = gs.absorbEventLosses({ sanity: -7, money: -3 });
+    assert.strictEqual(shielded.used, 5);
+    assert.strictEqual(shielded.deltas.sanity, -2);
+    assert.strictEqual(shielded.deltas.money, -3);
+    assert.strictEqual(gs.resilience, 0);
+  });
+
+  it('retiring after the endurance goal produces a real ending', () => {
+    const gs = new GameState();
+    gs.journeyDay = 60;
+    gs.won = true;
+    gs.noteVisit('spiritual_community');
+    assert.strictEqual(gs.retireRun(), true);
+    assert.strictEqual(gs.gameOver, true);
+    assert.strictEqual(gs.endingOutcome, 'retired');
+    assert.ok(gs.getEnding().title.length > 0);
+  });
+
+  it('cross-run event memory is separate from one-run recent memory', () => {
+    const em = new EventManager({ random: () => 0, randInt: () => 1, pick: (xs) => xs[0] });
+    em.initialize(['Geo']);
+    em.setGlobalSeenIds(['unexpected_tips']);
+    em.selectEvent(2, 2, 'bar', 0, { tags: ['work', 'night'] });
+    assert.ok(em.seenEventIds().includes('unexpected_tips'));
+    em.reset();
+    assert.ok(em.seenEventIds().includes('unexpected_tips'));
+  });
+});

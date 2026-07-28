@@ -17,6 +17,7 @@ import {
   MAX_ENERGY,
   MAX_REPUTATION,
   MONEY_SOFT_CAP,
+  ENDURANCE_GOAL_DAYS,
   saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
@@ -36,7 +37,12 @@ import {
 const FADE_MS = 350;
 const TOAST_MS = 2600;
 const MUSIC_VOLUME_KEY = 'secondbarnone.settings.musicVolume';
+const TEXT_SIZE_KEY = 'secondbarnone.settings.textSize';
+const HIGH_CONTRAST_KEY = 'secondbarnone.settings.highContrast';
+const STAT_MODE_KEY = 'secondbarnone.settings.statMode';
+const REDUCED_MOTION_KEY = 'secondbarnone.settings.reducedMotion';
 const MUSIC_SRC = 'assets/audio/warm-piano-loop.wav';
+const EVENT_MEMORY_KEY = 'secondbarnone.events.seen.v1';
 
 /**
  * Where the background piano starts for a player who has never touched the
@@ -56,6 +62,13 @@ export function initGame(opts = {}) {
   events.initialize(gs.getCharacterNames());
 
   const storage = 'storage' in opts ? opts.storage : globalThis.localStorage;
+
+  try {
+    const rawSeen = storage?.getItem?.(EVENT_MEMORY_KEY);
+    if (rawSeen) events.setGlobalSeenIds(JSON.parse(rawSeen));
+  } catch {
+    // Cross-run novelty is nice-to-have; a bad memory key must not block boot.
+  }
 
   const content = document.getElementById('content');
   const fade = document.getElementById('fade');
@@ -92,7 +105,16 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
-  const persist = () => saveStore.save(gs, storage, events);
+  const persistEventMemory = () => {
+    try {
+      storage?.setItem?.(EVENT_MEMORY_KEY, JSON.stringify(events.seenEventIds()));
+    } catch {}
+  };
+  const persist = () => {
+    const ok = saveStore.save(gs, storage, events);
+    persistEventMemory();
+    return ok;
+  };
 
   dom.portraitBtn?.addEventListener('click', () => {
     if (leonProfile) openCharacterPopup(leonProfile);
@@ -131,6 +153,36 @@ export function initGame(opts = {}) {
     }
   };
 
+  const readSetting = (key, fallback, allowed = null) => {
+    try {
+      const raw = storage?.getItem?.(key);
+      if (raw === null || raw === undefined || raw === '') return fallback;
+      return allowed && !allowed.includes(raw) ? fallback : raw;
+    } catch {
+      return fallback;
+    }
+  };
+  const writeSetting = (key, value) => {
+    try {
+      storage?.setItem?.(key, String(value));
+    } catch {
+      // Accessibility preferences are best-effort; failing storage must not block play.
+    }
+  };
+  const accessibility = {
+    textSize: readSetting(TEXT_SIZE_KEY, 'normal', ['normal', 'large', 'xlarge']),
+    highContrast: readSetting(HIGH_CONTRAST_KEY, 'false') === 'true',
+    statMode: readSetting(STAT_MODE_KEY, 'color', ['color', 'numeric']),
+    reducedMotion: readSetting(REDUCED_MOTION_KEY, 'false') === 'true',
+  };
+  function applyAccessibilitySettings() {
+    document.body.dataset.textSize = accessibility.textSize;
+    document.body.dataset.contrast = accessibility.highContrast ? 'high' : 'normal';
+    document.body.dataset.statMode = accessibility.statMode;
+    document.body.dataset.reducedMotion = accessibility.reducedMotion ? 'reduce' : 'system';
+  }
+  applyAccessibilitySettings();
+
   const AudioCtor = globalThis.Audio ?? globalThis.window?.Audio;
   const music = AudioCtor
     ? new AudioCtor(MUSIC_SRC)
@@ -141,8 +193,7 @@ export function initGame(opts = {}) {
 
   function playMusicIfWanted() {
     if (music.volume <= 0) return;
-    const userAgent =
-      globalThis.navigator?.userAgent ?? globalThis.window?.navigator?.userAgent ?? '';
+    const userAgent = `${globalThis.navigator?.userAgent ?? ''} ${globalThis.window?.navigator?.userAgent ?? ''}`;
     if (userAgent.includes('jsdom')) return;
     try {
       const maybePromise = music.play?.();
@@ -165,6 +216,36 @@ export function initGame(opts = {}) {
       }
     }
     return volume;
+  }
+
+  let cueContext = null;
+  function playCue(kind) {
+    if (music.volume <= 0) return;
+    const AudioContextCtor = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!AudioContextCtor) return;
+    try {
+      cueContext ??= new AudioContextCtor();
+      const now = cueContext.currentTime;
+      const gain = cueContext.createGain();
+      const osc = cueContext.createOscillator();
+      const table = {
+        rare_helpful: [660, 880, 0.16],
+        rare_hurtful: [220, 165, 0.22],
+        page: [420, 520, 0.08],
+      };
+      const [start, end, duration] = table[kind] ?? [360, 360, 0.06];
+      osc.type = kind === 'rare_hurtful' ? 'sawtooth' : 'sine';
+      osc.frequency.setValueAtTime(start, now);
+      osc.frequency.exponentialRampToValueAtTime(end, now + duration);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, music.volume * 0.08), now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain).connect(cueContext.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    } catch {
+      // Optional sound design: never let an audio backend failure affect the turn.
+    }
   }
 
   document.addEventListener('pointerdown', playMusicIfWanted, { once: true });
@@ -206,6 +287,73 @@ export function initGame(opts = {}) {
       const volume = setMusicVolume(Number(slider.value) / 100);
       value.textContent = `${Math.round(volume * 100)}%`;
     });
+
+    const accessTools = document.createElement('div');
+    accessTools.className = 'settings-accessibility';
+
+    const textLabel = document.createElement('label');
+    textLabel.className = 'settings-field';
+    textLabel.setAttribute('for', 'text-size');
+    textLabel.textContent = 'Text size';
+    const textSelect = document.createElement('select');
+    textSelect.id = 'text-size';
+    for (const [id, labelText] of [
+      ['normal', 'Normal'],
+      ['large', 'Large'],
+      ['xlarge', 'Extra large'],
+    ]) {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = labelText;
+      if (accessibility.textSize === id) option.selected = true;
+      textSelect.append(option);
+    }
+    textSelect.addEventListener('change', () => {
+      accessibility.textSize = textSelect.value;
+      writeSetting(TEXT_SIZE_KEY, accessibility.textSize);
+      applyAccessibilitySettings();
+    });
+    textLabel.append(textSelect);
+
+    const highContrast = document.createElement('label');
+    highContrast.className = 'settings-check';
+    const highContrastInput = document.createElement('input');
+    highContrastInput.id = 'high-contrast';
+    highContrastInput.type = 'checkbox';
+    highContrastInput.checked = accessibility.highContrast;
+    highContrastInput.addEventListener('change', () => {
+      accessibility.highContrast = highContrastInput.checked;
+      writeSetting(HIGH_CONTRAST_KEY, accessibility.highContrast);
+      applyAccessibilitySettings();
+    });
+    highContrast.append(highContrastInput, ' High contrast');
+
+    const statMode = document.createElement('label');
+    statMode.className = 'settings-check';
+    const statModeInput = document.createElement('input');
+    statModeInput.id = 'stat-mode';
+    statModeInput.type = 'checkbox';
+    statModeInput.checked = accessibility.statMode === 'numeric';
+    statModeInput.addEventListener('change', () => {
+      accessibility.statMode = statModeInput.checked ? 'numeric' : 'color';
+      writeSetting(STAT_MODE_KEY, accessibility.statMode);
+      applyAccessibilitySettings();
+    });
+    statMode.append(statModeInput, ' Non-colour stat bars');
+
+    const reduceMotion = document.createElement('label');
+    reduceMotion.className = 'settings-check';
+    const reduceMotionInput = document.createElement('input');
+    reduceMotionInput.id = 'reduce-motion';
+    reduceMotionInput.type = 'checkbox';
+    reduceMotionInput.checked = accessibility.reducedMotion;
+    reduceMotionInput.addEventListener('change', () => {
+      accessibility.reducedMotion = reduceMotionInput.checked;
+      writeSetting(REDUCED_MOTION_KEY, accessibility.reducedMotion);
+      applyAccessibilitySettings();
+    });
+    reduceMotion.append(reduceMotionInput, ' Reduce motion in game');
+    accessTools.append(textLabel, highContrast, statMode, reduceMotion);
 
     // --- save export / import -------------------------------------------
     // localStorage is not durable: clearing site data, switching browser or
@@ -309,7 +457,11 @@ export function initGame(opts = {}) {
     saveHeading.className = 'section-h';
     saveHeading.textContent = 'Your run';
 
-    dialog.append(title, label, slider, saveHeading, saveTools, row);
+    const accessHeading = document.createElement('h3');
+    accessHeading.className = 'section-h';
+    accessHeading.textContent = 'Accessibility';
+
+    dialog.append(title, label, slider, accessHeading, accessTools, saveHeading, saveTools, row);
     backdrop.append(dialog);
     document.body.append(backdrop);
     // Same trap as the result modal: aria-modal is a promise about
@@ -382,6 +534,7 @@ export function initGame(opts = {}) {
     // Keep aria meters honest.
     const setMeter = (bar, now, max) => {
       const track = bar?.parentElement;
+      if (bar) bar.dataset.value = `${Math.round(now)}%`;
       if (track?.getAttribute('role') === 'meter') {
         track.setAttribute('aria-valuenow', String(Math.round(now)));
         track.setAttribute('aria-valuemax', String(max));
@@ -437,6 +590,7 @@ export function initGame(opts = {}) {
       onCharacters: () => transitionTo(charactersScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
+      onRetire: handleRetire,
     });
   }
 
@@ -481,6 +635,19 @@ export function initGame(opts = {}) {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
   }
 
+  function handleRetire() {
+    if (gs.journeyDay < ENDURANCE_GOAL_DAYS) return;
+    const ok = globalThis.confirm
+      ? globalThis.confirm('Rest here and end this run? You can begin again afterwards.')
+      : true;
+    if (!ok) return;
+    if (!gs.retireRun()) return;
+    persistEventMemory();
+    saveStore.clear(storage);
+    updateHud();
+    showGameOver(gs.gameOverMessage);
+  }
+
   // -------------------------------------------------------------- extras
 
   function handleSpecial(kind, arg, locationId) {
@@ -519,13 +686,17 @@ export function initGame(opts = {}) {
     if (result.justWon) toast(`🏅 ${result.winMessage || 'Sixty days.'}`);
     if (result.masteryWon) toast(`🌟 ${result.masteryMessage || 'A hundred days.'}`);
 
+    if (result.event?.rarity?.startsWith('rare')) playCue(result.event.rarity);
+
     if (result.gameOver) {
       // The run is over, so the save goes — but only after the player has
       // read what happened.
+      persistEventMemory();
       saveStore.clear(storage);
       const modal = renderResultModal(result, gs, {
         fatal: true,
         onContinue: () => {
+          playCue('page');
           closeModal(modal);
           showGameOver(lastGameOverMessage || gs.gameOverMessage);
         },
@@ -538,6 +709,7 @@ export function initGame(opts = {}) {
 
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
+        playCue('page');
         closeModal(modal);
         updateHud();
         transitionTo(hubScreen);
@@ -608,6 +780,7 @@ export function initGame(opts = {}) {
     gs.resetGame();
     events.reset();
     saveStore.clear(storage);
+    persistEventMemory();
     hud.hidden = false;
     updateHud();
     transitionTo(hubScreen);

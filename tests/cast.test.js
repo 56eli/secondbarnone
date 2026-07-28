@@ -28,6 +28,7 @@ import { EventManager, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.j
 import { createRng } from '../docs/js/core/rng.js';
 
 const PROFILES = createAllProfiles();
+const HIGH_AFFINITY = Object.fromEntries(PROFILES.map((p) => [p.id, 99]));
 const BY_ID = new Map(PROFILES.map((p) => [p.id, p]));
 const POOL = buildEventPool();
 
@@ -258,7 +259,7 @@ test('every event in the catalogue is reachable in play', () => {
         em.initialize(PROFILES.map((p) => p.name));
         for (let day = 1; day <= 300; day += 1) {
           const e = em.selectEvent(day, day % 7, l.id, BURNOUT_THRESHOLD, {
-            tags: l.tags, weatherId,
+            tags: l.tags, weatherId, affinity: HIGH_AFFINITY,
           });
           if (e) seen.add(e.id);
         }

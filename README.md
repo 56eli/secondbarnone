@@ -42,7 +42,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
 | Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                            |
-| Automated tests | 0                               | **439**                                                                         |
+| Automated tests | 0                               | **445**                                                                         |
 | Coverage        | —                               | **~99.0%**                                                                      |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -70,7 +70,7 @@ Tests are tiered so the gate you run constantly is fast:
 npm run test:fast       # 325 rules tests — balance, invariants, exploits — ~3s
 npm run test:ui         # jsdom: DOM, UI, accessibility — ~100s
 npm run test:assets     # image dimensions, hashes, budgets (needs ImageMagick)
-npm test                # everything — 439 tests
+npm test                # everything — 445 tests
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
@@ -120,7 +120,7 @@ docs/                      ← deployed by GitHub Pages (main /docs)
     data/
       characters.js        78 characters
       locations.js         23 locations (each with a host)
-      events.js            235 events, keyed by location (3+ per character)
+      events.js            244 events, keyed by location (3+ per character, earned host beats)
       weather.js / perks.js
       festivals.js / achievements.js
     ui/screens.js          hub, location, practice, almanac, people, settings, portrait lightbox
@@ -140,8 +140,8 @@ tests/
 and **Alex** are rivals with multi-beat arcs. The remaining 74 are side
 characters. Every character is bound to **one location** and has **at least three
 events** that fire only there, so a place is somewhere specific people are
-rather than a slot machine with scenery. **222 of 235 events** belong to side
-characters.
+rather than a slot machine with scenery. Nine hosts now have earned fourth
+beats gated by affinity. **228 of 244 events** belong to side characters.
 
 Léon's portrait and name sit in the HUD on every screen.
 
@@ -161,11 +161,11 @@ Léon's portrait and name sit in the HUD on every screen.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
 - Rent: **−18 money** every Sunday, charged once.
-- A random event fires every 2–5 days. Event weights are 10 for Common and 2 for each Rare. With the current catalogue (159 common, 67 rare-helpful, 9 rare-hurtful before location gates), rare events are deliberately occasional rather than evenly mixed into every visit.
+- A random event fires every 1–3 days. Event weights are 10 for Common and 2 for each Rare, with novelty weighting for events unseen this run and across previous runs. With the current catalogue (159 common, 76 rare-helpful, 9 rare-hurtful before location gates), rare events are deliberately occasional rather than evenly mixed into every visit.
 - Burnout unlocks only after 3 consecutive bar days.
 - The same event never fires twice in a row.
 - Reaching 0 sanity or 0 money ends the run.
-- Reaching journey day **60** awards a soft win without ending the run.
+- Reaching journey day **60** unlocks an optional “Rest here” ending without forcing you to stop.
 - Energy recovers **1/7 of the bar each night**, so a full week of rest takes you
   from empty to full. Most working days cost more than a night returns.
 - Below 25 energy every action costs extra sanity, on a curve that is nearly
@@ -202,20 +202,18 @@ Eleven things that make the city feel like a home:
 
 Semantic buttons and headings throughout, visible focus rings, `aria-selected`
 on the character list, `role="dialog"` with `aria-modal` on the result modal,
-`role="meter"` on the stat bars, and full keyboard operability.
-`prefers-reduced-motion` disables particles and collapses transitions.
+`role="meter"` on the stat bars, and full keyboard operability. Settings include
+text size, high contrast, non-colour stat bars, and a reduced-motion toggle;
+`prefers-reduced-motion` is still respected by default.
 
 ## Known gaps
 
 See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for the full list with
 reasoning. The headlines:
 
-- **The asset budget has ~17 KB of headroom** against a hard-failing 8 MB
-  check, so adding a single character currently breaks the build. This blocks
-  all content work and is roadmap item 1.1.
-- **The founding pair account for ~7% of days played.** The two locations the
-  game is framed around are dominated by later ones.
-- **A 60-day run sees ~17 of 235 events** — about 7% of the written content.
+- Tier 1 systems are now in: faster event cadence, novelty weighting, earned host beats, community resilience, bar crisis money and optional day-60 endings.
+- Tier 2 accessibility settings are in: text size, high contrast, non-colour stat bars, reduced-motion toggle and arrow-key People navigation.
+- The eager asset budget has roughly 305 KB of headroom; new characters are possible again, but new locations still need care.
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - Background music is a small compressed warm piano loop, defaulting to 50% and
   controlled from Settings; browser autoplay rules mean it starts only after
