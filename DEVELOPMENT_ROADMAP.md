@@ -7,12 +7,12 @@ If you defer something, add it here rather than to a comment nobody greps for.
 - **What the game is:** [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 - **The audit this list came from:** [TECHNICAL_REVIEW.md](TECHNICAL_REVIEW.md)
 
-> **Status after the Tier 1 systems pass (v2.4.0)**
-> 443 tests, fast gate 330 tests, CI workflow written (needs one command to
+> **Status after the accessibility/audio pass (v2.5.0)**
+> 445 tests, fast gate 330 tests, CI workflow written (needs one command to
 > activate — see `docs/ci/README.md`).
-> Event cadence is faster with novelty weighting, affinity gates earned host
-> beats, the founding pair have unique mechanical roles, and day 60 has an
-> optional ending instead of only a toast.
+> Tier 1 is complete. Tier 2 accessibility settings are in, People navigation
+> is a real listbox interaction, and rare-event/page-turn audio cues now sit
+> behind the existing volume control.
 
 ---
 
@@ -52,28 +52,19 @@ writing nobody sees.
   `outcome × shape`: retired / out of sanity / out of money, plus nine shapes
   derived from how the run was played. The almanac counts down to the rest.
 
-## Tier 2 — next milestone
+## Tier 2 — in progress
 
-### 2.1 Accessibility settings
+### 2.1 ✅ Accessibility settings
 
-The semantic foundation is good and now tested. What is missing is everything
-**user-controllable**:
-
-- **Text size** and **high contrast** options.
-- **A non-colour stat mode.** The bars encode status in hue alone —
-  `bar-critical` red against `bar-full` green is invisible to a deuteranope.
-  Add a shape, pattern or numeric badge.
-- **A reduced-motion toggle** that does not require changing OS settings.
-- **Arrow-key navigation and `aria-activedescendant`** on the People listbox.
-  78 rows are currently 78 individual tab stops.
+Implemented: text size, high contrast, non-colour stat bars, a reduced-motion
+toggle independent of OS settings, and arrow-key navigation with
+`aria-activedescendant` on the People listbox.
 
 ### 2.2 Audio beyond one piano loop
 
-One 133 KB WAV on a volume slider (now defaulting to 50%, so it is at least
-audible). A game about the texture of days wants: a distinct sting for
-rare-helpful versus rare-hurtful events, a page-turn on day advance, and
-per-location ambience. Keep it opt-in and behind the existing autoplay
-handling. See 1.1 — converting the loop to Opus helps the budget.
+Partly implemented: rare-helpful, rare-hurtful and page-turn cues are generated
+with Web Audio and obey the existing volume slider. Still wanted: per-location
+ambience and converting the 133 KB WAV loop to Opus.
 
 ### 2.3 Downside events are unevenly distributed
 
@@ -182,6 +173,15 @@ Things that are understood, reproduced and deliberately not addressed yet.
 
 ## Changelog of roadmap items completed
 
+
+**v2.5.0 — Accessibility and audio pass**
+
+- ✅ Text size setting
+- ✅ High contrast setting
+- ✅ Non-colour stat-bar mode with patterns and numeric labels
+- ✅ Reduced-motion toggle independent of OS settings
+- ✅ People listbox arrow-key navigation with `aria-activedescendant`
+- ✅ Web Audio cues for rare-helpful, rare-hurtful and page-turn moments
 
 **v2.4.0 — Tier 1 systems pass**
 

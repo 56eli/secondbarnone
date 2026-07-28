@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 443 tests, ~99.0% coverage on the shipped code.
+> **Status:** playable, 445 tests, ~99.0% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -544,7 +544,7 @@ one pass.
 
 ## Testing
 
-**443 tests** across the suite.
+**445 tests** across the suite.
 
 | Area | Scope |
 | ---- | ----- |
@@ -615,12 +615,14 @@ that state never goes invalid.
 
 ## Accessibility
 
-Semantic buttons and headings, visible focus rings, `aria-selected` on the
-character list, `role="dialog"` with `aria-modal` on the result modal, labelled
-search input, and full keyboard operability.
+Semantic buttons and headings, visible focus rings, `aria-selected` and
+`aria-activedescendant` on the character list, `role="dialog"` with `aria-modal`
+on the result modal, labelled search input, and full keyboard operability.
 
-`prefers-reduced-motion` disables particles and collapses transitions — covered
-by a dedicated test that boots the app with the media query forced on.
+Settings now expose text size, high contrast, non-colour stat bars and a
+reduced-motion toggle. `prefers-reduced-motion` still disables particles and
+collapses transitions — covered by a dedicated test that boots the app with the
+media query forced on.
 
 ---
 

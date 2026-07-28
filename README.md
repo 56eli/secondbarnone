@@ -42,7 +42,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
 | Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                            |
-| Automated tests | 0                               | **443**                                                                         |
+| Automated tests | 0                               | **445**                                                                         |
 | Coverage        | —                               | **~99.0%**                                                                      |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -70,7 +70,7 @@ Tests are tiered so the gate you run constantly is fast:
 npm run test:fast       # 325 rules tests — balance, invariants, exploits — ~3s
 npm run test:ui         # jsdom: DOM, UI, accessibility — ~100s
 npm run test:assets     # image dimensions, hashes, budgets (needs ImageMagick)
-npm test                # everything — 443 tests
+npm test                # everything — 445 tests
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
@@ -202,8 +202,9 @@ Eleven things that make the city feel like a home:
 
 Semantic buttons and headings throughout, visible focus rings, `aria-selected`
 on the character list, `role="dialog"` with `aria-modal` on the result modal,
-`role="meter"` on the stat bars, and full keyboard operability.
-`prefers-reduced-motion` disables particles and collapses transitions.
+`role="meter"` on the stat bars, and full keyboard operability. Settings include
+text size, high contrast, non-colour stat bars, and a reduced-motion toggle;
+`prefers-reduced-motion` is still respected by default.
 
 ## Known gaps
 
@@ -211,6 +212,7 @@ See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for the full list with
 reasoning. The headlines:
 
 - Tier 1 systems are now in: faster event cadence, novelty weighting, earned host beats, community resilience, bar crisis money and optional day-60 endings.
+- Tier 2 accessibility settings are in: text size, high contrast, non-colour stat bars, reduced-motion toggle and arrow-key People navigation.
 - The eager asset budget has roughly 305 KB of headroom; new characters are possible again, but new locations still need care.
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - Background music is a small compressed warm piano loop, defaulting to 50% and

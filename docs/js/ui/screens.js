@@ -532,7 +532,11 @@ function renderSpecial(gs, location, onSpecial) {
 
 /** Floating motes. */
 function startParticles(container) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
+  if (
+    document.body?.dataset?.reducedMotion === 'reduce' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+    return () => {};
   const spawn = () => {
     if (!container.isConnected) return;
     const size = 2 + Math.random() * 3;
@@ -863,12 +867,25 @@ export function renderCharacters(profiles, { onBack, affinity = {} }) {
   };
 
   const allRows = [];
+  let selectedRow = null;
+  const visibleRows = () => allRows.filter((row) => !row.hidden);
+  const selectRow = (row, { focus = false } = {}) => {
+    if (!row) return;
+    for (const r of allRows) r.setAttribute('aria-selected', 'false');
+    row.setAttribute('aria-selected', 'true');
+    selectedRow = row;
+    list.setAttribute('aria-activedescendant', row.id);
+    showDetail(row._profile);
+    if (focus) row.focus();
+  };
   const makeRow = (p) => {
     const row = el(
       'button',
       {
+        id: `character-option-${p.id}`,
         class: `char-row role-${p.role}`,
         role: 'option',
+        tabindex: '-1',
         'aria-selected': 'false',
       },
       avatar(p, 'avatar', { clickable: false }),
@@ -891,17 +908,18 @@ export function renderCharacters(profiles, { onBack, affinity = {} }) {
         : null,
     );
 
-    row.addEventListener('click', () => {
-      for (const r of allRows) r.setAttribute('aria-selected', 'false');
-      row.setAttribute('aria-selected', 'true');
-      showDetail(p);
-    });
+    row.addEventListener('click', () => selectRow(row));
     row._profile = p;
     allRows.push(row);
     return row;
   };
 
-  const list = el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' });
+  const list = el('div', {
+    class: 'char-list',
+    role: 'listbox',
+    tabindex: '0',
+    'aria-label': 'Characters',
+  });
   const groups = [];
   for (const role of ROLE_ORDER) {
     const members = profiles.filter((p) => p.role === role);
@@ -943,6 +961,21 @@ export function renderCharacters(profiles, { onBack, affinity = {} }) {
     count.textContent = q
       ? `${visible} match${visible === 1 ? '' : 'es'}`
       : `${profiles.length} people`;
+  });
+
+  list.addEventListener('keydown', (e) => {
+    const rows = visibleRows();
+    if (rows.length === 0) return;
+    const current = rows.indexOf(selectedRow);
+    let next = current < 0 ? 0 : current;
+    if (e.key === 'ArrowDown') next = current < 0 ? 0 : Math.min(rows.length - 1, current + 1);
+    else if (e.key === 'ArrowUp') next = current < 0 ? 0 : Math.max(0, current - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = rows.length - 1;
+    else if (e.key === 'Enter' || e.key === ' ') next = current < 0 ? 0 : current;
+    else return;
+    e.preventDefault();
+    selectRow(rows[next], { focus: true });
   });
 
   return el(

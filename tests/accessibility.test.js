@@ -337,3 +337,65 @@ maybe('every interactive control has an accessible name', async () => {
     cleanup(window);
   }
 });
+
+maybe('accessibility settings apply text, contrast, stat and motion preferences', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    doc.getElementById('settings-btn').click();
+
+    const textSize = doc.getElementById('text-size');
+    assert.ok(textSize, 'text-size select should render');
+    textSize.value = 'large';
+    textSize.dispatchEvent(new window.Event('change', { bubbles: true }));
+
+    const contrast = doc.getElementById('high-contrast');
+    const statMode = doc.getElementById('stat-mode');
+    const motion = doc.getElementById('reduce-motion');
+    for (const input of [contrast, statMode, motion]) {
+      assert.ok(input, `${input?.id} should render`);
+      input.checked = true;
+      input.dispatchEvent(new window.Event('change', { bubbles: true }));
+    }
+
+    assert.equal(doc.body.dataset.textSize, 'large');
+    assert.equal(doc.body.dataset.contrast, 'high');
+    assert.equal(doc.body.dataset.statMode, 'numeric');
+    assert.equal(doc.body.dataset.reducedMotion, 'reduce');
+    assert.equal(storage.getItem('secondbarnone.settings.textSize'), 'large');
+    assert.equal(storage.getItem('secondbarnone.settings.highContrast'), 'true');
+    assert.equal(storage.getItem('secondbarnone.settings.statMode'), 'numeric');
+    assert.equal(storage.getItem('secondbarnone.settings.reducedMotion'), 'true');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('People list supports arrow-key navigation as one listbox', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    window.__game.api.goto.characters();
+    await settle();
+
+    const list = doc.querySelector('.char-list[role="listbox"]');
+    const rows = [...doc.querySelectorAll('.char-row')];
+    assert.ok(list, 'character listbox should exist');
+    assert.equal(list.getAttribute('tabindex'), '0');
+    assert.ok(rows.length > 2);
+
+    list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.equal(rows[0].getAttribute('aria-selected'), 'true');
+    assert.equal(list.getAttribute('aria-activedescendant'), rows[0].id);
+
+    list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    assert.equal(rows[1].getAttribute('aria-selected'), 'true');
+    assert.equal(rows[0].getAttribute('aria-selected'), 'false');
+
+    list.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    assert.equal(rows.at(-1).getAttribute('aria-selected'), 'true');
+  } finally {
+    cleanup(window);
+  }
+});
