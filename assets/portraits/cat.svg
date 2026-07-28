@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
+<defs>
+<radialGradient id="bgg94" cx="0.5" cy="0.35" r="0.75">
+<stop offset="0" stop-color="#b08fc7"/><stop offset="0.55" stop-color="#4a335e"/><stop offset="1" stop-color="#261a2e"/>
+</radialGradient>
+<clipPath id="cc94"><circle cx="64" cy="64" r="64"/></clipPath>
+</defs>
+<g clip-path="url(#cc94)">
+<rect width="128" height="128" fill="url(#bgg94)"/>
+
+    <circle cx="48" cy="32" r="10" fill="#b08fc7" opacity="0.18"/>
+    <circle cx="95" cy="52" r="14" fill="#b08fc7" opacity="0.12"/>
+    <circle cx="35" cy="88" r="8" fill="#b08fc7" opacity="0.1"/>
+<ellipse cx="64" cy="108" rx="50" ry="24" fill="#a19d93" opacity="0.35"/>
+<!-- ears -->
+<path d="M36 56 L28 28 L54 46 Z" fill="#c9c4b8"/>
+<path d="M92 56 L100 28 L74 46 Z" fill="#c9c4b8"/>
+<path d="M40 52 L34 38 L48 46 Z" fill="#d4d0c6" opacity="0.6"/>
+<path d="M88 52 L94 38 L80 46 Z" fill="#d4d0c6" opacity="0.6"/>
+<!-- head -->
+<circle cx="64" cy="64" r="30" fill="#c9c4b8"/>
+<!-- cheeks -->
+<circle cx="50" cy="72" r="10" fill="#d4d0c6" opacity="0.4"/>
+<circle cx="78" cy="72" r="10" fill="#d4d0c6" opacity="0.4"/>
+<!-- eyes -->
+<ellipse cx="52" cy="60" rx="4" ry="6" fill="#c2a53a"/>
+<ellipse cx="76" cy="60" rx="4" ry="6" fill="#c2a53a"/>
+<ellipse cx="52" cy="60" rx="1.2" ry="5" fill="#111"/>
+<ellipse cx="76" cy="60" rx="1.2" ry="5" fill="#111"/>
+<!-- nose + mouth -->
+<path d="M62 70 L66 70 L64 74 Z" fill="#c98a8a"/>
+<path d="M64 74 Q60 78 58 76" stroke="#3a2010" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+<path d="M64 74 Q68 78 70 76" stroke="#3a2010" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+<!-- whiskers -->
+<path d="M40 72 L24 70 M40 76 L24 78 M88 72 L104 70 M88 76 L104 78" stroke="#fff" stroke-width="0.6" opacity="0.6"/>
+</g>
+<circle cx="64" cy="64" r="63" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
+</svg>

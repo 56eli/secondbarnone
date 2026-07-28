@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img">
+<defs>
+<radialGradient id="bgg508" cx="0.5" cy="0.35" r="0.75">
+<stop offset="0" stop-color="#b89a5c"/><stop offset="0.55" stop-color="#486042"/><stop offset="1" stop-color="#1f2e1d"/>
+</radialGradient>
+<linearGradient id="shell508" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#5f6670"/><stop offset="1" stop-color="#474d54"/>
+</linearGradient>
+<clipPath id="cc508"><circle cx="64" cy="64" r="64"/></clipPath>
+</defs>
+<g clip-path="url(#cc508)">
+<rect width="128" height="128" fill="url(#bgg508)"/>
+
+    <circle cx="48" cy="50" r="10" fill="#b89a5c" opacity="0.18"/>
+    <circle cx="93" cy="54" r="14" fill="#b89a5c" opacity="0.12"/>
+    <circle cx="31" cy="90" r="8" fill="#b89a5c" opacity="0.1"/>
+<rect x="22" y="78" width="84" height="50" rx="8" fill="url(#shell508)"/>
+<rect x="32" y="30" width="64" height="58" rx="14" fill="url(#shell508)"/>
+<rect x="36" y="34" width="56" height="50" rx="10" fill="#565c65"/>
+<rect x="44" y="48" width="16" height="8" rx="4" fill="#c7b07a"/><rect x="68" y="48" width="16" height="8" rx="4" fill="#c7b07a"/>
+<rect x="50" y="66" width="28" height="4" rx="2" fill="#474d54"/>
+<circle cx="64" cy="24" r="4" fill="#c7b07a"/>
+<rect x="62" y="24" width="4" height="10" fill="#474d54"/>
+<rect x="30" y="60" width="4" height="18" rx="2" fill="#474d54"/>
+<rect x="94" y="60" width="4" height="18" rx="2" fill="#474d54"/>
+</g>
+<circle cx="64" cy="64" r="63" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
+</svg>

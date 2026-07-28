@@ -299,15 +299,20 @@ magickTest('the House of Middleway background is sunny, not the old night scene'
 
   const mean = luminance(bg);
   assert.ok(mean > 0.35, `the chapel should read as daylight, got mean luminance ${mean.toFixed(3)}`);
+});
 
-  // And it should be the brightest background in the game — it is the only
-  // one whose whole point is the light.
+magickTest('every deployed background is a daytime scene', () => {
+  // All backgrounds were regenerated in a daylight pass (July 2026). The hub
+  // had shipped at 0.085 mean luminance (a night scene) while its neighbours
+  // sat around 0.34. None should read as night or dusk any more.
   const bgDir = join(DOCS, 'assets', 'backgrounds');
+  const DAYLIGHT_FLOOR = 0.28;
   for (const f of readdirSync(bgDir)) {
-    if (f === 'house_of_middleway.webp' || !f.endsWith('.webp')) continue;
+    if (!f.endsWith('.webp')) continue;
+    const mean = luminance(join(bgDir, f));
     assert.ok(
-      mean > luminance(join(bgDir, f)),
-      `${f} is brighter than the sunny chapel`,
+      mean > DAYLIGHT_FLOOR,
+      `${f} reads as ${mean.toFixed(3)} — below the ${DAYLIGHT_FLOOR} daylight floor`,
     );
   }
 });

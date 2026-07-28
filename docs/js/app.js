@@ -21,27 +21,15 @@ import {
   renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
 } from './ui/screens.js';
 
-/**
- * Screen-fade and toast lifetimes.
- *
- * Exported, and overridable per-boot via `initGame({ fadeMs, toastMs })`,
- * because the jsdom suite used to hardcode its own `setTimeout(480)` sleeps
- * to wait these out. That duplicated the numbers in a second place — change
- * one and the tests went flaky instead of failing — and cost ~96% of a
- * 102-second test run in pure sleeping. Tests now pass 0 and run instantly.
- */
-export const FADE_MS = 350;
-export const TOAST_MS = 2600;
+const FADE_MS = 350;
+const TOAST_MS = 2600;
 
 /**
  * Boot a game into the current document.
- * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean,
- *          fadeMs?: number, toastMs?: number}} [opts]
+ * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
-  const fadeMs = opts.fadeMs ?? FADE_MS;
-  const toastMs = opts.toastMs ?? TOAST_MS;
   const gs = new GameState({ seed: opts.seed });
   const events = new EventManager(opts.rng);
   events.initialize(gs.getCharacterNames());
@@ -52,6 +40,10 @@ export function initGame(opts = {}) {
   const fade = document.getElementById('fade');
   const hud = document.getElementById('hud');
   const toastHost = document.getElementById('toasts');
+
+  if (!content || !hud) {
+    throw new Error('Required DOM nodes (content, hud) are missing from index.html');
+  }
 
   const dom = {
     date: document.getElementById('hud-date'),
@@ -167,24 +159,18 @@ export function initGame(opts = {}) {
     if (!toastHost) return null;
     const node = renderToast(text);
     toastHost.append(node);
-    setTimeout(() => node.remove(), toastMs);
+    setTimeout(() => node.remove(), TOAST_MS);
     return node;
   }
 
   // ----------------------------------------------------- screen swapping
 
   function transitionTo(buildScreen) {
-    // With fadeMs 0 the swap happens synchronously, so tests do not have to
-    // sleep to observe the next screen.
-    if (fadeMs <= 0) {
-      showScreen(buildScreen());
-      return;
-    }
     fade.classList.add('on');
     setTimeout(() => {
       showScreen(buildScreen());
       fade.classList.remove('on');
-    }, fadeMs);
+    }, FADE_MS);
   }
 
   function showScreen(node) {

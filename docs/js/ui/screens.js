@@ -7,7 +7,6 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
-import { createRng } from '../core/rng.js';
 import {
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS,
@@ -15,7 +14,8 @@ import {
 import { computeDayEffects } from '../core/turn.js';
 import {
   LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
-  isWelcomeDay, WELCOME_LOCATION_ID, WELCOME_SLOT_INDEX, HUB_FIXED_CHOICES,
+  isWelcomeDay,
+  HUB_SLOTS, dailySlotLineup, indexToSlot,
 } from '../data/locations.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
@@ -56,12 +56,13 @@ const STAT_META = [
 ];
 
 /** A compact row of +N / −N chips for a delta bundle. */
-export function effectChips(bundle, cls = 'chips') {
+export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
   const chips = STAT_META
     .filter(([key]) => Math.round(bundle[key] ?? 0) !== 0)
     .map(([key, emoji]) => {
       const v = Math.round(bundle[key]);
-      return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, `${emoji} ${fmtDelta(v)}`);
+      const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${fmtDelta(v)}` : `${emoji} ${fmtDelta(v)}`;
+      return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, label);
     });
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
   return el('div', { class: cls }, ...chips);
@@ -80,17 +81,10 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
     return el('div', { class: cls, 'aria-label': 'Unknown' }, '?');
   }
   const initials = getInitials(profile.name);
-  // Intrinsic width/height reserve the box before the image arrives. CSS
-  // always overrides the actual rendered size (.avatar variants range from
-  // 42px to 84px), but without an intrinsic ratio the browser lays out a
-  // zero-height image first and reflows every avatar-heavy screen — the
-  // People list and the event cards — as portraits stream in.
   const img = el('img', {
     class: cls,
     src: profile.portrait || `assets/portraits/${profile.id}.webp`,
     alt: `${profile.name} portrait`,
-    width: '42',
-    height: '42',
     loading: 'lazy',
     decoding: 'async',
     draggable: 'false',
@@ -250,64 +244,40 @@ export function renderHub(gs, handlers) {
     : el('p', { class: 'empty', text: 'Nothing yet — your journey begins today.' });
 
   // The two founding places are the primary choices.
-  const quick = ['spiritual_community', 'bar'].map((id) => {
+  const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
-    const { total } = computeDayEffects(gs, id);
-    return el('button', { class: 'choice choice-primary', onclick: () => onVisit(id) },
+    const { total, reasons } = computeDayEffects(gs, id);
+    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
+    return el('button', {
+      class: 'choice choice-primary',
+      onclick: () => onVisit(id),
+      'data-location': id,
+      'data-slot': String(indexToSlot(offset)),
+    },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      effectChips(total, 'chips choice-eff'));
+      effectChips(total, 'chips choice-eff', weatherEmoji));
   });
 
-  // Calculate other locations on a deterministic randomly rotating basis.
-  const snap = gs.getUnlockSnapshot();
+  const snap = {
+    journeyDay: gs.journeyDay,
+    reputation: gs.reputation,
+    weekday: gs.getWeekdayIndex ? gs.getWeekdayIndex() : 0,
+    perks: gs.perks,
+    closedTags: typeof gs.getClosedTags === 'function' ? gs.getClosedTags() : [],
+  };
 
-  const otherLocations = LOCATIONS.filter((l) => l.id !== 'spiritual_community' && l.id !== 'bar');
-  const unlockedOther = otherLocations.filter((l) => evaluateUnlock(l, snap).unlocked);
-  const lockedOther = otherLocations.filter((l) => !evaluateUnlock(l, snap).unlocked);
+  // Cards 3-6 rotate *within* their slot, never between slots: every
+  // location is permanently assigned to one of the four, so the third card
+  // is always somewhere quiet and the sixth is always a night or an errand.
+  // The choice inside a slot is deterministic in (slot, day, seed), so the
+  // board is stable across rerenders and across a reload of the same save.
+  const selected = dailySlotLineup(snap, gs.weatherSeed || 0).filter(Boolean);
 
-  const dailySeed = (gs.weatherSeed || 12345) + gs.journeyDay;
-  const rng = createRng(dailySeed);
-
-  // Select exactly 4 other locations
-  let selected = [];
-  if (unlockedOther.length >= 4) {
-    const shuffled = [...unlockedOther];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = rng.randInt(0, i);
-      const temp = shuffled[i];
-      shuffled[i] = shuffled[j];
-      shuffled[j] = temp;
-    }
-    selected = shuffled.slice(0, 4);
-  } else {
-    selected = [...unlockedOther];
-    const needed = 4 - selected.length;
-    const shuffledLocked = [...lockedOther];
-    for (let i = shuffledLocked.length - 1; i > 0; i--) {
-      const j = rng.randInt(0, i);
-      const temp = shuffledLocked[i];
-      shuffledLocked[i] = shuffledLocked[j];
-      shuffledLocked[j] = temp;
-    }
-    selected.push(...shuffledLocked.slice(0, needed));
-  }
-
-  // Day one is not left to the shuffle. Brian's invitation is pinned to the
-  // fourth card of the six — row 2, column 1 of the 3-wide grid — so a new
-  // run always opens with a friend one click away. `WELCOME_SLOT_INDEX` is
-  // the index across all six choices, so the founding pair is subtracted to
-  // land in this rotating list.
-  const welcome = getLocation(WELCOME_LOCATION_ID);
-  if (welcome && isWelcomeDay(snap.journeyDay) && evaluateUnlock(welcome, snap).unlocked) {
-    const slot = WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES;
-    selected = selected.filter((l) => l.id !== welcome.id);
-    selected.splice(slot, 0, welcome);
-    selected = selected.slice(0, 4);
-  }
-
-  const otherChoices = selected.map((location) => {
-    const { total } = computeDayEffects(gs, location.id);
+  const otherChoices = selected.map((location, offset) => {
+    const slot = HUB_SLOTS[offset];
+    const { total, reasons } = computeDayEffects(gs, location.id);
+    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
@@ -319,6 +289,7 @@ export function renderHub(gs, handlers) {
         class: `choice choice-primary${visited ? ' visited' : ''}${isWelcome ? ' welcome' : ''}`,
         onclick: () => onVisit(location.id),
         'data-location': location.id,
+        'data-slot': String(slot),
         // Explicit string: the el() helper renders a boolean `true` as a bare
         // valueless attribute, which reads back as '' rather than 'true'.
         'data-welcome': isWelcome ? 'true' : false,
@@ -328,13 +299,14 @@ export function renderHub(gs, handlers) {
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-        effectChips(total, 'chips choice-eff')
+      effectChips(total, 'chips choice-eff', weatherEmoji)
       );
     } else {
       return el('button', {
         class: 'choice locked',
         disabled: true,
-        'data-location': location.id
+        'data-location': location.id,
+        'data-slot': String(slot),
       },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
         el('span', { class: 'choice-action', text: `Locked: ${reason}` })
@@ -376,7 +348,13 @@ export function renderHub(gs, handlers) {
 // ------------------------------------------------------------------- map
 
 export function renderMap(gs, { onVisit, onBack }) {
-  const snap = gs.getUnlockSnapshot();
+  const snap = {
+    journeyDay: gs.journeyDay,
+    reputation: gs.reputation,
+    weekday: gs.getWeekdayIndex(),
+    perks: gs.perks,
+    closedTags: gs.getClosedTags(),
+  };
 
   const districts = DISTRICT_ORDER.map((district) => {
     const here = LOCATIONS.filter((l) => l.district === district);
@@ -422,6 +400,7 @@ export function renderMap(gs, { onVisit, onBack }) {
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
   const location = getLocation(locationId);
   const { total, reasons } = computeDayEffects(gs, locationId);
+  const weatherEmojiForLocation = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -461,7 +440,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
 
     el('div', { class: 'preview' },
       el('h3', { text: "Today, here" }),
-      effectChips(total, 'chips preview-chips'),
+      effectChips(total, 'chips preview-chips', weatherEmojiForLocation),
       reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
         : null),
@@ -540,7 +519,7 @@ export function renderPerks(gs, { onBuy, onBack }) {
         : el('button', {
           class: 'btn btn-small',
           disabled: !check.ok,
-          title: check.ok ? '' : check.reason,
+          title: check.ok ? `Estimated: reachable ~day ${Math.ceil(perk.cost / 1.2 + (perk.requires.length || 0) * 5)}` : check.reason,
           text: `${perk.cost} 🔮`,
           onclick: () => onBuy(perk.id),
         }));
@@ -561,9 +540,18 @@ export function renderAlmanac(gs, { onBack }) {
   const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
   const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
 
+  // Energy forecast: predict trajectory based on current energy level
+  const energyNow = gs.energy;
+  const forecastEnergy = energyNow < 25 ? 'Low — rest will restore quickly.'
+    : energyNow > 75 ? 'Strong — you can push a little.'
+    : 'Moderate — keep an eye on it.';
+
   return el('div', { class: 'screen' },
     el('h2', { class: 'screen-title', text: '📖 The Almanac' }),
     el('p', { class: 'screen-sub', text: 'Weather is not luck. It is written down, and you can read ahead.' }),
+
+    el('h3', { class: 'section-h', text: 'Energy Outlook' }),
+    el('p', { class: 'energy-forecast', text: forecastEnergy }),
 
     el('h3', { class: 'section-h', text: 'Forecast' }),
     el('div', { class: 'forecast' }, ...days.map(({ day, weather }, i) => el('div', { class: `fc${i === 0 ? ' today' : ''}` },
@@ -628,6 +616,7 @@ export function renderCharacters(profiles, { onBack }) {
     avatar(p, 'avatar', { clickable: false }),
     el('div', { class: 'char-meta' },
       el('div', { class: 'char-name', text: p.name }),
+      el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
       el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` })));
 
     row.addEventListener('click', () => {
@@ -761,43 +750,7 @@ export function renderResultModal(result, gs, { onContinue }) {
   );
 
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
-
-  // Deliberately NOT closable by clicking the backdrop. This dialog is the
-  // only place the player sees what a day actually cost them, and dismissing
-  // it commits the turn and advances the calendar — far too consequential to
-  // fire on a stray tap beside the card. Continuing is an explicit choice.
-  //
-  // Escape does the same thing as the button (there is only one way forward
-  // from here), and focus is trapped inside the dialog while it is open so
-  // keyboard users cannot tab into the inert page behind it.
-  const focusables = () => [...backdrop.querySelectorAll(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-  )].filter((n) => !n.disabled);
-
-  const onKey = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onContinue();
-      return;
-    }
-    if (e.key !== 'Tab') return;
-    const items = focusables();
-    if (items.length === 0) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || !backdrop.contains(active))) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  backdrop.addEventListener('keydown', onKey);
-  // The listener lives on the backdrop, which is removed with the modal, so
-  // there is nothing to clean up on the document.
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) onContinue(); });
   return backdrop;
 }
 

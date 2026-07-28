@@ -60,19 +60,23 @@ for name in $wanted; do
   printf '  %-22s %s\n' "$name" "$(du -h "docs/assets/backgrounds/${name}.webp" | cut -f1)"
 done
 
+echo "Regenerating procedural avatars…"
+# No-op while every character has painted art; still here so a newly added
+# character gets a stand-in face before their portrait is commissioned.
+node scripts/generate-avatars.js
+
+echo "Copying SVG backgrounds verbatim…"
+cp -f assets/backgrounds/*.svg docs/assets/backgrounds/ 2>/dev/null || true
+
 # Portrait pruning is handled inside build-portraits.js, which knows about the
 # hi/ subdirectory. Deleting orphans here would strip the entire lightbox tier,
 # since those files have no same-named source in assets/portraits/.
-#
-# Background pruning is driven by the location catalogue (the same `$wanted`
-# list the conversion loop uses), NOT by what happens to exist in assets/.
-# Probing the source directory was fragile: several backgrounds only ever
-# existed as a deployed WebP with no PNG master, so a source-existence check
-# would delete live art the moment its master was tidied away.
 for f in docs/assets/backgrounds/*; do
   [ -e "$f" ] || continue
   base=$(basename "$f"); stem="${base%.*}"
-  if ! grep -qx "$stem" <<<"$wanted"; then
+  if [ ! -e "assets/backgrounds/${stem}.png" ] \
+     && [ ! -e "assets/backgrounds/${stem}.svg" ] \
+     && [ ! -e "assets/backgrounds/${stem}.webp" ]; then
     echo "  removing orphan ${base}"
     rm -f "$f"
   fi

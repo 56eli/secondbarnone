@@ -72,6 +72,108 @@ export function isWelcomeDay(journeyDay) {
   return journeyDay === WELCOME_DAY;
 }
 
+// --------------------------------------------------------------- hub slots
+
+/**
+ * ## Slots
+ *
+ * The hub shows six cards. Slots **1 and 2** are the founding pair and never
+ * move. Slots **3, 4, 5 and 6** rotate — but not freely.
+ *
+ * Every non-founding location is permanently assigned to exactly one of those
+ * four slots by `slot` in its definition. Each day the hub picks *one* open
+ * location per slot, so places rotate **through** their slot and never
+ * **between** slots. The night market is always the fourth card; the library
+ * is always the third; the retreat is always the sixth. Muscle memory works.
+ *
+ * The alternative — a free shuffle across all four positions — is what the
+ * hub used to do, and it meant the card under your thumb was a different
+ * place every morning.
+ */
+export const HUB_SLOTS = Object.freeze([3, 4, 5, 6]);
+/** Slot number (1-based) → card index (0-based) in the six-card grid. */
+export const slotToIndex = (slot) => slot - 1;
+/** Card index (0-based) → slot number (1-based). */
+export const indexToSlot = (index) => index + 1;
+/** The slot the day-one welcome is pinned to. */
+export const WELCOME_SLOT = indexToSlot(WELCOME_SLOT_INDEX);
+
+/** Every rotating location assigned to one slot, in catalogue order. */
+export function locationsInSlot(slot) {
+  return LOCATIONS.filter((l) => l.slot === slot);
+}
+
+// ------------------------------------------------------------- variance
+
+/**
+ * ## Variance
+ *
+ * A location's printed numbers are what it offers *on average*, not what it
+ * pays out. Every location carries a `variance` bundle — the maximum swing in
+ * either direction, per resource — and the actual day lands somewhere inside
+ * it.
+ *
+ * The swing is **derived, never rolled**: `varianceForDay()` is a pure
+ * function of the location id, the journey day and the run seed, exactly like
+ * the weather. That matters for two reasons:
+ *
+ *   1. the hub preview and the turn resolution call the same function, so the
+ *      numbers on the card are the numbers you get; and
+ *   2. a save restores the same day, rather than re-rolling it in the
+ *      player's favour.
+ *
+ * Variance never flips the *sign* of a resource the location is built around
+ * — a bar shift always pays and a retreat always costs — because a place
+ * whose contract can invert is a place you cannot plan around.
+ */
+const FNV_OFFSET = 2166136261;
+const FNV_PRIME = 16777619;
+
+function hashString(text, seed = 0) {
+  let h = (FNV_OFFSET ^ seed) >>> 0;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, FNV_PRIME) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** Deterministic integer in [-span, +span] for one (key, location, day, seed). */
+function swing(span, key, locationId, day, seed) {
+  if (!span) return 0;
+  const h = hashString(`${locationId}:${key}:${day}`, seed >>> 0);
+  // 2*span+1 buckets so the distribution is symmetric and 0 is reachable.
+  return (h % (2 * span + 1)) - span;
+}
+
+export const VARIANCE_KEYS = Object.freeze(['sanity', 'money', 'energy', 'reputation', 'insight']);
+
+/**
+ * Today's swing for one location, as a delta bundle to add to its effects.
+ *
+ * @param {object|string} location location or location id
+ * @param {number} journeyDay
+ * @param {number} seed run seed (`gs.weatherSeed`)
+ * @returns {{sanity:number, money:number, energy:number,
+ *            reputation:number, insight:number}}
+ */
+export function varianceForDay(location, journeyDay = 1, seed = 0) {
+  const l = typeof location === 'string' ? getLocation(location) : location;
+  const out = { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 };
+  if (!l) return out;
+  for (const key of VARIANCE_KEYS) {
+    const span = l.variance[key] ?? 0;
+    const raw = swing(span, key, l.id, journeyDay, seed);
+    const base = l.effects[key] ?? 0;
+    // Never invert a resource the location is defined by: a paid day stays
+    // paid, a costly day stays costly. Clamp the swing, do not drop it.
+    if (base > 0 && base + raw < 0) out[key] = -base;
+    else if (base < 0 && base + raw > 0) out[key] = -base;
+    else out[key] = raw;
+  }
+  return out;
+}
+
 /**
  * @param {object} cfg
  * @returns {object} a frozen location definition
@@ -86,11 +188,23 @@ function loc(cfg) {
     host: '',
     /** Offered unconditionally on journey day one (see WELCOME_DAY). */
     dayOneWelcome: false,
+    /**
+     * Fixed hub slot, 3-6. The founding pair own slots 1 and 2 and carry
+     * `slot: null`; everything else rotates *through* one slot and never
+     * between slots. See HUB_SLOTS.
+     */
+    slot: null,
     ...cfg,
     effects: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.effects },
+    /** Maximum daily swing in each direction. See varianceForDay(). */
+    variance: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.variance },
     unlock: { minDay: 1, minReputation: 0, ...cfg.unlock },
   });
 }
+
+/** Shorthand for a variance bundle, in the same order as `eff`. */
+const vary = (sanity = 0, money = 0, energy = 0, reputation = 0, insight = 0) =>
+  ({ sanity, money, energy, reputation, insight });
 
 export const LOCATIONS = [
   // ------------------------------------------------------------- core two
@@ -105,7 +219,8 @@ export const LOCATIONS = [
     actionDesc: 'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
     historyLabel: 'Visited La Maison Calme',
     tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.INDOOR],
-    effects: eff(15, -10, -12, 2, 1),
+    effects: eff(15, -10, -18, 2, 1),
+    variance: vary(3, 2, 4, 1, 1),
     bg: 'assets/backgrounds/paris_spiritual_community.webp',
   }),
   loc({
@@ -119,7 +234,8 @@ export const LOCATIONS = [
     actionDesc: 'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
     historyLabel: 'Worked at Le Dernier Verre',
     tags: [Tag.WORK, Tag.NIGHT, Tag.INDOOR, Tag.SOCIAL],
-    effects: eff(-12, 12, -20, 0, 0),
+    effects: eff(-12, 12, -24, 0, 0),
+    variance: vary(3, 4, 5, 0, 0),
     bg: 'assets/backgrounds/paris_bar.webp',
   }),
 
@@ -136,7 +252,9 @@ export const LOCATIONS = [
     historyLabel: 'Rested at the loft',
     tags: [Tag.REST, Tag.INDOOR, Tag.QUIET],
     // A rest day still costs you: you eat, and you earn nothing.
-    effects: eff(2, -6, 30, 0, 0),
+    effects: eff(4, -3, 32, 0, 0),
+    variance: vary(2, 1, 6, 0, 0),
+    slot: 3,
     bg: 'assets/backgrounds/home_loft.webp',
   }),
   loc({
@@ -150,7 +268,9 @@ export const LOCATIONS = [
     actionDesc: 'You climbed up with a blanket and watched the city breathe. Some knots loosened without you naming them.',
     historyLabel: 'Watched the city from the rooftop',
     tags: [Tag.OUTDOOR, Tag.QUIET, Tag.NIGHT],
-    effects: eff(7, -2, -4, 0, 1),
+    effects: eff(9, 0, -8, 0, 1),
+    variance: vary(3, 0, 3, 1, 1),
+    slot: 4,
     unlock: { minDay: 4 },
     bg: 'assets/backgrounds/rooftop.webp',
   }),
@@ -165,7 +285,9 @@ export const LOCATIONS = [
     actionDesc: 'You spent the day filing, translating and holding hands in a waiting room. Exhausting, unpaid, and unambiguously good.',
     historyLabel: 'Volunteered at the free clinic',
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR],
-    effects: eff(4, -4, -14, 7, 1),
+    effects: eff(6, -4, -18, 7, 1),
+    variance: vary(3, 2, 5, 3, 1),
+    slot: 4,
     unlock: { minDay: 8 },
     bg: 'assets/backgrounds/free_clinic.webp',
   }),
@@ -180,7 +302,9 @@ export const LOCATIONS = [
     actionDesc: 'You chopped onions for four hours and served two hundred people. Your back aches. The neighbourhood noticed.',
     historyLabel: 'Cooked at the soup kitchen',
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR, Tag.SOCIAL],
-    effects: eff(3, -5, -16, 9, 0),
+    effects: eff(5, -5, -20, 9, 0),
+    variance: vary(3, 3, 6, 4, 0),
+    slot: 4,
     unlock: { minDay: 11, minReputation: 25 },
     bg: 'assets/backgrounds/soup_kitchen.webp',
   }),
@@ -198,7 +322,9 @@ export const LOCATIONS = [
     historyLabel: 'Walked the river path',
     tags: [Tag.OUTDOOR, Tag.QUIET],
     // Restorative, and still a whole day not earning — plus the coffee at the turn.
-    effects: eff(6, -2, -2, 0, 0),
+    effects: eff(8, -2, 4, 0, 0),
+    variance: vary(3, 1, 4, 0, 1),
+    slot: 4,
     unlock: { minDay: 2 },
     bg: 'assets/backgrounds/paris_canal.webp',
   }),
@@ -213,7 +339,9 @@ export const LOCATIONS = [
     actionDesc: 'You weeded, watered and argued gently about slugs. There was produce to take home and a little to sell.',
     historyLabel: 'Worked the community garden',
     tags: [Tag.OUTDOOR, Tag.COMMUNITY],
-    effects: eff(5, -1, -10, 4, 0),
+    effects: eff(7, 2, -12, 4, 0),
+    variance: vary(3, 3, 4, 2, 0),
+    slot: 5,
     unlock: { minDay: 5 },
     bg: 'assets/backgrounds/community_garden.webp',
   }),
@@ -228,7 +356,9 @@ export const LOCATIONS = [
     actionDesc: 'You stood behind a trestle table for six hours and sold most of it. Somebody left you something in the crate.',
     historyLabel: 'Ran the market stall',
     tags: [Tag.MARKET, Tag.OUTDOOR, Tag.COMMUNITY, Tag.WORK],
-    effects: eff(-1, 8, -12, 2, 0),
+    effects: eff(2, 8, -14, 2, 0),
+    variance: vary(2, 5, 4, 1, 0),
+    slot: 5,
     unlock: { minDay: 3 },
     bg: 'assets/backgrounds/farmers_market.webp',
   }),
@@ -243,7 +373,9 @@ export const LOCATIONS = [
     actionDesc: 'Hot, cold, hot again, then twenty minutes flat on a wooden bench. You came out feeling reassembled.',
     historyLabel: 'Soaked at the bathhouse',
     tags: [Tag.REST, Tag.INDOOR, Tag.QUIET],
-    effects: eff(6, -10, 22, 0, 0),
+    effects: eff(10, -6, 22, 0, 0),
+    variance: vary(3, 2, 5, 0, 0),
+    slot: 3,
     unlock: { minDay: 9 },
     bg: 'assets/backgrounds/bathhouse.webp',
   }),
@@ -260,7 +392,9 @@ export const LOCATIONS = [
     actionDesc: 'You helped a friend of a friend run a griddle, ate standing up, and pocketed a share of the night.',
     historyLabel: 'Traded at the night market',
     tags: [Tag.MARKET, Tag.NIGHT, Tag.SOCIAL, Tag.OUTDOOR, Tag.WORK],
-    effects: eff(0, 7, -14, 1, 0),
+    effects: eff(3, 7, -16, 1, 0),
+    variance: vary(3, 5, 4, 1, 0),
+    slot: 6,
     unlock: { minDay: 3 },
     bg: 'assets/backgrounds/night_market.webp',
   }),
@@ -275,7 +409,9 @@ export const LOCATIONS = [
     actionDesc: 'You sold a box of the community\u2019s surplus and haggled for eleven hours. Profitable. Corrosive.',
     historyLabel: 'Haggled at the flea market',
     tags: [Tag.MARKET, Tag.OUTDOOR, Tag.WORK],
-    effects: eff(-4, 11, -12, 0, 0),
+    effects: eff(-4, 11, -16, 0, 0),
+    variance: vary(3, 6, 4, 1, 0),
+    slot: 5,
     unlock: { minDay: 6 },
     bg: 'assets/backgrounds/flea_market.webp',
   }),
@@ -290,7 +426,9 @@ export const LOCATIONS = [
     actionDesc: 'You read four chapters, took notes you will actually reread, and dozed once in the good chair.',
     historyLabel: 'Read at the library',
     tags: [Tag.STUDY, Tag.INDOOR, Tag.QUIET],
-    effects: eff(3, -1, -8, 0, 3),
+    effects: eff(5, 0, -12, 0, 3),
+    variance: vary(2, 0, 3, 0, 2),
+    slot: 3,
     unlock: { minDay: 4 },
     bg: 'assets/backgrounds/paris_library.webp',
   }),
@@ -305,7 +443,9 @@ export const LOCATIONS = [
     actionDesc: 'You handed something over the counter and took the notes without counting them in front of him.',
     historyLabel: 'Sold something at the pawnbroker',
     tags: [Tag.MARKET, Tag.INDOOR, Tag.ADMIN],
-    effects: eff(-6, 8, -6, 0, 0),
+    effects: eff(-6, 8, -10, 0, 0),
+    variance: vary(3, 4, 2, 0, 0),
+    slot: 3,
     unlock: { minDay: 6 },
     bg: 'assets/backgrounds/pawn_shop.webp',
   }),
@@ -320,7 +460,9 @@ export const LOCATIONS = [
     actionDesc: 'You talked for an hour about grief, rent and breathing exercises. Three people phoned in. One of them cried.',
     historyLabel: 'Broadcast on 88.3',
     tags: [Tag.COMMUNITY, Tag.INDOOR, Tag.NIGHT, Tag.SOCIAL],
-    effects: eff(2, 2, -12, 10, 1),
+    effects: eff(4, 3, -14, 12, 1),
+    variance: vary(3, 2, 4, 5, 1),
+    slot: 6,
     unlock: { minDay: 7, minReputation: 40 },
     bg: 'assets/backgrounds/radio_station.webp',
   }),
@@ -335,7 +477,9 @@ export const LOCATIONS = [
     actionDesc: 'You read something you had not meant to read out loud. The room went quiet in the good way.',
     historyLabel: 'Played the open mic',
     tags: [Tag.SOCIAL, Tag.NIGHT, Tag.INDOOR],
-    effects: eff(5, 2, -16, 5, 1),
+    effects: eff(8, 4, -18, 5, 1),
+    variance: vary(5, 4, 5, 3, 1),
+    slot: 5,
     unlock: { minDay: 10, weekdays: [4, 5] },
     bg: 'assets/backgrounds/open_mic.webp',
   }),
@@ -352,7 +496,9 @@ export const LOCATIONS = [
     actionDesc: 'You paid ahead, got a stamped receipt, and walked out lighter than the amount you handed over would suggest.',
     historyLabel: 'Settled rent at the letting office',
     tags: [Tag.ADMIN, Tag.INDOOR],
-    effects: eff(3, -1, -8, 0, 0),
+    effects: eff(9, 0, -12, 0, 0),
+    variance: vary(3, 2, 3, 0, 0),
+    slot: 6,
     unlock: { minDay: 5 },
     special: 'prepay_rent',
     bg: 'assets/backgrounds/landlord_office.webp',
@@ -368,7 +514,9 @@ export const LOCATIONS = [
     actionDesc: 'You taught forty minutes of breathwork to people who paid a great deal for it, and took your cut without enjoying it.',
     historyLabel: 'Taught at Sato\u2019s studio',
     tags: [Tag.WORK, Tag.RIVAL, Tag.INDOOR, Tag.SPIRITUAL],
-    effects: eff(-8, 15, -16, -3, 1),
+    effects: eff(-8, 15, -20, -3, 1),
+    variance: vary(4, 6, 5, 2, 1),
+    slot: 6,
     unlock: { minDay: 10 },
     bg: 'assets/backgrounds/sato_studio.webp',
   }),
@@ -383,7 +531,9 @@ export const LOCATIONS = [
     actionDesc: 'You worked a shift under Alex\u2019s rules: no shortcuts, no sitting, no talking to the guests unprompted. The money was real.',
     historyLabel: 'Covered a shift at Vermillion',
     tags: [Tag.WORK, Tag.RIVAL, Tag.NIGHT, Tag.INDOOR],
-    effects: eff(-16, 19, -24, -2, 0),
+    effects: eff(-16, 19, -26, -2, 0),
+    variance: vary(5, 7, 6, 1, 0),
+    slot: 5,
     unlock: { minDay: 14 },
     bg: 'assets/backgrounds/alex_cocktail_bar.webp',
   }),
@@ -400,7 +550,9 @@ export const LOCATIONS = [
     actionDesc: 'You cut back the roses and read the bench plaques, which is the whole point of the roses.',
     historyLabel: 'Tended the memorial garden',
     tags: [Tag.OUTDOOR, Tag.QUIET, Tag.SPIRITUAL, Tag.VOLUNTEER],
-    effects: eff(6, -2, -10, 4, 3),
+    effects: eff(6, -2, -14, 4, 3),
+    variance: vary(3, 1, 4, 2, 2),
+    slot: 3,
     unlock: { minDay: 12 },
     bg: 'assets/backgrounds/memorial_garden.webp',
   }),
@@ -415,22 +567,26 @@ export const LOCATIONS = [
     actionDesc: 'You climbed to the ruins and sat in the roofless nave until the light went orange. Something in you reset.',
     historyLabel: 'Sat in the temple ruins',
     tags: [Tag.SPIRITUAL, Tag.OUTDOOR, Tag.PILGRIMAGE, Tag.QUIET],
-    effects: eff(22, -8, -26, 3, 4),
+    effects: eff(22, -8, -28, 3, 4),
+    variance: vary(6, 3, 7, 2, 2),
+    slot: 4,
     unlock: { minDay: 12, minReputation: 30 },
     bg: 'assets/backgrounds/temple_ruins.webp',
   }),
   loc({
     id: 'mountain_retreat',
-    host: 'geo',
+    host: 'kopung',
     name: 'Fontainebleau Retreat',
     emoji: '🏔️',
     district: District.OUTSKIRTS,
-    desc: 'Geo\u2019s teacher\u2019s teacher built it. Silent, freezing, three days minimum, and they will not take you unless somebody vouches.',
+    desc: 'Geo\u2019s teacher\u2019s teacher built it; Kopung keeps it now, one kiln and one kettle at a time. Silent, freezing, three days minimum, and they will not take you unless somebody vouches.',
     actionLabel: 'Go on Retreat',
     actionDesc: 'Three days of silence, thin soup and thinner blankets. You came back down changed and considerably poorer.',
     historyLabel: 'Went on retreat in the mountains',
     tags: [Tag.SPIRITUAL, Tag.PILGRIMAGE, Tag.OUTDOOR, Tag.REST],
-    effects: eff(32, -22, -30, 6, 6),
+    effects: eff(32, -22, -32, 6, 6),
+    variance: vary(7, 6, 8, 3, 3),
+    slot: 6,
     unlock: { minDay: 20, minReputation: 55 },
     special: 'long_trip',
     bg: 'assets/backgrounds/mountain_retreat.webp',
@@ -446,7 +602,9 @@ export const LOCATIONS = [
     actionDesc: 'You spent the day at Brian\u2019s House of Middleway. He talked, you listened, everyone smiled a little too long. Oddly restorative, vaguely unsettling, and the woods outside were beautifully quiet.',
     historyLabel: 'Visited the House of Middleway',
     tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.OUTDOOR, Tag.QUIET],
-    effects: eff(13, -6, -14, 3, 2),
+    effects: eff(13, -6, -18, 3, 2),
+    variance: vary(4, 3, 5, 2, 1),
+    slot: 4,
     unlock: { minDay: 6, minReputation: 15 },
     // Brian invites Léon out on the first morning of the run. From day two
     // the ordinary gate above applies again.
@@ -528,4 +686,53 @@ export function evaluateUnlock(location, snap) {
 /** All locations currently open, in catalogue order. */
 export function availableLocations(snap) {
   return LOCATIONS.filter((l) => evaluateUnlock(l, snap).unlocked);
+}
+
+/**
+ * Which location fills one hub slot today.
+ *
+ * Deterministic in (slot, journey day, run seed) so the hub can rerender
+ * without the board changing under the player's hand, and so a reload of a
+ * save shows the same four places.
+ *
+ * Open locations are always preferred; a slot with nothing open yet shows a
+ * locked card with its reason, because "this will open on day 12" is more
+ * use to a player than an empty square.
+ *
+ * @param {number} slot 3-6
+ * @param {object} snap the unlock snapshot (see evaluateUnlock)
+ * @param {number} seed run seed
+ * @returns {object|null}
+ */
+export function locationForSlot(slot, snap, seed = 0) {
+  const inSlot = locationsInSlot(slot);
+  if (inSlot.length === 0) return null;
+
+  const open = inSlot.filter((l) => evaluateUnlock(l, snap).unlocked);
+  const pool = open.length > 0 ? open : inSlot;
+  const day = snap?.journeyDay ?? 1;
+  const index = hashString(`slot:${slot}:${day}`, seed >>> 0) % pool.length;
+  return pool[index];
+}
+
+/**
+ * The four rotating hub cards for today, in slot order (3, 4, 5, 6).
+ *
+ * The day-one welcome is the single exception to the rotation: on journey day
+ * one Brian's chapel takes its own slot outright rather than competing for
+ * it, so the run always opens with a friend one tap away.
+ *
+ * @returns {Array<object|null>} one entry per slot, `null` only if a slot
+ *   somehow has no locations assigned at all.
+ */
+export function dailySlotLineup(snap, seed = 0) {
+  const welcome = getLocation(WELCOME_LOCATION_ID);
+  const welcomeDay = welcome
+    && isWelcomeDay(snap?.journeyDay ?? 1)
+    && evaluateUnlock(welcome, snap).unlocked;
+
+  return HUB_SLOTS.map((slot) => {
+    if (welcomeDay && welcome.slot === slot) return welcome;
+    return locationForSlot(slot, snap, seed);
+  });
 }

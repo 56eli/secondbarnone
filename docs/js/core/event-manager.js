@@ -30,6 +30,7 @@ export class EventManager {
   constructor(rng = defaultRng) {
     this.rng = rng;
     this._allEvents = [];
+    this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;
@@ -70,7 +71,21 @@ export class EventManager {
       if (filtered.length > 0) pool = filtered;
     }
 
-    const selected = this._weightedSelect(pool);
+    // Character frequency filter: if a character fired recently,
+    // gently deprioritize their other events (not block).
+    const recentChars = new Set(this._recentIds.map(id => {
+      const ev = this._allEvents.find(e => e.id === id);
+      return ev ? ev.character : null;
+    }).filter(Boolean));
+
+    const weightedPool = pool.map((e) => {
+      if (recentChars.has(e.character)) {
+        return { ...e, weight: e.weight * 0.7 };
+      }
+      return e;
+    });
+
+    const selected = this._weightedSelect(weightedPool);
     this._remember(selected.id);
     this._scheduleNextEvent(journeyDay);
 
@@ -84,6 +99,7 @@ export class EventManager {
   }
 
   _remember(id) {
+    this._previousEventId = id;
     this._recentIds.push(id);
     if (this._recentIds.length > RECENT_MEMORY) this._recentIds.shift();
   }
@@ -119,6 +135,7 @@ export class EventManager {
   }
 
   reset() {
+    this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;

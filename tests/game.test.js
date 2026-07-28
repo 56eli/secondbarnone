@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import {
   GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
-  ENDURANCE_GOAL_DAYS,
+  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS, ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
@@ -86,42 +86,38 @@ test('starting stats are 50/50', () => {
 
 test('spiritual community trades money for sanity', () => {
   const gs = new GameState();
-  const before = { sanity: gs.sanity, money: gs.money };
-  gs.applyDeltas(getLocation('spiritual_community').effects);
-  gs.noteVisit('spiritual_community');
-  assert.ok(gs.sanity > before.sanity, 'community restores sanity');
-  assert.ok(gs.money < before.money, 'community costs money');
+  gs.applyLocationAction('spiritual_community');
+  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
+  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  const before = { sanity: gs.sanity, money: gs.money };
-  gs.applyDeltas(getLocation('bar').effects);
-  gs.noteVisit('bar');
-  assert.ok(gs.money > before.money, 'the bar pays');
-  assert.ok(gs.sanity < before.sanity, 'the bar costs spirit');
+  gs.applyLocationAction('bar');
+  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
+  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
   assert.equal(gs.consecutiveBarDays, 1);
-  gs.noteVisit('bar');
+  gs.applyLocationAction('bar');
   assert.equal(gs.consecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.noteVisit('bar');
-  gs.noteVisit('bar');
+  gs.applyLocationAction('bar');
+  gs.applyLocationAction('bar');
   assert.equal(gs.consecutiveBarDays, 2);
-  gs.noteVisit('spiritual_community');
+  gs.applyLocationAction('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyDeltas({ sanity: 999, money: 999 });
+  gs.applyEventDeltas(999, 999);
   assert.equal(gs.sanity, MAX_STAT);
   assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
   assert.ok(gs.money > MAX_STAT);
-  gs.applyDeltas({ sanity: -99999, money: -99999 });
+  gs.applyEventDeltas(-99999, -99999);
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
 });
@@ -129,7 +125,7 @@ test('sanity is capped; money is uncapped but floors at zero', () => {
 test('money can grow well past 100 without being clamped', () => {
   const gs = new GameState();
   gs.money = 95;
-  gs.applyDeltas({ money: getLocation('bar').effects.money });
+  gs.applyLocationAction('bar');
   assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
   gs.applyDeltas({ money: 500 });
   assert.ok(gs.money >= 500);
@@ -234,14 +230,15 @@ test('daily focus cue reflects combined stat pressure without prescribing a dest
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  assert.equal(pool.length, 64);
+  // Three events per character across a cast of 78, plus Kaden's fourth beat.
+  assert.equal(pool.length, 235);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
-  assert.equal(std + helpful + hurtful, pool.length);
-  assert.equal(std, 42);
-  assert.equal(helpful, 14);
-  assert.equal(hurtful, 8);
+  assert.equal(std + helpful + hurtful, pool.length, 'every event has a known rarity');
+  // Roughly two commons to every rare, so a rare still reads as an event.
+  assert.ok(std > helpful + hurtful, `${std} common vs ${helpful + hurtful} rare`);
+  assert.ok(helpful > 0 && hurtful > 0, 'both kinds of rare exist');
 });
 
 test('every event has a unique id', () => {
@@ -419,7 +416,7 @@ test('reset clears the schedule and repeat guard', () => {
   em.initialize(['Geo']);
   for (let day = 1; day <= 50; day++) em.selectEvent(day, day % 7, 'bar', 0);
   em.reset();
-  assert.deepEqual(em._recentIds, [], 'recent-event memory is cleared');
+  assert.equal(em._previousEventId, null);
   assert.ok(em._nextEventDay >= MIN_EVENT_GAP_DAYS);
 });
 

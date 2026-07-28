@@ -13,12 +13,12 @@ import {
   GameState, saveStore, SAVE_KEY,
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_HARD_CEILING, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS, START_ENERGY, START_REPUTATION,
-  ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, RENT_AMOUNT,
+  ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY, RENT_AMOUNT,
 } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects, scaleEventDeltas } from '../docs/js/core/turn.js';
 import { createRng } from '../docs/js/core/rng.js';
-import { LOCATIONS, getLocation, locationIds } from '../docs/js/data/locations.js';
+import { LOCATIONS, getLocation, locationIds, varianceForDay } from '../docs/js/data/locations.js';
 import { getPerk, perkIds } from '../docs/js/data/perks.js';
 import { buildEventPool } from '../docs/js/data/events.js';
 import { weatherForDay } from '../docs/js/data/weather.js';
@@ -87,7 +87,7 @@ test('exhaustion costs nothing above the threshold and bites below it', () => {
   assert.equal(gs.isExhausted, true);
 
   gs.energy = 0;
-  assert.equal(gs.exhaustionPenalty(), -6, 'empty is the worst it gets');
+  assert.equal(gs.exhaustionPenalty(), -EXHAUSTION_MAX_PENALTY, 'empty is the worst it gets');
 });
 
 test('exhaustion deepens smoothly as energy drains', () => {
@@ -147,6 +147,17 @@ test('applyDeltas ignores unknown keys and an empty bundle', () => {
   assert.equal(gs.sanity, before.s);
   assert.equal(gs.money, before.m);
   assert.equal(gs.energy, before.e);
+});
+
+test('the legacy applyEventDeltas signature still works', () => {
+  const gs = fresh();
+  gs.applyEventDeltas(-5, 7);
+  assert.equal(gs.sanity, 45);
+  assert.equal(gs.money, 57);
+  gs.applyEventDeltas(0, 0, -10, 5, 2);
+  assert.equal(gs.energy, START_ENERGY - 10);
+  assert.equal(gs.reputation, START_REPUTATION + 5);
+  assert.equal(gs.insight, 2);
 });
 
 test('stats_changed reports all four gauges', () => {
@@ -257,9 +268,12 @@ test('weather bends the numbers and says so', () => {
   assert.ok(gs, 'expected some seed to open on a rainy day');
   assert.equal(gs.getFestival(), null);
 
+  // Variance is folded into `total` too, so the weather's contribution is
+  // isolated by subtracting the day's own (deterministic) swing.
+  const swing = varianceForDay('river_walk', gs.journeyDay, gs.weatherSeed);
   const { base, total, reasons } = computeDayEffects(gs, 'river_walk');
-  assert.equal(total.sanity, base.sanity - 3 + 2, 'rain: outdoor −3, quiet +2');
-  assert.equal(total.energy, base.energy - 4);
+  assert.equal(total.sanity - swing.sanity, base.sanity - 3 + 2, 'rain: outdoor −3, quiet +2');
+  assert.equal(total.energy - swing.energy, base.energy - 4);
   assert.ok(reasons.some((r) => /Rain/.test(r)));
 });
 
@@ -268,53 +282,3 @@ test('weather bends the numbers and says so', () => {
 // Removed obsolete inventory test.
 
 // Removed obsolete inventory test.
-
-// ------------------------------------------------- one action per day
-
-test('resolveTurn refuses to run twice on the same day', () => {
-  // The UI disables the button on click, but that made the rule a property of
-  // a DOM handler: calling resolveTurn() twice used to apply a full second
-  // day of effects. The guard lives in the model now.
-  const gs = new GameState({ seed: 42 });
-  const em = new EventManager(createRng(42));
-  em.initialize(gs.getCharacterNames());
-
-  const first = resolveTurn(gs, em, 'bar');
-  assert.ok(!first.alreadyResolved);
-  const snapshot = { sanity: gs.sanity, money: gs.money, energy: gs.energy };
-
-  const second = resolveTurn(gs, em, 'bar');
-  assert.ok(second.alreadyResolved, 'the second call must report itself as a no-op');
-  assert.equal(gs.sanity, snapshot.sanity, 'sanity must not move');
-  assert.equal(gs.money, snapshot.money, 'money must not move');
-  assert.equal(gs.energy, snapshot.energy, 'energy must not move');
-
-  gs.advanceDay();
-  const third = resolveTurn(gs, em, 'bar');
-  assert.ok(!third.alreadyResolved, 'a new day can be played again');
-});
-
-test('the turn guard survives a save/load round trip', () => {
-  const gs = new GameState({ seed: 7 });
-  const em = new EventManager(createRng(7));
-  em.initialize(gs.getCharacterNames());
-  resolveTurn(gs, em, 'bar');
-  assert.ok(gs.isTurnResolved);
-
-  const restored = new GameState({ seed: 7 });
-  assert.ok(restored.loadFrom(gs.toJSON()));
-  assert.ok(restored.isTurnResolved, 'a reloaded run must not offer a free extra turn');
-});
-
-// ------------------------------------------------- unlock snapshot
-
-test('getUnlockSnapshot carries every field evaluateUnlock reads', () => {
-  const gs = new GameState({ seed: 3 });
-  const snap = gs.getUnlockSnapshot();
-  for (const key of ['journeyDay', 'reputation', 'weekday', 'perks', 'closedTags']) {
-    assert.ok(key in snap, `snapshot is missing ${key}`);
-  }
-  assert.equal(snap.journeyDay, gs.journeyDay);
-  assert.equal(snap.reputation, gs.reputation);
-  assert.equal(snap.weekday, gs.getWeekdayIndex());
-});

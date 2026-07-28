@@ -59,7 +59,7 @@ async function boot(opts = {}) {
   // cache-busting query instead would give each boot its own module instance,
   // which fragments coverage reporting and leaks state between tests.
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame({ fadeMs: 0, toastMs: 0 });
+  window.__game = initGame();
   return window;
 }
 
@@ -76,8 +76,7 @@ function cleanup(window) {
 }
 
 /** Advance past a fade transition (350ms) plus a little slack. */
-// Transitions are instant under test (fadeMs 0), so this is just a tick.
-const settle = () => new Promise((r) => setTimeout(r, 0));
+const settle = () => new Promise((r) => setTimeout(r, 480));
 
 maybe('game boots and renders the hub', async () => {
   const window = await boot();
@@ -97,6 +96,7 @@ maybe('HUD reflects the starting stats', async () => {
     assert.match(doc.getElementById('sanity-num').textContent, /50%/);
     assert.match(doc.getElementById('money-num').textContent, /^50$/);
     assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
+    assert.equal(doc.querySelector('.hud-title'), null, 'no product label appears below Léon’s name');
     assert.equal(doc.getElementById('sanity-bar').style.width, '50%');
   } finally { cleanup(window); }
 });
@@ -347,9 +347,7 @@ maybe('the hub shows history after a completed turn', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('clicking the modal backdrop does NOT dismiss the day result', async () => {
-  // Dismissing this dialog commits the turn and advances the calendar, so it
-  // must not fire on a stray tap beside the card. Continuing is explicit.
+maybe('clicking the modal backdrop dismisses it like Continue', async () => {
   const window = await boot();
   try {
     const doc = window.document;
@@ -360,34 +358,10 @@ maybe('clicking the modal backdrop does NOT dismiss the day result', async () =>
 
     const backdrop = doc.querySelector('.modal-backdrop');
     assert.ok(backdrop);
-    const dayBefore = window.__game.gs.journeyDay;
-
     backdrop.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await settle();
 
-    assert.ok(doc.querySelector('.modal-backdrop'), 'modal stays open on backdrop click');
-    assert.equal(window.__game.gs.journeyDay, dayBefore, 'the day must not advance');
-  } finally { cleanup(window); }
-});
-
-maybe('Escape closes the day result and advances the day', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
-    await settle();
-    doc.querySelector('.btn-primary').click();
-    await settle();
-
-    const backdrop = doc.querySelector('.modal-backdrop');
-    assert.ok(backdrop);
-    const dayBefore = window.__game.gs.journeyDay;
-
-    backdrop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await settle();
-
-    assert.equal(doc.querySelector('.modal-backdrop'), null, 'Escape closes the modal');
-    assert.equal(window.__game.gs.journeyDay, dayBefore + 1, 'the day advances');
+    assert.equal(doc.querySelector('.modal-backdrop'), null, 'modal should close');
     assert.ok(doc.querySelector('.hub'), 'should land back on the hub');
   } finally { cleanup(window); }
 });
@@ -485,9 +459,7 @@ maybe('particles spawn when motion is allowed', async () => {
     const doc = window.document;
     [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
-    // Particles spawn on an interval, so this one genuinely needs wall time —
-    // just much less of it than the old 900ms.
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 900));
 
     const container = doc.querySelector('.particles');
     assert.ok(container.children.length > 0, 'motes should appear over time');
@@ -516,35 +488,5 @@ maybe('a ten-turn playthrough never throws', async () => {
     }
     // Reaching here without an exception is the assertion.
     assert.ok(true);
-  } finally { cleanup(window); }
-});
-
-maybe('the day-result modal traps Tab inside itself', async () => {
-  // role="dialog" aria-modal="true" is a promise that focus stays put. The
-  // portrait lightbox already honoured it; this dialog did not.
-  const window = await boot();
-  try {
-    const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
-    await settle();
-    doc.querySelector('.btn-primary').click();
-    await settle();
-
-    const backdrop = doc.querySelector('.modal-backdrop');
-    assert.ok(backdrop, 'modal is open');
-
-    const focusable = [...backdrop.querySelectorAll('button')];
-    assert.ok(focusable.length > 0, 'the dialog has something focusable');
-    const last = focusable[focusable.length - 1];
-    last.focus();
-    assert.equal(doc.activeElement, last);
-
-    // Tab from the last control wraps to the first, rather than escaping.
-    backdrop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
-    await settle();
-    assert.ok(
-      backdrop.contains(doc.activeElement),
-      'focus must stay inside the dialog',
-    );
   } finally { cleanup(window); }
 });

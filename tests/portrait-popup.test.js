@@ -50,7 +50,7 @@ async function boot(opts = {}) {
   });
 
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame({ fadeMs: 0, toastMs: 0, ...opts });
+  window.__game = initGame(opts);
   return window;
 }
 
@@ -62,8 +62,7 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-// Transitions are instant under test (fadeMs 0), so this is just a tick.
-const settle = () => new Promise((r) => setTimeout(r, 0));
+const settle = () => new Promise((r) => setTimeout(r, 480));
 
 maybe('clicking the HUD portrait enlarges the picture and nothing else', async () => {
   const window = await boot();
