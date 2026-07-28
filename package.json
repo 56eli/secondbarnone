@@ -1,6 +1,6 @@
 {
   "name": "secondbarnone",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A narrative balance game \u2014 L\u00e9on, a spiritual community, a bar, and a city full of people.",
   "type": "module",
   "private": true,
@@ -14,7 +14,10 @@
     "serve": "node scripts/serve.js",
     "assets": "./scripts/optimize-assets.sh",
     "check": "npm test && node scripts/check-assets.js",
-    "typecheck": "tsc --project tsconfig.json"
+    "typecheck": "tsc --project tsconfig.json",
+    "test:fast": "node --test tests/balance.test.js tests/cast.test.js tests/coverage.test.js tests/exploits.test.js tests/game.test.js tests/invariants.test.js tests/new-features.test.js tests/presentation.test.js tests/progression.test.js tests/slots.test.js tests/systems.test.js tests/world.test.js",
+    "test:ui": "node --test tests/dom.test.js tests/ui.test.js tests/accessibility.test.js tests/portrait-popup.test.js",
+    "test:assets": "node --test tests/portrait-assets.test.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

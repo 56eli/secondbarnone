@@ -19,6 +19,7 @@ import {
   indexToSlot,
 } from '../data/locations.js';
 import { PERKS, getPerk } from '../data/perks.js';
+import { OBSERVANCES, getObservance } from '../data/observances.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { forecast } from '../data/weather.js';
 import { upcomingFestivals } from '../data/festivals.js';
@@ -46,6 +47,21 @@ export function fmtDelta(n) {
   const v = Math.round(n);
   if (v === 0) return '—';
   return `${v > 0 ? '+' : ''}${v}`;
+}
+
+/**
+ * The weather emoji to stamp on a day's effect chips, or '' if the weather
+ * did not move the numbers.
+ *
+ * Reads the structured `factors` from `computeDayEffects()`. This replaced
+ * three copy-pasted nine-clause blocks that string-matched emoji back out of
+ * human-readable prose to recover a value the engine already had — the
+ * pattern behind the `weatherEmoji` ReferenceError in PR #23/#24.
+ *
+ * @param {{kind:string, emoji:string}[]} [factors]
+ */
+export function weatherEmojiFor(factors = []) {
+  return factors.find((f) => f.kind === 'weather')?.emoji ?? '';
 }
 
 const STAT_META = [
@@ -267,21 +283,8 @@ export function renderHub(gs, handlers) {
   // The two founding places are the primary choices.
   const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
-    const { total, reasons } = computeDayEffects(gs, id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, factors } = computeDayEffects(gs, id);
+    const weatherEmoji = weatherEmojiFor(factors);
     return el(
       'button',
       {
@@ -313,21 +316,8 @@ export function renderHub(gs, handlers) {
 
   const otherChoices = selected.map((location, offset) => {
     const slot = HUB_SLOTS[offset];
-    const { total, reasons } = computeDayEffects(gs, location.id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, factors } = computeDayEffects(gs, location.id);
+    const weatherEmoji = weatherEmojiFor(factors);
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
@@ -433,21 +423,8 @@ export function renderHub(gs, handlers) {
 
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
   const location = getLocation(locationId);
-  const { total, reasons } = computeDayEffects(gs, locationId);
-  const weatherEmojiForLocation = reasons.some(
-    (r) =>
-      r.includes('☀️') ||
-      r.includes('☁️') ||
-      r.includes('🌧️') ||
-      r.includes('⛈️') ||
-      r.includes('🌫️') ||
-      r.includes('❄️') ||
-      r.includes('🔥') ||
-      r.includes('🧊') ||
-      r.includes('🌸'),
-  )
-    ? (gs.getWeather()?.emoji ?? '')
-    : '';
+  const { total, reasons, factors } = computeDayEffects(gs, locationId);
+  const weatherEmojiForLocation = weatherEmojiFor(factors);
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -519,7 +496,10 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
 /** Extra interaction offered by a handful of locations. */
 function renderSpecial(gs, location, onSpecial) {
   if (location.special === 'prepay_rent') {
-    const cost = gs.rentDue();
+    // Ask what a week ahead actually costs rather than assuming it is this
+    // week's rent: rent escalates, and `prepayCost()` prices each week at the
+    // Sunday it covers so paying ahead is never a discount.
+    const cost = typeof gs.prepayCost === 'function' ? gs.prepayCost(1) : gs.rentDue();
     const covered = gs.rentPrepaidUntilDay > gs.journeyDay;
     return el(
       'div',
@@ -573,7 +553,7 @@ function startParticles(container) {
 
 // ----------------------------------------------------------------- perks
 
-export function renderPerks(gs, { onBuy, onBack }) {
+export function renderPerks(gs, { onBuy, onBack, onObserve }) {
   const rows = PERKS.map((perk) => {
     const owned = gs.hasPerk(perk.id);
     const check = gs.canBuy(perk.id);
@@ -607,6 +587,45 @@ export function renderPerks(gs, { onBuy, onBack }) {
     );
   });
 
+  // ---- observances: the repeatable half of the insight economy ----
+  // Perks are who Léon has become and are bought out by ~day 20; observances
+  // are what he is doing about tomorrow, and never stop being buyable. See
+  // data/observances.js for the design rules.
+  const pending = gs.pendingObservance;
+  const pendingDef = pending ? getObservance(pending.id) : null;
+
+  const observanceRows = OBSERVANCES.map((o) => {
+    const check =
+      typeof gs.canObserve === 'function' ? gs.canObserve(o.id) : { ok: false, reason: '' };
+    const active = pending?.id === o.id;
+    return el(
+      'div',
+      {
+        class: `perk-row observance-row${active ? ' owned' : ''}${!active && !check.ok ? ' blocked' : ''}`,
+      },
+      el('span', { class: 'perk-emoji', text: o.emoji }),
+      el(
+        'div',
+        { class: 'perk-meta' },
+        el('div', { class: 'perk-name', text: o.name }),
+        el('div', { class: 'perk-desc', text: o.desc }),
+        el('div', {
+          class: 'perk-req',
+          text: `lasts ${o.duration} day${o.duration === 1 ? '' : 's'}`,
+        }),
+      ),
+      active
+        ? el('span', { class: 'perk-owned', text: `✓ until day ${pending.untilDay}` })
+        : el('button', {
+            class: 'btn btn-small',
+            disabled: !check.ok,
+            title: check.ok ? `Begin this observance for ${o.cost} insight` : check.reason,
+            text: `${o.cost} 🔮`,
+            onclick: () => onObserve?.(o.id),
+          }),
+    );
+  });
+
   return el(
     'div',
     { class: 'screen' },
@@ -615,7 +634,17 @@ export function renderPerks(gs, { onBuy, onBack }) {
       class: 'screen-sub',
       text: `Quiet days give insight. Insight buys habits that stay bought. You have ${gs.insight}.`,
     }),
+    el('h3', { class: 'section-h', text: 'Habits — bought once, kept for good' }),
     el('div', { class: 'perk-list' }, ...rows),
+
+    el('h3', { class: 'section-h', text: 'Observances — kept for a while, then let go' }),
+    el('p', {
+      class: 'screen-sub',
+      text: pendingDef
+        ? `You are keeping ${pendingDef.name} until day ${pending.untilDay}. Beginning another sets this one down.`
+        : 'Something to hold for the next few days. One at a time.',
+    }),
+    el('div', { class: 'perk-list' }, ...observanceRows),
     backRow(onBack),
   );
 }
@@ -623,7 +652,15 @@ export function renderPerks(gs, { onBuy, onBack }) {
 // --------------------------------------------------------------- almanac
 
 export function renderAlmanac(gs, { onBack }) {
-  const days = forecast(gs.journeyDay, gs.weatherSeed, gs.getSeason(), 4);
+  // Pass the calendar date, not just today's season: a forecast that spans a
+  // season boundary has to derive each day's season for itself. See the note
+  // on `forecast()` — journey day 60 lands on 1 March in a default run.
+  const days = forecast(
+    gs.journeyDay,
+    gs.weatherSeed,
+    { monthIndex: gs.monthIndex, dayOfMonth: gs.dayOfMonth, year: gs.year },
+    4,
+  );
   const festivals = upcomingFestivals(gs.monthIndex, gs.dayOfMonth, 3);
   const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
   const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
@@ -648,6 +685,48 @@ export function renderAlmanac(gs, { onBack }) {
 
     el('h3', { class: 'section-h', text: 'Energy Outlook' }),
     el('p', { class: 'energy-forecast', text: forecastEnergy }),
+
+    // The rent curve, stated plainly. Rent now rises over a run, and a
+    // pressure the player cannot see coming is just an ambush.
+    el('h3', { class: 'section-h', text: 'The Rent' }),
+    el('p', {
+      class: 'energy-forecast',
+      text:
+        typeof gs.baseRentOn === 'function'
+          ? (() => {
+              const now = gs.baseRentOn();
+              const next = gs.nextRentRiseDay?.();
+              return next
+                ? `${now} a week now. It goes up to ${gs.baseRentOn(next)} on day ${next}.`
+                : `${now} a week. It will not rise again.`;
+            })()
+          : '',
+    }),
+
+    // Mastery was previously live code with no achievement, no almanac entry
+    // and no mention in any document — unreachable *and* undiscoverable.
+    ...(typeof gs.masteryProgress === 'function'
+      ? [
+          el('h3', { class: 'section-h', text: gs.masteryWon ? 'Mastery — kept' : 'Mastery' }),
+          el('p', {
+            class: 'energy-forecast',
+            text: gs.masteryWon
+              ? gs.masteryMessage
+              : 'A hundred days, well known and well travelled, held without leaning on the bar.',
+          }),
+          el(
+            'ul',
+            { class: 'mastery-list' },
+            ...gs.masteryProgress().map((row) => {
+              const ok = row.atMost ? row.now <= row.need : row.now >= row.need;
+              return el('li', {
+                class: ok ? 'mastery-met' : '',
+                text: `${ok ? '✓' : '·'} ${row.label}: ${row.now} / ${row.atMost ? 'at most ' : ''}${row.need}`,
+              });
+            }),
+          ),
+        ]
+      : []),
 
     el('h3', { class: 'section-h', text: 'Forecast' }),
     el(
@@ -716,14 +795,36 @@ const GROUP_TITLES = {
   [Role.SIDE_CHARACTER]: 'Side Characters',
 };
 
-export function renderCharacters(profiles, { onBack }) {
+/**
+ * How well Léon knows someone, in words.
+ *
+ * Affinity is a raw count of shared moments; this is the only place it is
+ * turned into language, so the thresholds live in one spot and the People
+ * screen never shows the player a bare integer.
+ */
+export function acquaintanceLabel(count) {
+  if (count <= 0) return '';
+  if (count === 1) return 'You have crossed paths once.';
+  if (count < 4) return `You have crossed paths ${count} times.`;
+  if (count < 8) return `A familiar face — ${count} times now.`;
+  return `You know each other well by now — ${count} times.`;
+}
+
+/**
+ * @param {object[]} profiles
+ * @param {{onBack: () => void, affinity?: Record<string, number>}} handlers
+ */
+export function renderCharacters(profiles, { onBack, affinity = {} }) {
   const detail = el(
     'div',
-    { class: 'detail' },
+    // aria-live: selecting a row swaps this panel's contents, and a screen
+    // reader was previously told nothing at all when it changed.
+    { class: 'detail', 'aria-live': 'polite', tabindex: '-1' },
     el('p', { class: 'detail-empty', text: 'Select a character to read their story.' }),
   );
 
   const showDetail = (p) => {
+    const met = affinity[p.id] ?? 0;
     detail.replaceChildren(
       el(
         'div',
@@ -734,6 +835,7 @@ export function renderCharacters(profiles, { onBack }) {
           {},
           el('h3', { text: p.name }),
           el('div', { class: `detail-role role-${p.role}`, text: roleLabel(p.role) }),
+          met > 0 ? el('div', { class: 'detail-met', text: acquaintanceLabel(met) }) : null,
         ),
       ),
       el('p', { text: p.bio }),
@@ -765,6 +867,16 @@ export function renderCharacters(profiles, { onBack }) {
         el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
         el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` }),
       ),
+      // A quiet marker for people this run has actually met, so the roster
+      // reads as "who I know" rather than an encyclopaedia handed over at
+      // turn one.
+      (affinity[p.id] ?? 0) > 0
+        ? el('span', {
+            class: 'char-met',
+            text: `×${affinity[p.id]}`,
+            title: acquaintanceLabel(affinity[p.id]),
+          })
+        : null,
     );
 
     row.addEventListener('click', () => {
@@ -876,7 +988,23 @@ export function renderGameOver(gs, message, { onRestart }) {
 
 // ----------------------------------------------------------------- modal
 
-export function renderResultModal(result, gs, { onContinue }) {
+/**
+ * The end-of-day report.
+ *
+ * Since `resolveTurn()` became atomic this is a *report on a day that is
+ * already over*, not a commit step — dismissing it cannot change the outcome,
+ * which is why the backdrop and Escape are both allowed to close it.
+ *
+ * `fatal: true` is the same report for the day that ended the run. Showing it
+ * matters: the player needs to see the event, the rent charge or the
+ * exhaustion line that killed them, and previously the game cut straight from
+ * the location screen to a tombstone.
+ *
+ * @param {object} result
+ * @param {object} gs
+ * @param {{onContinue: () => void, fatal?: boolean}} handlers
+ */
+export function renderResultModal(result, gs, { onContinue, fatal = false }) {
   const {
     actionDesc,
     event,
@@ -888,6 +1016,7 @@ export function renderResultModal(result, gs, { onContinue }) {
     exhaustion,
     masteryWon,
     masteryMessage,
+    resolvedDate,
   } = result;
 
   const eventChar = event?.character ? findCharacter(gs, event.character) : null;
@@ -924,8 +1053,15 @@ export function renderResultModal(result, gs, { onContinue }) {
 
   const modal = el(
     'div',
-    { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },
-    el('h3', { text: 'End of Day' }),
+    {
+      class: `modal${fatal ? ' modal-fatal' : ''}`,
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': fatal ? 'The day the run ended' : 'Day result',
+      tabindex: '-1',
+    },
+    el('h3', { text: fatal ? 'How It Ended' : 'End of Day' }),
+    resolvedDate ? el('p', { class: 'modal-date', text: resolvedDate }) : null,
     el('p', { class: 'modal-weather', text: `${weather.emoji} ${weather.name}` }),
     el('p', { text: actionDesc }),
     notes.length > 0
@@ -940,13 +1076,33 @@ export function renderResultModal(result, gs, { onContinue }) {
     el(
       'div',
       { class: 'modal-actions' },
-      el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue }),
+      el('button', {
+        class: 'btn btn-primary',
+        text: fatal ? 'See how it ended →' : 'Continue →',
+        onclick: onContinue,
+      }),
     ),
   );
 
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
+
+  // Escape closes the report, matching the portrait lightbox and the settings
+  // dialog. The day is already resolved and saved, so there is nothing to
+  // confirm and nothing a stray key can cost the player.
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      document.removeEventListener('keydown', onKey);
+      onContinue();
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  backdrop._teardown = () => document.removeEventListener('keydown', onKey);
+
   backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) onContinue();
+    if (e.target === backdrop) {
+      document.removeEventListener('keydown', onKey);
+      onContinue();
+    }
   });
   return backdrop;
 }

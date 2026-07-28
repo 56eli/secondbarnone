@@ -21,6 +21,15 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
+    <!--
+      The document's one h1. It is visually hidden rather than absent: the
+      page had no top-level heading at all, so the heading outline started at
+      h2 and a screen-reader user landing here was told the name of the
+      browser tab and nothing else. The game's own title bar is the HUD, which
+      is Léon's identity row, so the h1 belongs off-screen.
+    -->
+    <h1 class="visually-hidden">secondbarnone — a narrative balance game</h1>
+    <a class="skip-link" href="#content">Skip to today’s choice</a>
     <div id="app">
       <header id="hud">
         <div class="hud-top">

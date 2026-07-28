@@ -21,7 +21,15 @@ week of rest puts you right and a week of pushing puts you in the ground.
 
 **Play:** https://56eli.github.io/secondbarnone/
 
-For design details and internals, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
+### Documentation map
+
+| Document | What it is for |
+| --- | --- |
+| [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) | What the game is — design and internals |
+| [docs/DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md) | **How decisions get made. Read before changing anything.** |
+| [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) | What is not done yet, ordered, with reasoning |
+| [TECHNICAL_REVIEW.md](TECHNICAL_REVIEW.md) | Point-in-time audit that produced the roadmap |
+| [DEPLOY.md](DEPLOY.md) | Shipping |
 
 ---
 
@@ -34,8 +42,8 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
 | Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                            |
-| Automated tests | 0                               | **371**                                                                         |
-| Coverage        | —                               | **~99.7%**                                                                      |
+| Automated tests | 0                               | **439**                                                                         |
+| Coverage        | —                               | **~99.0%**                                                                      |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -56,18 +64,35 @@ are subject to CORS.
 
 ## Tests
 
+Tests are tiered so the gate you run constantly is fast:
+
 ```bash
-npm test                # 371 tests
-npm run coverage        # with a coverage table
+npm run test:fast       # 325 rules tests — balance, invariants, exploits — ~3s
+npm run test:ui         # jsdom: DOM, UI, accessibility — ~100s
+npm run test:assets     # image dimensions, hashes, budgets (needs ImageMagick)
+npm test                # everything — 439 tests
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
 
+Run `test:fast` while working. A CI workflow covering every gate is ready in
+`docs/ci/` and takes one command to enable — see `docs/ci/README.md`.
+
 Current coverage — `npm run coverage:check`:
 
 ```
-all files    99.65 line | 90.38 branch | 96.00 funcs
+all files    99.02 line | 87.72 branch | 95.82 funcs
 ```
+
+Three suites are worth knowing about:
+
+- **`tests/invariants.test.js`** — property-based. States what must be true of
+  *every* reachable state and fuzzes thousands of them. Added because 371
+  example-based tests at 99.5% coverage missed two serious bugs.
+- **`tests/exploits.test.js`** — one test per way a player could once get
+  something for nothing. Each reproduces the exploit as real operations.
+- **`tests/accessibility.test.js`** — drives the real UI and checks the
+  promises (focus is actually trapped), not the attributes.
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
 deterministic while normal play stays random.
@@ -182,5 +207,16 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 
 ## Known gaps
 
+See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for the full list with
+reasoning. The headlines:
+
+- **The asset budget has ~17 KB of headroom** against a hard-failing 8 MB
+  check, so adding a single character currently breaks the build. This blocks
+  all content work and is roadmap item 1.1.
+- **The founding pair account for ~7% of days played.** The two locations the
+  game is framed around are dominated by later ones.
+- **A 60-day run sees ~17 of 235 events** — about 7% of the written content.
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
-- Background music is a small compressed warm piano loop with a Settings slider; browser autoplay rules mean it starts only after player interaction and non-zero volume.
+- Background music is a small compressed warm piano loop, defaulting to 50% and
+  controlled from Settings; browser autoplay rules mean it starts only after
+  player interaction.

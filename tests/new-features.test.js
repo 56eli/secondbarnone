@@ -1,16 +1,22 @@
 /** Tests for new gameplay loop improvements. */
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { GameState, migrateSave } from '../docs/js/core/game-state.js';
+import { GameState, migrateSave, CURRENT_SAVE_VERSION } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 
 describe('new gameplay loop improvements', () => {
-  it('migrates v3 saves to v5', () => {
+  it('migrates a v3 save all the way to the current schema', () => {
     const v3 = { v: 3, sanity: 50, money: 50, journeyDay: 5 };
     const migrated = migrateSave(v3);
-    assert.strictEqual(migrated.v, 5);
+    // Assert against the constant so a schema bump is a deliberate change to
+    // the migration chain rather than a failure in every test that mentions
+    // a version number.
+    assert.strictEqual(migrated.v, CURRENT_SAVE_VERSION);
     assert.strictEqual(migrated.reputation, 10);
     assert.strictEqual(migrated.energy, 100);
+    // v5 -> v6 defaults must also be applied on the way through.
+    assert.strictEqual(migrated.pendingObservance, null);
+    assert.deepStrictEqual(migrated.affinity, {});
   });
 
   it('checks second win requires reputation and exploration', () => {
@@ -18,7 +24,26 @@ describe('new gameplay loop improvements', () => {
     gs.journeyDay = 100;
     gs.reputation = 85;
     gs.money = 250;
-    gs.visitedLocations = new Set(['spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic', 'river_walk', 'community_garden', 'farmers_market', 'bathhouse', 'night_market', 'flea_market', 'public_library', 'pawn_shop', 'radio_station', 'open_mic', 'landlord_office', 'sato_studio', 'alex_cocktail_bar']);
+    gs.visitedLocations = new Set([
+      'spiritual_community',
+      'bar',
+      'home_loft',
+      'rooftop',
+      'free_clinic',
+      'river_walk',
+      'community_garden',
+      'farmers_market',
+      'bathhouse',
+      'night_market',
+      'flea_market',
+      'public_library',
+      'pawn_shop',
+      'radio_station',
+      'open_mic',
+      'landlord_office',
+      'sato_studio',
+      'alex_cocktail_bar',
+    ]);
     gs.consecutiveBarDays = 2;
     gs.maxConsecutiveBarDays = 5;
     assert.strictEqual(gs.checkSecondWin(), true);
@@ -49,7 +74,9 @@ describe('new gameplay loop improvements', () => {
     gs.energy = 20;
     const nudge = gs.getDailyNudge();
     assert.ok(typeof nudge.text === 'string');
-    assert.ok(nudge.text.includes('Pace') || nudge.text.includes('empty') || nudge.text.includes('rest'));
+    assert.ok(
+      nudge.text.includes('Pace') || nudge.text.includes('empty') || nudge.text.includes('rest'),
+    );
   });
 });
 
@@ -66,7 +93,26 @@ describe('mastery bar-streak memory', () => {
     gs.journeyDay = 100;
     gs.reputation = 85;
     gs.money = 250;
-    gs.visitedLocations = new Set(['spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic', 'river_walk', 'community_garden', 'farmers_market', 'bathhouse', 'night_market', 'flea_market', 'public_library', 'pawn_shop', 'radio_station', 'open_mic', 'landlord_office', 'sato_studio', 'alex_cocktail_bar']);
+    gs.visitedLocations = new Set([
+      'spiritual_community',
+      'bar',
+      'home_loft',
+      'rooftop',
+      'free_clinic',
+      'river_walk',
+      'community_garden',
+      'farmers_market',
+      'bathhouse',
+      'night_market',
+      'flea_market',
+      'public_library',
+      'pawn_shop',
+      'radio_station',
+      'open_mic',
+      'landlord_office',
+      'sato_studio',
+      'alex_cocktail_bar',
+    ]);
     assert.strictEqual(gs.checkSecondWin(), false);
   });
 });

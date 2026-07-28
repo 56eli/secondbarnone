@@ -1,0 +1,93 @@
+# Continuous integration.
+#
+# Every quality gate in this repo used to be voluntary: `npm run check` existed
+# and nothing ran it, which is how a `ReferenceError` in the hub renderer
+# reached production (PRs #23/#24). This workflow makes the gates mandatory on
+# anything targeting a long-lived branch.
+#
+# The job is split to match the test tiers in package.json, so a failure names
+# the layer that broke rather than "tests failed".
+
+name: CI
+
+on:
+  push:
+    branches: [main, crazy-branch]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, types, formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck (JSDoc via tsc --checkJs)
+        run: npm run typecheck
+      - name: Formatting
+        run: npm run format:check
+
+  rules:
+    name: Game rules (fast tier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      # Pure logic: balance, invariants, exploits, content catalogue. Runs in
+      # about three seconds, so it is the gate that should fail first.
+      - run: npm run test:fast
+
+  interface:
+    name: UI and accessibility (jsdom)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:ui
+
+  assets:
+    name: Asset integrity and budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install ImageMagick
+        # tests/portrait-assets.test.js measures the art itself and skips
+        # cleanly without this; on CI we want it to actually run.
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - run: npm install --no-audit --no-fund
+      - run: npm run test:assets
+      - name: Referenced assets exist and fit the budget
+        run: node scripts/check-assets.js
+
+  coverage:
+    name: Coverage floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run coverage:check

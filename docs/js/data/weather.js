@@ -162,12 +162,77 @@ export function weatherForDay(day, seed = 0, season = 'Winter') {
   return pool[pool.length - 1];
 }
 
-/** Three-day outlook used by the almanac panel. */
-export function forecast(fromDay, seed, season, count = 3) {
-  return Array.from({ length: count }, (_, i) => ({
-    day: fromDay + i,
-    weather: weatherForDay(fromDay + i, seed, season),
-  }));
+/** Month lengths, for projecting the calendar forward inside a forecast. */
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+
+/** The season a given month index falls in. Mirrors `GameState.getSeason()`. */
+export function seasonForMonth(monthIndex) {
+  if (monthIndex === 11 || monthIndex === 0 || monthIndex === 1) return 'Winter';
+  if (monthIndex >= 2 && monthIndex <= 4) return 'Spring';
+  if (monthIndex >= 5 && monthIndex <= 7) return 'Summer';
+  return 'Autumn';
+}
+
+/**
+ * The multi-day outlook the almanac panel shows.
+ *
+ * ## Why this takes a calendar date
+ *
+ * `weatherForDay()` hashes the **season** along with the day, and the season
+ * is a property of the calendar date, not of the journey day. The old
+ * signature took a single `season` and applied today's to all four cells, so
+ * every forecast that spanned 1 March, 1 June, 1 September or 1 December
+ * predicted the wrong weather for the days on the far side of the boundary.
+ *
+ * That was 1.45% of all forecast cells — small in aggregate, and it landed
+ * squarely on the day that matters most: **journey day 60, the endurance
+ * goal, falls on 1 March 2026** in a default run, so the forecast lied on the
+ * run's most important morning. It also broke the game's own stated contract
+ * that "weather is written down four days in advance".
+ *
+ * Passing the date lets the projection roll the calendar forward per cell and
+ * derive each day's season honestly. The legacy `(fromDay, seed, season,
+ * count)` shape is still accepted so old callers and tests keep working; it
+ * simply cannot be correct across a boundary, which is why every caller in
+ * the game now passes a date.
+ *
+ * @param {number} fromDay journey day of the first cell
+ * @param {number} seed run seed
+ * @param {string|{monthIndex:number, dayOfMonth:number, year:number}} seasonOrDate
+ * @param {number} [count]
+ */
+export function forecast(fromDay, seed, seasonOrDate, count = 3) {
+  // Legacy call: a bare season string. Correct except across a boundary.
+  if (typeof seasonOrDate === 'string' || !seasonOrDate) {
+    const season = seasonOrDate || 'Winter';
+    return Array.from({ length: count }, (_, i) => ({
+      day: fromDay + i,
+      season,
+      weather: weatherForDay(fromDay + i, seed, /** @type {string} */ (season)),
+    }));
+  }
+
+  let { monthIndex, dayOfMonth, year } =
+    /** @type {{monthIndex:number, dayOfMonth:number, year:number}} */ (seasonOrDate);
+  const out = [];
+  for (let i = 0; i < count; i += 1) {
+    const season = seasonForMonth(monthIndex);
+    out.push({ day: fromDay + i, season, weather: weatherForDay(fromDay + i, seed, season) });
+    // Roll one calendar day forward, exactly as GameState does.
+    dayOfMonth += 1;
+    let maxDay = DAYS_IN_MONTH[monthIndex];
+    if (monthIndex === 1 && isLeapYear(year)) maxDay = 29;
+    if (dayOfMonth > maxDay) {
+      dayOfMonth = 1;
+      monthIndex += 1;
+      if (monthIndex >= 12) {
+        monthIndex = 0;
+        year += 1;
+      }
+    }
+  }
+  return out;
 }
 
 /** Tags a weather type closes down for the day. */
