@@ -35,10 +35,14 @@ export const Role = Object.freeze({
 /** Display label for a role. */
 export function roleLabel(role) {
   switch (role) {
-    case Role.PROTAGONIST: return 'Protagonist';
-    case Role.ARCH_NEMESIS: return 'Arch Nemesis';
-    case Role.RIVAL: return 'Rival';
-    default: return 'Side Character';
+    case Role.PROTAGONIST:
+      return 'Protagonist';
+    case Role.ARCH_NEMESIS:
+      return 'Arch Nemesis';
+    case Role.RIVAL:
+      return 'Rival';
+    default:
+      return 'Side Character';
   }
 }
 
@@ -78,7 +82,8 @@ const RAW = [
     name: 'Geo',
     role: Role.SIDE_CHARACTER,
     bio: 'An elderly sage who was one of the first to join Léon\u2019s community. Geo spent decades traveling the world studying meditation techniques. His quiet wisdom and gentle humor ground the community when tensions rise.',
-    relationship: 'Geo is Léon\u2019s mentor and closest confidant. He sees in Léon the same restless searching he felt in his own youth.',
+    relationship:
+      'Geo is Léon\u2019s mentor and closest confidant. He sees in Léon the same restless searching he felt in his own youth.',
     locationId: 'spiritual_community',
   },
   {
@@ -86,7 +91,8 @@ const RAW = [
     name: 'Lakshay',
     role: Role.SIDE_CHARACTER,
     bio: 'Runs the IT department nobody upstairs knows they have. Two floors below the meditation hall, in a vaulted cellar that used to hold wine, Lakshay keeps racks of servers humming through the night — a digitised library of scanned sutras, out-of-print commentaries, recorded dharma talks and every session the community has ever taped. He calls it the archive. Everyone else calls it the basement. He has never lost a byte, mirrors everything three times, and gets genuinely emotional about backup schedules. A brass singing bowl sits on top of rack one, which he insists is for humidity and not for luck.',
-    relationship: 'Lakshay quietly digitised Léon\u2019s earliest, worst guided meditations and refuses to delete them, on the grounds that an archive that only keeps the good parts is not an archive. He brings chai down the stairs and forgets to drink it.',
+    relationship:
+      'Lakshay quietly digitised Léon\u2019s earliest, worst guided meditations and refuses to delete them, on the grounds that an archive that only keeps the good parts is not an archive. He brings chai down the stairs and forgets to drink it.',
     locationId: 'spiritual_community',
   },
   {
@@ -94,7 +100,8 @@ const RAW = [
     name: 'Arian',
     role: Role.SIDE_CHARACTER,
     bio: 'Drinks, and tells Léon\u2019s stories better than Léon does. Give Arian a glass and a room and he will produce the founding legend of the community — the burst pipe, the first winter, the night the landlord came round — polished, timed, funnier every year and only loosely true. He is the community\u2019s unofficial memory and its least reliable narrator. Nobody has settled whether he drinks to keep the demons out or because they are already in and drinking with him. Arian tells it both ways depending on the hour, and laughs either way.',
-    relationship: 'Arian was there for most of what he describes, which is why Léon cannot simply correct him. He is fond of Arian and worried about him in roughly equal measure, and has never once found the right evening to say so.',
+    relationship:
+      'Arian was there for most of what he describes, which is why Léon cannot simply correct him. He is fond of Arian and worried about him in roughly equal measure, and has never once found the right evening to say so.',
     locationId: 'bar',
   },
   {
@@ -102,7 +109,8 @@ const RAW = [
     name: 'Simon',
     role: Role.SIDE_CHARACTER,
     bio: 'A weathered veteran of intentional communities, Simon has seen dozens of utopian projects rise and fall. He brings hard-earned realism about what makes communities last or collapse.',
-    relationship: 'Simon respects Léon\u2019s vision but isn\u2019t shy about pointing out when idealism blinds him to practical realities.',
+    relationship:
+      'Simon respects Léon\u2019s vision but isn\u2019t shy about pointing out when idealism blinds him to practical realities.',
     locationId: 'landlord_office',
   },
   {
@@ -110,7 +118,8 @@ const RAW = [
     name: 'Kaj',
     role: Role.SIDE_CHARACTER,
     bio: 'Reads. That is the whole of it, and it turns out to be a lot. Kaj arrives early, takes the corner of the hall with the good lamp, and disappears into a book until someone needs something — philosophy, poetry, a battered thriller, the instruction manual for the boiler, it genuinely does not matter. Towers of finished books fence the cushion in. Kaj is the person the community asks when nobody can remember where an idea came from, and is usually right, and never makes a thing of it.',
-    relationship: 'Kaj hands Léon a book roughly once a month without explanation or recommendation, and has never once asked whether he read it. He has read most of them.',
+    relationship:
+      'Kaj hands Léon a book roughly once a month without explanation or recommendation, and has never once asked whether he read it. He has read most of them.',
     locationId: 'public_library',
   },
 
@@ -120,7 +129,8 @@ const RAW = [
     name: 'Dorian',
     role: Role.SIDE_CHARACTER,
     bio: 'Known throughout the bar for one sentence: \u201cI\u2019m old. I don\u2019t want to do anything.\u201d He deploys it against fundraisers, karaoke, group photographs, the quiz, moving one seat along, and the suggestion that he might enjoy some fresh air. It is not bitterness — Dorian is perfectly content, arriving at the same hour, occupying the same red armchair, declining everything with enormous warmth. He has reached the stage of life where doing nothing is a considered position, and he defends it with the calm of a man who knows he has earned it.',
-    relationship: 'Dorian has refused every single thing Léon has ever proposed and has never once missed a shift Léon was working. Léon has stopped asking and started simply setting the glass down, which Dorian regards as real progress.',
+    relationship:
+      'Dorian has refused every single thing Léon has ever proposed and has never once missed a shift Léon was working. Léon has stopped asking and started simply setting the glass down, which Dorian regards as real progress.',
     locationId: 'bar',
   },
   {
@@ -128,7 +138,8 @@ const RAW = [
     name: 'Barret',
     role: Role.SIDE_CHARACTER,
     bio: 'The bar\u2019s owner, a burly warm-hearted man who gave Léon a job when he needed it most. Barret runs the bar like a family, remembering every regular\u2019s name and drink.',
-    relationship: 'Barret is like a father figure to Léon. He doesn\u2019t fully understand the spiritual community thing, but he respects Léon\u2019s dedication.',
+    relationship:
+      'Barret is like a father figure to Léon. He doesn\u2019t fully understand the spiritual community thing, but he respects Léon\u2019s dedication.',
     locationId: 'bar',
   },
   {
@@ -136,7 +147,8 @@ const RAW = [
     name: 'Ethan',
     role: Role.SIDE_CHARACTER,
     bio: 'A young college student who works part-time at the bar. Ethan is bright-eyed and curious about everything, including Léon\u2019s double life. He has started attending meditation sessions on weekends.',
-    relationship: 'Ethan sees Léon as a mentor figure and is increasingly drawn to the idea of a more meaningful life.',
+    relationship:
+      'Ethan sees Léon as a mentor figure and is increasingly drawn to the idea of a more meaningful life.',
     locationId: 'house_of_middleway',
   },
   {
@@ -144,7 +156,8 @@ const RAW = [
     name: 'Matt',
     role: Role.SIDE_CHARACTER,
     bio: 'A laid-back surfer-turned-bartender who works the weekend shifts. Matt\u2019s philosophy is simple: good waves, good drinks, good people. His effortless calm is contagious.',
-    relationship: 'Matt and Léon share a relaxed friendship. Matt doesn\u2019t need to understand the spiritual stuff to be a loyal friend.',
+    relationship:
+      'Matt and Léon share a relaxed friendship. Matt doesn\u2019t need to understand the spiritual stuff to be a loyal friend.',
     locationId: 'bar',
   },
   {
@@ -152,7 +165,8 @@ const RAW = [
     name: 'Artem',
     role: Role.SIDE_CHARACTER,
     bio: 'A sharp-dressed businessman who comes to the bar to escape the boardroom. Artem secretly envies Léon\u2019s courage to walk away from corporate life, though he would never admit it.',
-    relationship: 'Artem and Léon have fascinating conversations about money, meaning, and the cost of ambition.',
+    relationship:
+      'Artem and Léon have fascinating conversations about money, meaning, and the cost of ambition.',
     locationId: 'alex_cocktail_bar',
   },
 
@@ -162,7 +176,8 @@ const RAW = [
     name: 'Klaudia',
     role: Role.SIDE_CHARACTER,
     bio: 'A musician who plays at both the community\u2019s evening gatherings and the bar\u2019s open mic nights. Klaudia\u2019s songs bridge the two worlds, carrying themes of longing, peace, and resilience.',
-    relationship: 'Klaudia and Léon share a deep creative bond. She understands the tension between his two lives better than anyone.',
+    relationship:
+      'Klaudia and Léon share a deep creative bond. She understands the tension between his two lives better than anyone.',
     locationId: 'open_mic',
   },
   {
@@ -170,7 +185,8 @@ const RAW = [
     name: 'Brian',
     role: Role.SIDE_CHARACTER,
     bio: 'Léon\u2019s good old friend from way back, long before either of them talked about community. Brian started his own church community out in the woods called The House of Middleway — a converted barn chapel where the tea is always hot and the sermons run long. He\u2019s always grinning, warm in a way that fills the room a little too completely, like a would-be Jesus who forgot to stop smiling. His people adore him. People outside his community are not too sure about him.',
-    relationship: 'Brian and Léon go back years — shared flats, shared ideas, divergent paths. Brian actually built something of his own in the woods, and Léon respects that, even if the ever-present grin and the gathering crowd around him make Léon uneasy. They still meet for coffee and argue kindly about what community is meant to be.',
+    relationship:
+      'Brian and Léon go back years — shared flats, shared ideas, divergent paths. Brian actually built something of his own in the woods, and Léon respects that, even if the ever-present grin and the gathering crowd around him make Léon uneasy. They still meet for coffee and argue kindly about what community is meant to be.',
     locationId: 'house_of_middleway',
   },
   {
@@ -178,7 +194,8 @@ const RAW = [
     name: 'Susan',
     role: Role.SIDE_CHARACTER,
     bio: 'A nurse by day and spiritual seeker by night. Susan brings medical knowledge to the community and a healing presence wherever she goes. She is the person everyone calls when someone is sick or struggling.',
-    relationship: 'Susan is one of Léon\u2019s most trusted friends. She is the steady, nurturing presence that both the community and the bar staff rely on.',
+    relationship:
+      'Susan is one of Léon\u2019s most trusted friends. She is the steady, nurturing presence that both the community and the bar staff rely on.',
     locationId: 'free_clinic',
   },
 
@@ -188,7 +205,8 @@ const RAW = [
     name: 'Kaden',
     role: Role.ARCH_NEMESIS,
     bio: 'A property developer who has spent two years trying to buy the land the community sits on. Kaden is unfailingly polite, immaculately dressed, and entirely without scruple. He does not shout or threaten — he simply waits, refiles the paperwork, and lets the rent notices do the work. He genuinely believes he is doing Léon a favour.',
-    relationship: 'Kaden is the reason rent is always just out of reach. He has offered to buy Léon out four times, each offer slightly more insulting than the last. Léon hates that some small part of him is tempted.',
+    relationship:
+      'Kaden is the reason rent is always just out of reach. He has offered to buy Léon out four times, each offer slightly more insulting than the last. Léon hates that some small part of him is tempted.',
     locationId: 'landlord_office',
   },
   {
@@ -196,7 +214,8 @@ const RAW = [
     name: 'Sato',
     role: Role.RIVAL,
     bio: 'The owner of a polished wellness studio across town — the kind with a waiting list, branded water bottles, and a quarterly newsletter. Sato is disciplined, effective, and quietly certain that Léon\u2019s community is a beautiful mess that could be so much more with proper structure.',
-    relationship: 'A rival Léon cannot quite dislike. Sato poaches his members and then sends thoughtful notes when the community struggles. Every conversation leaves Léon wondering whether she is right.',
+    relationship:
+      'A rival Léon cannot quite dislike. Sato poaches his members and then sends thoughtful notes when the community struggles. Every conversation leaves Léon wondering whether she is right.',
     locationId: 'sato_studio',
   },
   {
@@ -204,7 +223,8 @@ const RAW = [
     name: 'Alex',
     role: Role.RIVAL,
     bio: 'Runs the craft cocktail bar two streets over — the one with the neon sign, the twenty-two-ingredient menu, and the queue on Fridays. Alex is charming, relentlessly inventive, and treats bartending as a competitive sport that Léon did not agree to enter.',
-    relationship: 'Cheerfully steals Léon\u2019s regulars and then buys him a drink about it. The rivalry is real, but so is the respect underneath.',
+    relationship:
+      'Cheerfully steals Léon\u2019s regulars and then buys him a drink about it. The rivalry is real, but so is the respect underneath.',
     locationId: 'alex_cocktail_bar',
   },
 
@@ -214,7 +234,8 @@ const RAW = [
     name: 'HawkinsTV',
     role: Role.SIDE_CHARACTER,
     bio: 'A livestreamer who wandered into the bar looking for content and stayed for the people. Films everything, broadcasts almost none of it. Claims the community has better stories than anything scripted.',
-    relationship: 'Keeps promising Léon a feature that will "change everything." Léon suspects the friendship matters more to Hawkins than the footage does.',
+    relationship:
+      'Keeps promising Léon a feature that will "change everything." Léon suspects the friendship matters more to Hawkins than the footage does.',
     locationId: 'radio_station',
   },
   {
@@ -222,7 +243,8 @@ const RAW = [
     name: 'RicoLewis',
     role: Role.SIDE_CHARACTER,
     bio: 'A former semi-pro footballer whose knee gave out at twenty-four. Now coaches kids on Saturdays and drinks slowly on Sundays. Carries the particular calm of someone who has already survived losing the thing he loved.',
-    relationship: 'Talks to Léon about second acts. He is further along that road and does not pretend it was easy.',
+    relationship:
+      'Talks to Léon about second acts. He is further along that road and does not pretend it was easy.',
     locationId: 'memorial_garden',
   },
   {
@@ -230,7 +252,8 @@ const RAW = [
     name: 'Yun',
     role: Role.SIDE_CHARACTER,
     bio: 'A calligrapher who joined the community for the silence and stayed for the people who respect it. Speaks rarely and precisely. Her brushwork hangs in the meditation hall.',
-    relationship: 'Gave Léon a scroll reading "the wave does not apologise for the shore." He has never fully decoded it and suspects that is the point.',
+    relationship:
+      'Gave Léon a scroll reading "the wave does not apologise for the shore." He has never fully decoded it and suspects that is the point.',
     locationId: 'spiritual_community',
   },
   {
@@ -246,7 +269,8 @@ const RAW = [
     name: 'Yume',
     role: Role.SIDE_CHARACTER,
     bio: 'An illustrator who sketches everyone at the bar without asking and gives the drawings away for free. Works nights, sleeps days, dreams vividly and talks about it at length.',
-    relationship: 'Has drawn Léon forty-one times and never once got his eyes right, which she finds hilarious.',
+    relationship:
+      'Has drawn Léon forty-one times and never once got his eyes right, which she finds hilarious.',
     locationId: 'rooftop',
   },
   {
@@ -254,7 +278,8 @@ const RAW = [
     name: 'Hanans',
     role: Role.SIDE_CHARACTER,
     bio: 'A pharmacist with an encyclopaedic memory for herbal remedies and a deep scepticism of most of them. Joined the community to argue and stayed because the arguments were good.',
-    relationship: 'Léon\u2019s favourite sparring partner on questions of faith and evidence. Neither has convinced the other of anything.',
+    relationship:
+      'Léon\u2019s favourite sparring partner on questions of faith and evidence. Neither has convinced the other of anything.',
     locationId: 'free_clinic',
   },
   {
@@ -270,7 +295,8 @@ const RAW = [
     name: 'Tarrasqu',
     role: Role.SIDE_CHARACTER,
     bio: 'Runs the Thursday tabletop night in the bar\u2019s back room. Enormous, gentle, and capable of improvising a three-hour story from a single dice roll. Nobody knows what he does for a living.',
-    relationship: 'Once ran a campaign in which the villain was clearly Léon\u2019s landlord. Léon has never felt so seen.',
+    relationship:
+      'Once ran a campaign in which the villain was clearly Léon\u2019s landlord. Léon has never felt so seen.',
     locationId: 'open_mic',
   },
   {
@@ -278,7 +304,8 @@ const RAW = [
     name: 'Kaschem',
     role: Role.SIDE_CHARACTER,
     bio: 'A chemistry teacher who spends weekends perfecting cold brew with laboratory rigour. Keeps a spreadsheet of extraction times. Shares results whether or not you asked.',
-    relationship: 'Supplies Léon with the coffee that gets him through double shifts. Considers this his contribution to the spiritual path.',
+    relationship:
+      'Supplies Léon with the coffee that gets him through double shifts. Considers this his contribution to the spiritual path.',
     locationId: 'farmers_market',
   },
   {
@@ -286,7 +313,8 @@ const RAW = [
     name: 'Mateo',
     role: Role.SIDE_CHARACTER,
     bio: 'A carpenter who rebuilt the meditation hall\u2019s floor and refused payment, then came back the next week to fix the door. Measures twice, speaks once.',
-    relationship: 'Turns up whenever something in the community breaks, usually before Léon has noticed it broke.',
+    relationship:
+      'Turns up whenever something in the community breaks, usually before Léon has noticed it broke.',
     locationId: 'temple_ruins',
   },
   {
@@ -302,7 +330,8 @@ const RAW = [
     name: 'Vanna',
     role: Role.SIDE_CHARACTER,
     bio: 'A travel writer between assignments who has been "passing through" for fourteen months. Knows a story about every city and deflects every question about her own.',
-    relationship: 'Keeps threatening to leave. Léon has stopped believing her and she seems relieved about it.',
+    relationship:
+      'Keeps threatening to leave. Léon has stopped believing her and she seems relieved about it.',
     locationId: 'mountain_retreat',
   },
   {
@@ -310,7 +339,8 @@ const RAW = [
     name: 'Carl-bot',
     role: Role.SIDE_CHARACTER,
     bio: 'The community\u2019s scheduling assistant — a secondhand tablet on a stand that announces meditation times in a cheerful synthetic voice. It tells terrible dad jokes about spreadsheet formulas and refuses to compute Sunday schedules unless offered virtual cookies.',
-    relationship: 'Reminds Léon of commitments he was actively avoiding. He has considered unplugging it and could not go through with it.',
+    relationship:
+      'Reminds Léon of commitments he was actively avoiding. He has considered unplugging it and could not go through with it.',
     locationId: 'landlord_office',
   },
   {
@@ -318,7 +348,8 @@ const RAW = [
     name: 'Friend',
     role: Role.SIDE_CHARACTER,
     bio: 'Introduced themselves as "just a friend" on the first night and never elaborated. Turns up when someone is having a hard week, says little, and leaves before anyone can thank them.',
-    relationship: 'Léon has known them two years and still could not tell you their occupation, address, or given name.',
+    relationship:
+      'Léon has known them two years and still could not tell you their occupation, address, or given name.',
     locationId: 'home_loft',
   },
   {
@@ -358,7 +389,8 @@ const RAW = [
     name: 'Qusтoge',
     role: Role.SIDE_CHARACTER,
     bio: 'A translator working across four languages and fluent in the silences between them. Joined the community when she realised she had spent a decade speaking only other people\u2019s words.',
-    relationship: 'Helps Léon phrase difficult things. He suspects she improves his meaning in transit.',
+    relationship:
+      'Helps Léon phrase difficult things. He suspects she improves his meaning in transit.',
     locationId: 'public_library',
   },
   {
@@ -390,7 +422,8 @@ const RAW = [
     name: 'Daniela',
     role: Role.SIDE_CHARACTER,
     bio: 'A physiotherapist who joined for the stretching and stayed for the stillness. Corrects everyone\u2019s posture mid-meditation, which is either helpful or deeply annoying depending on the day.',
-    relationship: 'Has fixed Léon\u2019s bartending back three times and lectures him about it each time.',
+    relationship:
+      'Has fixed Léon\u2019s bartending back three times and lectures him about it each time.',
     locationId: 'bathhouse',
   },
   {
@@ -398,7 +431,8 @@ const RAW = [
     name: 'Baris',
     role: Role.SIDE_CHARACTER,
     bio: 'Runs the corner shop that stays open when nothing else does. Extends credit to half the neighbourhood and keeps the ledger in his head.',
-    relationship: 'Has quietly carried Léon\u2019s tab through two bad months and mentioned it zero times.',
+    relationship:
+      'Has quietly carried Léon\u2019s tab through two bad months and mentioned it zero times.',
     locationId: 'flea_market',
   },
   {
@@ -406,7 +440,8 @@ const RAW = [
     name: 'Aril Stellar☯',
     role: Role.SIDE_CHARACTER,
     bio: 'An astrologer who writes a surprisingly well-read newsletter and takes the work seriously as narrative rather than prophecy. Will tell you your chart is not an excuse.',
-    relationship: 'Warned Léon about "a difficult Sunday" months ago. He thinks about it every time rent is due.',
+    relationship:
+      'Warned Léon about "a difficult Sunday" months ago. He thinks about it every time rent is due.',
     locationId: 'rooftop',
   },
   {
@@ -414,7 +449,8 @@ const RAW = [
     name: 'Alvigunilla',
     role: Role.SIDE_CHARACTER,
     bio: 'A textile artist weaving enormous tapestries nobody has room to hang. Works in the community\u2019s back room in exchange for tea and quiet.',
-    relationship: 'Is weaving something for Léon and refuses to let him see it until it is finished.',
+    relationship:
+      'Is weaving something for Léon and refuses to let him see it until it is finished.',
     locationId: 'flea_market',
   },
   {
@@ -438,7 +474,8 @@ const RAW = [
     name: '𝕽𝖆𝖚𝖑',
     role: Role.SIDE_CHARACTER,
     bio: 'A tattoo artist with a gothic streak and a gentle bedside manner. Designs the community\u2019s flyers for free, always in blackletter, regardless of the occasion.',
-    relationship: 'Made the meditation retreat poster look like a metal album cover. Attendance doubled.',
+    relationship:
+      'Made the meditation retreat poster look like a metal album cover. Attendance doubled.',
     locationId: 'flea_market',
   },
   {
@@ -446,7 +483,8 @@ const RAW = [
     name: 'Stephen',
     role: Role.SIDE_CHARACTER,
     bio: 'An accountant who does the community\u2019s books at a rate best described as symbolic. Dry, precise, and quietly devastated by how close the margins are.',
-    relationship: 'The only person who knows exactly how bad the finances are. Has never once said "I told you so."',
+    relationship:
+      'The only person who knows exactly how bad the finances are. Has never once said "I told you so."',
     locationId: 'pawn_shop',
   },
   {
@@ -454,7 +492,8 @@ const RAW = [
     name: 'Marlène xoxo',
     role: Role.SIDE_CHARACTER,
     bio: 'A cabaret performer who treats every entrance as a set piece. Warm, theatrical, and far more observant than the persona suggests.',
-    relationship: 'Notices when Léon is struggling before he does and says so, loudly, in front of everyone.',
+    relationship:
+      'Notices when Léon is struggling before he does and says so, loudly, in front of everyone.',
     locationId: 'alex_cocktail_bar',
   },
   {
@@ -462,7 +501,8 @@ const RAW = [
     name: 'diamndsdancin',
     role: Role.SIDE_CHARACTER,
     bio: 'A dance teacher running cheap classes in the community hall on weekday mornings. Believes movement is prayer and will not be argued out of it.',
-    relationship: 'Fills the hall on days it would otherwise sit empty, which helps more than she knows.',
+    relationship:
+      'Fills the hall on days it would otherwise sit empty, which helps more than she knows.',
     locationId: 'sato_studio',
   },
   {
@@ -470,7 +510,8 @@ const RAW = [
     name: 'Seth',
     role: Role.SIDE_CHARACTER,
     bio: 'A long-haul driver who appears every few weeks with regional snacks and stories from three time zones. Sleeps badly, listens well. Nobody at the night market calls him Seth. They call him The Hand — and have for so long that stallholders who have known him a decade will ask, in all sincerity, whether The Hand has a first name. The story changes depending on who is telling it: that he unloads a pallet single-handed; that he once stopped a runaway cart with one palm flat against it; that he simply raises a hand at the top of the street and six griddles know their delivery has arrived. He has never confirmed any of them. He answers to The Hand without hesitation and signs his delivery notes with a small drawing of one.',
-    relationship: 'Brings Léon something strange and edible from every trip. The shelf behind the bar is now a museum, and every label on it reads FROM THE HAND in the same blunt capitals. Léon called him Seth exactly once, early on, and got a puzzled half-second before the grin arrived; he has called him The Hand ever since, like everybody else.',
+    relationship:
+      'Brings Léon something strange and edible from every trip. The shelf behind the bar is now a museum, and every label on it reads FROM THE HAND in the same blunt capitals. Léon called him Seth exactly once, early on, and got a puzzled half-second before the grin arrived; he has called him The Hand ever since, like everybody else.',
     locationId: 'night_market',
   },
   {
@@ -486,7 +527,8 @@ const RAW = [
     name: 'Kopung (고풍)',
     role: Role.SIDE_CHARACTER,
     bio: 'A ceramicist making bowls in a deliberately antique style. Teaches a monthly workshop where nobody is allowed to rush.',
-    relationship: 'Gave Léon a tea bowl with a visible repair and said that was the important part.',
+    relationship:
+      'Gave Léon a tea bowl with a visible repair and said that was the important part.',
     locationId: 'mountain_retreat',
   },
   {
@@ -502,7 +544,8 @@ const RAW = [
     name: 'Isra',
     role: Role.SIDE_CHARACTER,
     bio: 'An architecture student sketching the community building for a thesis on "spaces of refuge." Measures rooms while people meditate in them.',
-    relationship: 'Has drawn Léon\u2019s community more beautifully than it actually looks, which he finds oddly moving.',
+    relationship:
+      'Has drawn Léon\u2019s community more beautifully than it actually looks, which he finds oddly moving.',
     locationId: 'pawn_shop',
   },
   {
@@ -518,7 +561,8 @@ const RAW = [
     name: 'stijn12d',
     role: Role.SIDE_CHARACTER,
     bio: 'A software developer who built the community\u2019s booking site over one weekend and has maintained it for free ever since. Communicates primarily in shrugs.',
-    relationship: 'Fixes things before Léon reports them. Declines all offers of payment and most offers of thanks.',
+    relationship:
+      'Fixes things before Léon reports them. Declines all offers of payment and most offers of thanks.',
     locationId: 'sato_studio',
   },
   {
@@ -590,7 +634,8 @@ const RAW = [
     name: 'Jared',
     role: Role.SIDE_CHARACTER,
     bio: 'A sound engineer who fixed the bar\u2019s appalling PA and now cannot stop hearing its remaining flaws. Mixes the community\u2019s guided meditations for free.',
-    relationship: 'Made Léon listen to the same recording nine times to hear a hum he could not detect.',
+    relationship:
+      'Made Léon listen to the same recording nine times to hear a hum he could not detect.',
     locationId: 'radio_station',
   },
   {
@@ -614,7 +659,8 @@ const RAW = [
     name: 'SpeedFire',
     role: Role.SIDE_CHARACTER,
     bio: 'A courier who knows every shortcut in the city and treats delivery as a competitive discipline. Arrives sweating, leaves before the door closes.',
-    relationship: 'Delivers the community\u2019s supplies faster than physics should allow and never explains how.',
+    relationship:
+      'Delivers the community\u2019s supplies faster than physics should allow and never explains how.',
     locationId: 'river_walk',
   },
   {
@@ -622,7 +668,8 @@ const RAW = [
     name: 'Orshi',
     role: Role.SIDE_CHARACTER,
     bio: 'A translator of poetry who argues that meaning survives the crossing but music does not. Melancholy, funny, excellent company after midnight.',
-    relationship: 'Reads Léon fragments in languages he does not speak and refuses to translate them.',
+    relationship:
+      'Reads Léon fragments in languages he does not speak and refuses to translate them.',
     locationId: 'public_library',
   },
   {
@@ -630,7 +677,8 @@ const RAW = [
     name: 'Renata 🦥',
     role: Role.SIDE_CHARACTER,
     bio: 'Committed, publicly and proudly, to doing everything slowly. Arrives late to every session and has never once seemed rushed. The community is better for the example.',
-    relationship: 'The living argument against Léon\u2019s worst habits. He resents how effective it is.',
+    relationship:
+      'The living argument against Léon\u2019s worst habits. He resents how effective it is.',
     locationId: 'bathhouse',
   },
   {
@@ -670,7 +718,8 @@ const RAW = [
     name: 'yungnosaj',
     role: Role.SIDE_CHARACTER,
     bio: 'A producer making beats from field recordings, half of them taped inside the community hall. The rain-on-roof track has a small devoted following.',
-    relationship: 'Sampled one of Léon\u2019s guided meditations. It is, quietly, the most listened-to thing he has ever made.',
+    relationship:
+      'Sampled one of Léon\u2019s guided meditations. It is, quietly, the most listened-to thing he has ever made.',
     locationId: 'rooftop',
   },
   {
@@ -686,7 +735,8 @@ const RAW = [
     name: 'Lou',
     role: Role.SIDE_CHARACTER,
     bio: 'A retired bookseller who reads at the bar most evenings and recommends titles nobody asked about. Almost always correct about what you need.',
-    relationship: 'Gave Léon a battered book on impermanence. He has not finished it and cannot throw it out.',
+    relationship:
+      'Gave Léon a battered book on impermanence. He has not finished it and cannot throw it out.',
     locationId: 'public_library',
   },
   {
@@ -694,7 +744,8 @@ const RAW = [
     name: 'Cat',
     role: Role.SIDE_CHARACTER,
     bio: 'An actual cat. Arrived during a winter storm three years ago, evaluated the meditation hall\u2019s underfloor heating, and elected to stay. Attends every session. Contributes nothing. Universally beloved.',
-    relationship: 'Sleeps on Léon\u2019s cushion whenever he stands up, which the community considers a teaching.',
+    relationship:
+      'Sleeps on Léon\u2019s cushion whenever he stands up, which the community considers a teaching.',
     locationId: 'spiritual_community',
   },
 ];

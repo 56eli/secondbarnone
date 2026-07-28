@@ -12,13 +12,26 @@
 
 import { resourceBarClass } from './core/resource-bar.js';
 import {
-  GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, saveStore,
+  GameState,
+  MAX_STAT,
+  MAX_ENERGY,
+  MAX_REPUTATION,
+  MONEY_SOFT_CAP,
+  saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
-  renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
+  renderHub,
+  renderMap,
+  renderLocation,
+  renderCharacters,
+  renderGameOver,
+  renderResultModal,
+  renderPerks,
+  renderAlmanac,
+  renderToast,
+  openCharacterPopup,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
@@ -70,6 +83,7 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
+  const persist = () => saveStore.save(gs, storage, events);
 
   dom.portraitBtn?.addEventListener('click', () => {
     if (leonProfile) openCharacterPopup(leonProfile);
@@ -84,7 +98,9 @@ export function initGame(opts = {}) {
     node.classList.remove('bar-critical', 'bar-warning', 'bar-fair', 'bar-full');
     node.classList.add(resourceBarClass(percent, 100));
   };
-  const setText = (node, text) => { if (node) node.textContent = text; };
+  const setText = (node, text) => {
+    if (node) node.textContent = text;
+  };
 
   function updateHud() {
     setText(dom.date, gs.getDateDisplay());
@@ -174,7 +190,10 @@ export function initGame(opts = {}) {
   }
 
   function showScreen(node) {
-    if (stopParticles) { stopParticles(); stopParticles = null; }
+    if (stopParticles) {
+      stopParticles();
+      stopParticles = null;
+    }
     content.replaceChildren(node);
     if (typeof node._startParticles === 'function') stopParticles = node._startParticles();
   }
@@ -212,12 +231,14 @@ export function initGame(opts = {}) {
     });
   }
 
-
   function perksScreen() {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
       onBuy: (id) => {
-        if (gs.buyPerk(id)) toast('Learned.');
+        if (gs.buyPerk(id)) {
+          persist();
+          toast('Learned.');
+        }
         updateHud();
         showScreen(perksScreen());
       },
@@ -234,6 +255,7 @@ export function initGame(opts = {}) {
     if (kind === 'prepay_rent') {
       toast(gs.prepayRent(1) ? 'Paid a week ahead.' : 'Not enough money.');
     }
+    persist();
     updateHud();
     showScreen(locationScreen(locationId));
   }
@@ -247,7 +269,11 @@ export function initGame(opts = {}) {
     flashDelta(dom.sanityDelta, result.deltas.sanity);
     flashDelta(dom.moneyDelta, result.deltas.money);
     for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
-    if (result.justWon) toast(`🏅 ${result.winMessage || 'One hundred days.'}`);
+    if (result.justWon) toast(`🏅 ${result.winMessage || 'Sixty days.'}`);
+    if (result.masteryWon) toast(`🌟 ${result.masteryMessage || 'A hundred days.'}`);
+    // Persist the resolved turn before presenting the modal: an accidental
+    // refresh must never erase a day the player has already committed to.
+    persist();
 
     if (result.gameOver) {
       saveStore.clear(storage);
@@ -260,7 +286,7 @@ export function initGame(opts = {}) {
         modal.remove();
         gs.advanceDay();
         updateHud();
-        saveStore.save(gs, storage);
+        persist();
         transitionTo(hubScreen);
       },
     });
@@ -287,12 +313,14 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- boot
 
-  gs.on('game_over_triggered', (msg) => { lastGameOverMessage = msg; });
+  gs.on('game_over_triggered', (msg) => {
+    lastGameOverMessage = msg;
+  });
   gs.on('stats_changed', updateHud);
   gs.on('day_changed', updateHud);
 
   if (opts.autoload !== false && saveStore.has(storage)) {
-    if (saveStore.load(gs, storage)) toast('Run resumed.');
+    if (saveStore.load(gs, storage, events)) toast('Run resumed.');
   }
 
   updateHud();
@@ -302,7 +330,7 @@ export function initGame(opts = {}) {
   const api = {
     toast,
     updateHud,
-    save: () => saveStore.save(gs, storage),
+    save: () => persist(),
     goto: {
       hub: () => showScreen(hubScreen()),
       map: () => showScreen(mapScreen()),

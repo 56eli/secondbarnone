@@ -30,12 +30,12 @@ For design details and internals, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 Shipping a Godot web build required a binary the agent sandbox could not reach.
 The game was rewritten as vanilla ES modules so the source **is** the build:
 
-| | Godot version | This version |
-|---|---|---|
-| Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
-| Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **360** |
-| Coverage | — | **~99.7%** |
+|                 | Godot version                   | This version                                                                    |
+| --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| Deploy payload  | 39.5 MB                         | **3.49 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
+| Build step      | Godot binary + export templates | none                                                                            |
+| Automated tests | 0                               | **369**                                                                         |
+| Coverage        | —                               | **~99.7%**                                                                      |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -57,7 +57,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 360 tests
+npm test                # 369 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -122,13 +122,13 @@ Léon's portrait and name sit in the HUD on every screen.
 
 ## Resources
 
-| | Start | Cap | Notes |
-|---|---|---|---|
-| **Sanity** | 50 | 100% | Gauge. 0 ends the run. |
-| **Energy** | 100 | 100% | Gauge. Recovers ~14/night — a full week from empty to full. Exhaustion costs sanity, steeply. |
-| **Reputation** | 10 | 100% | Gauge. Gates places. |
-| **Money** | 50 | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100. |
-| **Insight** | 0 | uncapped | Spent on perks. |
+|                | Start | Cap          | Notes                                                                                         |
+| -------------- | ----- | ------------ | --------------------------------------------------------------------------------------------- |
+| **Sanity**     | 50    | 100%         | Gauge. 0 ends the run.                                                                        |
+| **Energy**     | 100   | 100%         | Gauge. Recovers ~14/night — a full week from empty to full. Exhaustion costs sanity, steeply. |
+| **Reputation** | 10    | 100%         | Gauge. Gates places.                                                                          |
+| **Money**      | 50    | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100.                      |
+| **Insight**    | 0     | uncapped     | Spent on perks.                                                                               |
 
 ## Game rules
 
@@ -171,7 +171,7 @@ Eleven things that make the city feel like a home:
 10. **Uncapped money** — tips stack; broke still kills the run.
 11. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
 12. **Cards 3-6 keep their positions.** Every location is assigned to one of four
-    hub slots and rotates *through* it, never *between* them — the third card is
+    hub slots and rotates _through_ it, never _between_ them — the third card is
     always somewhere quiet, the sixth is always night work or an errand.
 
 ## Accessibility
@@ -184,4 +184,4 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 ## Known gaps
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
-- No audio.
+- No audio yet.

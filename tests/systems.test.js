@@ -282,3 +282,61 @@ test('weather bends the numbers and says so', () => {
 // Removed obsolete inventory test.
 
 // Removed obsolete inventory test.
+
+
+// ======================================================= persistence v5
+
+test('event manager snapshots preserve schedule, memory, and seeded RNG state', () => {
+  const original = new EventManager(createRng(912));
+  original.initialize(['Geo', 'Susan']);
+  original._nextEventDay = 12;
+  const [firstEvent, secondEvent] = buildEventPool();
+  original._recentIds = [firstEvent.id, secondEvent.id];
+  original._previousEventId = secondEvent.id;
+  original.rng.random();
+
+  const restored = new EventManager(createRng(1));
+  restored.initialize(['Geo', 'Susan']);
+  assert.equal(restored.loadFrom(original.toJSON()), true);
+  assert.deepEqual(restored.toJSON(), original.toJSON());
+  assert.equal(restored.rng.random(), original.rng.random(), 'future event rolls resume exactly');
+});
+
+test('v5 application saves restore both game and event state', () => {
+  const storage = fakeStorage();
+  const gs = fresh(77);
+  const original = new EventManager(createRng(88));
+  original.initialize(gs.getCharacterNames());
+  original._nextEventDay = 15;
+  original._recentIds = [buildEventPool()[0].id];
+  gs.advanceDay();
+
+  assert.equal(saveStore.save(gs, storage, original), true);
+  const raw = JSON.parse(storage.getItem(SAVE_KEY));
+  assert.equal(raw.v, 5);
+  assert.equal(raw.gameState.journeyDay, 2);
+  assert.equal(raw.eventManager.nextEventDay, 15);
+
+  const loadedGs = fresh(1);
+  const loadedEvents = new EventManager(createRng(2));
+  loadedEvents.initialize(loadedGs.getCharacterNames());
+  assert.equal(saveStore.load(loadedGs, storage, loadedEvents), true);
+  assert.equal(loadedGs.journeyDay, 2);
+  assert.deepEqual(loadedEvents.toJSON(), original.toJSON());
+});
+
+test('mastery is awarded once and persists independently of the sixty-day win', () => {
+  const gs = fresh();
+  gs.journeyDay = 100;
+  gs.reputation = 85;
+  gs.money = 250;
+  gs.visitedLocations = new Set(locationIds().slice(0, 18));
+  assert.equal(gs.checkSecondWin(), true);
+  assert.equal(gs.masteryWon, true);
+  assert.equal(gs.checkSecondWin(), false, 'mastery must not re-fire every turn');
+
+  const loaded = fresh();
+  assert.equal(loaded.loadFrom(gs.toJSON()), true);
+  assert.equal(loaded.masteryWon, true);
+  assert.equal(loaded.masteryMessage, gs.masteryMessage);
+});

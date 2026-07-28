@@ -12,13 +12,14 @@
 
 import { Tag } from './locations.js';
 
-const w = (cfg) => Object.freeze({
-  closes: [],
-  tagEffects: {},
-  weight: 10,
-  seasons: null, // null = any
-  ...cfg,
-});
+const w = (cfg) =>
+  Object.freeze({
+    closes: [],
+    tagEffects: {},
+    weight: 10,
+    seasons: null, // null = any
+    ...cfg,
+  });
 
 export const WEATHER_TYPES = [
   w({
@@ -153,7 +154,7 @@ export function eligibleWeather(season) {
 export function weatherForDay(day, seed = 0, season = 'Winter') {
   const pool = eligibleWeather(season);
   const total = pool.reduce((sum, t) => sum + t.weight, 0);
-  let roll = (hash(`w:${seed}:${day}:${season}`) % 100000) / 100000 * total;
+  let roll = ((hash(`w:${seed}:${day}:${season}`) % 100000) / 100000) * total;
   for (const t of pool) {
     roll -= t.weight;
     if (roll <= 0) return t;

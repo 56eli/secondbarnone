@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 360 tests, ~99.7% coverage on the shipped code.
+> **Status:** playable, 369 tests, ~99.7% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -28,14 +28,14 @@ binary to compile a `.pck` archive. That binary is not reachable from an agent
 sandbox, so the game could not be built, tested or deployed automatically — and
 one attempt to hand-assemble a `.pck` produced a corrupt, unplayable file.
 
-As plain ES modules the source *is* the build:
+As plain ES modules the source _is_ the build:
 
-| | Godot | Current |
-|---|---|---|
-| Deploy payload | 39.5 MB | **~2.9 MB** to play |
-| Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **360** |
-| Coverage | — | **~99.7%** |
+|                 | Godot                           | Current                                            |
+| --------------- | ------------------------------- | -------------------------------------------------- |
+| Deploy payload  | 39.5 MB                         | **3.49 MB** to play (+4.36 MB on-demand portraits) |
+| Build step      | Godot binary + export templates | none                                               |
+| Automated tests | 0                               | **369**                                            |
+| Coverage        | —                               | **~99.7%**                                         |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -76,7 +76,7 @@ test suite can assert over the whole catalogue rather than sampling it.
 
 ### Why `core/balance.js` is separate from `core/game-state.js`
 
-Every number that decides how the game *feels* — the energy recovery rate, the
+Every number that decides how the game _feels_ — the energy recovery rate, the
 exhaustion ceiling, the endurance goal — lives in one small module with its
 reasoning written next to it. Retuning is then one file rather than a hunt
 through five, and the balance suite has a single source of truth to assert
@@ -104,12 +104,12 @@ reporting and leaked state between tests.
 `GameState` implements a small emitter (`on` / `off` / `emit`) that mirrors the
 Godot signals the original used:
 
-| Signal | Fired when |
-|---|---|
-| `stats_changed` | sanity or money changes |
-| `day_changed` | the calendar advances |
+| Signal                | Fired when                    |
+| --------------------- | ----------------------------- |
+| `stats_changed`       | sanity or money changes       |
+| `day_changed`         | the calendar advances         |
 | `game_over_triggered` | a stat hits zero (fires once) |
-| `history_updated` | a history line is added |
+| `history_updated`     | a history line is added       |
 
 `on()` returns an unsubscribe function. `emit()` iterates a copy of the listener
 list, so a handler may safely unsubscribe mid-dispatch.
@@ -120,13 +120,13 @@ list, so a handler may safely unsubscribe mid-dispatch.
 
 ### Resources
 
-| | Start | Max | What it is |
-|---|---|---|---|
-| **Sanity** | 50 | 100 | Reaching 0 ends the run |
-| **Money** | 50 | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100 |
-| **Energy** | 100 | 100 | Recovers ~14/night — a week from empty to full; running low costs sanity |
-| **Reputation** | 10 | 100 | Gates locations |
-| **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
+|                | Start | Max      | What it is                                                               |
+| -------------- | ----- | -------- | ------------------------------------------------------------------------ |
+| **Sanity**     | 50    | 100      | Reaching 0 ends the run                                                  |
+| **Money**      | 50    | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100               |
+| **Energy**     | 100   | 100      | Recovers ~14/night — a week from empty to full; running low costs sanity |
+| **Reputation** | 10    | 100      | Gates locations                                                          |
+| **Insight**    | 0     | —        | A currency, not a gauge. Spent on perks                                  |
 
 The two founding locations keep their original numbers exactly — Spiritual
 Community is still +15/−10 and the Bar is still +12/−12 — so the opening of a
@@ -140,7 +140,7 @@ derived from one readable rule rather than picked individually:
 > **A full week of rest takes you from empty to full.**
 
 `ENERGY_RECOVERY` is literally `MAX_ENERGY / ENERGY_FULL_RECOVERY_DAYS`, which
-is ~14.3 a night. Every location's energy cost is then priced *against* that
+is ~14.3 a night. Every location's energy cost is then priced _against_ that
 figure, and most working days cost more than a night returns — a bar shift is
 −24, the retreat is −32, and only the rest locations pay energy back. That is
 the whole pressure: you cannot simply keep working, and the game will not stop
@@ -150,7 +150,7 @@ you from trying.
 **quadratic** curve rather than a linear one: −1 a day just under the
 threshold, −10 a day at empty. The shape is the point. A single hard day is
 nearly free, so pushing through once is a legitimate move and does not need
-punishing; the cost then climbs steeply, so *ignoring* energy drains a full
+punishing; the cost then climbs steeply, so _ignoring_ energy drains a full
 sanity bar in ten days. Forgivable once, fatal as a habit.
 
 `Second Wind` widens the threshold — you get warned sooner — and softens the
@@ -176,7 +176,7 @@ rather than re-rolling it in the player's favour.
 Two invariants keep it from becoming noise. Variance never flips the **sign**
 of a resource a location is built around — the bar always pays, the retreat
 always costs — because a place whose contract can invert is a place you cannot
-plan around. And it must move both the gains *and* the costs, or a location
+plan around. And it must move both the gains _and_ the costs, or a location
 becomes either a free lottery ticket or a tax.
 
 ### Locations
@@ -190,17 +190,17 @@ modifies by tag and perks bonus by tag.
 The hub shows six cards. Slots **1 and 2** are the founding pair and never
 move. Slots **3-6** rotate — but every non-founding location is permanently
 assigned to exactly one of them by `slot`, and each day the hub picks one open
-location *per slot*. Places therefore rotate **through** a position and never
+location _per slot_. Places therefore rotate **through** a position and never
 **between** positions.
 
 The slots have a character, which is the reason the rule buys anything:
 
-| Slot | Reads as | Examples |
-|---|---|---|
-| 3 | somewhere quiet | loft, bathhouse, library, pawnbroker, memorial garden |
-| 4 | outdoors, spirit and service | canal, rooftop, clinic, soup kitchen, ruins, chapel |
-| 5 | markets and the stage | garden, Saturday market, flea market, open mic, Vermillion |
-| 6 | night work and errands | night market, radio, letting office, Sato's, the retreat |
+| Slot | Reads as                     | Examples                                                   |
+| ---- | ---------------------------- | ---------------------------------------------------------- |
+| 3    | somewhere quiet              | loft, bathhouse, library, pawnbroker, memorial garden      |
+| 4    | outdoors, spirit and service | canal, rooftop, clinic, soup kitchen, ruins, chapel        |
+| 5    | markets and the stage        | garden, Saturday market, flea market, open mic, Vermillion |
+| 6    | night work and errands       | night market, radio, letting office, Sato's, the retreat   |
 
 Five or six locations per slot, so no position is a near-constant and none is
 a free-for-all. The previous behaviour was a straight shuffle across all four
@@ -221,19 +221,19 @@ A fresh run can reach three places; a long, well-regarded one can reach all 22.
 place for Léon at the **House of Middleway**, so the chapel is offered on the
 first morning regardless of its own gate (day 6, 15 reputation) and takes slot
 4 — the fourth hub card, row 2 column 1 — outright rather than competing for
-it. The chapel *lives* in slot 4, so from day two it simply rejoins that
+it. The chapel _lives_ in slot 4, so from day two it simply rejoins that
 slot's rotation instead of moving somewhere else. From day 2 the ordinary gate applies again and it rejoins the
 rotation like anywhere else, so the early economy is untouched.
 
 The exception lives in `evaluateUnlock()` rather than in the hub renderer,
 which matters: the map screen, the preview maths and the hub all agree without
 being told separately, and the rule is testable headlessly. The one thing the
-welcome does *not* override is the weather — a storm shuts the clearing for
+welcome does _not_ override is the weather — a storm shuts the clearing for
 Brian the same as for anyone, because the alternative is a location whose
 "closed by the weather" contract has a hole in it.
 
 Every location costs something — money, energy or sanity. That invariant is
-enforced by test against the *luckiest possible* day rather than the average
+enforced by test against the _luckiest possible_ day rather than the average
 one, because a free location would collapse the decision.
 
 ### Weather
@@ -280,15 +280,15 @@ rather than as a flat list. `requiredLocation` is stamped on by
 away from the person it belongs to — the gate is not a field somebody has to
 remember to fill in. Character bindings live in `characters.js` as
 `locationId`, and the human-readable place name shown on the People screen is
-*derived* from it, so the two can never disagree.
+_derived_ from it, so the two can never disagree.
 
 The three-event floor is what turns a location from a slot machine with
 scenery into somewhere specific people are. Each place has nine to thirteen
 events drawn only from its own residents, so visiting the night market means
 running into Cheezl, Fraghis or The Hand — never a stranger from across town.
 
-Extra gates (`requiredWeather`, `minimumDay`, the burnout counter) stack *on
-top of* the location rather than replacing it. Kaden keeps his four-beat arc
+Extra gates (`requiredWeather`, `minimumDay`, the burnout counter) stack _on
+top of_ the location rather than replacing it. Kaden keeps his four-beat arc
 escalating the rent pressure from refiled paperwork to a buyout offer on very
 good paper, and Sato and Alex keep theirs.
 
@@ -315,7 +315,7 @@ Order still matters: rent lands before the event, so an event can pull a player
 back from the brink that rent pushed them toward.
 
 Step 1 is factored out as `computeDayEffects()`, which is also what the UI
-calls to show the exact numbers a location is offering *before* the player
+calls to show the exact numbers a location is offering _before_ the player
 commits. The preview and the resolution cannot drift, because they are the
 same function.
 
@@ -325,12 +325,12 @@ same function.
 
 **78 characters.**
 
-| Role | Count |
-|---|---|
-| Protagonist | 1 — Léon |
-| Arch Nemesis | 1 — Kaden |
-| Rival | 2 — Sato, Alex |
-| Side Character | 74 |
+| Role           | Count          |
+| -------------- | -------------- |
+| Protagonist    | 1 — Léon       |
+| Arch Nemesis   | 1 — Kaden      |
+| Rival          | 2 — Sato, Alex |
+| Side Character | 74             |
 
 **Kaden** is a developer circling the community's land — never threatening,
 just refiling paperwork while the rent notices do the work. **Sato** runs a
@@ -369,12 +369,12 @@ name people actually use, and a test asserts it stays that way.
 Display names include Cyrillic, fraktur, Hangul and emoji. Ids are ASCII slugs
 derived from them, because ids map directly onto portrait filenames:
 
-| Display name | Id | Portrait |
-|---|---|---|
-| `𝕽𝖆𝖚𝖑` | `raul` | `raul.webp` |
-| `Kopung (고풍)` | `kopung` | `kopung.svg` |
-| `Renata 🦥` | `renata` | `renata.webp` |
-| `Qusтoge` | `qustoge` | `qustoge.webp` |
+| Display name    | Id        | Portrait       |
+| --------------- | --------- | -------------- |
+| `𝕽𝖆𝖚𝖑`          | `raul`    | `raul.webp`    |
+| `Kopung (고풍)` | `kopung`  | `kopung.svg`   |
+| `Renata 🦥`     | `renata`  | `renata.webp`  |
+| `Qusтoge`       | `qustoge` | `qustoge.webp` |
 
 The UI always renders the original spelling. Slug uniqueness is enforced by test.
 
@@ -386,7 +386,7 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 painted art; the procedural SVG placeholders are gone, and a test fails the
 build if one comes back. `docs/side_characters_report.md` is the canonical art
 tracker and now carries two deliberately empty tables for art that exists but
-should be *improved*.
+should be _improved_.
 
 **The off-style four.** Full coverage was not the same as a coherent cast.
 `kaj`, `arian` and `dorian` shipped as pixel-art sprites and `lakshay` as a
@@ -400,14 +400,14 @@ rack, Arian mid-story over a glass, Dorian immovable in his armchair.
 
 ### Portraits ship in two tiers
 
-| Tier | Path | Size | Used by |
-|---|---|---|---|
-| Thumbnail | `assets/portraits/<id>.webp` | 288px | every inline avatar |
-| Hi-res | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
+| Tier      | Path                            | Size  | Used by                 |
+| --------- | ------------------------------- | ----- | ----------------------- |
+| Thumbnail | `assets/portraits/<id>.webp`    | 288px | every inline avatar     |
+| Hi-res    | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
 
 The largest avatar the game renders inline is **84 CSS px**, so the previous
 single 512px sheet was ~6x oversized on every page load — while being too
-*small* for the enlarged view, which renders up to 560 CSS px. Splitting the
+_small_ for the enlarged view, which renders up to 560 CSS px. Splitting the
 tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
 enlarged view genuinely sharp. `scripts/build-portraits.js` emits both tiers,
 picks the largest available source rather than the first matching format, and
@@ -419,7 +419,7 @@ Every portrait — HUD, host banner, map, People screen, day-result event card �
 is a clickable/tappable button. It opens **the artwork and nothing else**: no
 name, no role, no bio, no relationship (see `renderPortraitPopup` /
 `openCharacterPopup` in `docs/js/ui/screens.js`). The reasoning is that the
-inline avatar is a *preview* of a picture, so the popup is that picture at
+inline avatar is a _preview_ of a picture, so the popup is that picture at
 full size; adding chrome would make it a second, worse character sheet
 competing with the People screen, which is where a player goes to read. The
 character's name survives only in `alt` text, for screen readers.
@@ -431,7 +431,7 @@ rather than an empty frame.
 **22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
 playable location. Background paths are derived from the location catalogue by
 `scripts/check-assets.js`, so adding a location cannot silently ship a broken
-image path, and an *unreferenced* background now fails a test rather than
+image path, and an _unreferenced_ background now fails a test rather than
 quietly adding weight.
 
 Six backgrounds were repainted in the July 2026 pass for **Paris coherence** —
@@ -455,7 +455,7 @@ asserts every repainted background keeps its master.
 Missing portraits fall back to an initials chip, which is exercised by test.
 
 Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/assets/` is ~2.9 MB eager plus ~4.4 MB of on-demand portrait sheets.
+`docs/` is 3.49 MB eager plus 4.36 MB of on-demand portrait sheets (7.85 MB total).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -463,18 +463,18 @@ one pass.
 
 ## Testing
 
-**360 tests** across eleven files.
+**369 tests** across eleven files.
 
-| File | Tests | Scope |
-|---|---|---|
-| `balance.test.js` | 34 | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
-| `cast.test.js` | 28 | Character↔location binding, the three-events-each floor, and event reachability |
-| `slots.test.js` | 22 | Hub slot assignment and rotation, in data and in the rendered DOM |
-| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+| File                 | Tests   | Scope                                                                                                                                                      |
+| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `balance.test.js`    | 34      | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
+| `cast.test.js`       | 28      | Character↔location binding, the three-events-each floor, and event reachability                                                                            |
+| `slots.test.js`      | 22      | Hub slot assignment and rotation, in data and in the rendered DOM                                                                                          |
+| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants                                       |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
-never exceed 288px, a hi-res sheet is never *smaller* than the thumbnail it
+never exceed 288px, a hi-res sheet is never _smaller_ than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
 background is referenced by a location. It skips cleanly if ImageMagick is
 unavailable.
@@ -494,7 +494,7 @@ the builder picked up the first time.
 
 It also measures the House of Middleway background rather than trusting the
 brief: the chapel was repainted from a dusk scene to a sunlit one, so the test
-asserts its mean luminance is above 0.35 *and* that it is the brightest
+asserts its mean luminance is above 0.35 _and_ that it is the brightest
 background in the game — and then checks the same figure back through the
 `.location` scrim to prove the brighter art did not cost the panel its text
 legibility. A tonal regression there is invisible to jsdom and easy to
@@ -502,7 +502,7 @@ reintroduce by re-running the optimiser against a stale source.
 
 That "hi is never smaller than the thumb" assertion is a regression test for a
 real bug: the first build picked sources by format preference, so three early
-characters with a 160px PNG sitting next to a 512px WebP got an *enlarged*
+characters with a 160px PNG sitting next to a 512px WebP got an _enlarged_
 view that was blurrier than the thumbnail.
 
 The data tests are written as invariants over the whole catalogue rather than

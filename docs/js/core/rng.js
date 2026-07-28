@@ -7,18 +7,9 @@
  */
 
 /** mulberry32 — small, fast, good enough distribution for a game like this. */
-export function createRng(seed) {
-  if (seed === undefined || seed === null) {
-    return {
-      random: () => Math.random(),
-      /** Inclusive integer range, matching Godot's randi_range(). */
-      randInt: (min, max) => min + Math.floor(Math.random() * (max - min + 1)),
-      /** Float in [min, max). */
-      randFloat: (min, max) => min + Math.random() * (max - min),
-      pick: (arr) => arr[Math.floor(Math.random() * arr.length)],
-    };
-  }
-
+export function createRng(seed = Math.floor(Math.random() * 0x100000000)) {
+  // Keep a stateful generator even in normal play. Besides making every run
+  // independent, this lets save files resume future event rolls exactly.
   let state = seed >>> 0;
   const random = () => {
     state |= 0;
@@ -33,8 +24,12 @@ export function createRng(seed) {
     randInt: (min, max) => min + Math.floor(random() * (max - min + 1)),
     randFloat: (min, max) => min + random() * (max - min),
     pick: (arr) => arr[Math.floor(random() * arr.length)],
+    getState: () => state >>> 0,
+    setState: (nextState) => {
+      if (typeof nextState === 'number' && Number.isFinite(nextState)) state = nextState >>> 0;
+    },
   };
 }
 
-/** Shared default instance used by the running game. */
+/** Backward-compatible shared RNG for callers that explicitly request one. */
 export const defaultRng = createRng();

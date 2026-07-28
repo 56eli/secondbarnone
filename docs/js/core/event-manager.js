@@ -15,7 +15,7 @@
  */
 
 import { buildEventPool, Category } from '../data/events.js';
-import { defaultRng } from './rng.js';
+import { createRng } from './rng.js';
 
 export const MIN_EVENT_GAP_DAYS = 2;
 export const MAX_EVENT_GAP_DAYS = 5;
@@ -27,7 +27,7 @@ export const BURNOUT_THRESHOLD = 3;
 export const RECENT_MEMORY = 4;
 
 export class EventManager {
-  constructor(rng = defaultRng) {
+  constructor(rng = createRng()) {
     this.rng = rng;
     this._allEvents = [];
     this._previousEventId = null;
@@ -73,10 +73,14 @@ export class EventManager {
 
     // Character frequency filter: if a character fired recently,
     // gently deprioritize their other events (not block).
-    const recentChars = new Set(this._recentIds.map(id => {
-      const ev = this._allEvents.find(e => e.id === id);
-      return ev ? ev.character : null;
-    }).filter(Boolean));
+    const recentChars = new Set(
+      this._recentIds
+        .map((id) => {
+          const ev = this._allEvents.find((e) => e.id === id);
+          return ev ? ev.character : null;
+        })
+        .filter(Boolean),
+    );
 
     const weightedPool = pool.map((e) => {
       if (recentChars.has(e.character)) {
@@ -96,6 +100,34 @@ export class EventManager {
       result.description = result.description.replace('{friend}', friend);
     }
     return result;
+  }
+
+  /** JSON-safe scheduler snapshot. Custom test RNGs remain supported; when a
+   * RNG exposes state (the production RNG does), future picks resume exactly. */
+  toJSON() {
+    return {
+      nextEventDay: this._nextEventDay,
+      recentIds: [...this._recentIds],
+      previousEventId: this._previousEventId,
+      rngState: typeof this.rng.getState === 'function' ? this.rng.getState() : null,
+    };
+  }
+
+  /** Restore scheduler state after initialize() has rebuilt the event pool. */
+  loadFrom(data) {
+    if (!data || typeof data !== 'object') return false;
+    const validIds = new Set(this._allEvents.map((event) => event.id));
+    if (Number.isFinite(data.nextEventDay) && data.nextEventDay >= 1) {
+      this._nextEventDay = Math.floor(data.nextEventDay);
+    }
+    this._recentIds = Array.isArray(data.recentIds)
+      ? data.recentIds.filter((id) => validIds.has(id)).slice(-RECENT_MEMORY)
+      : [];
+    this._previousEventId = validIds.has(data.previousEventId) ? data.previousEventId : null;
+    if (typeof this.rng.setState === 'function' && Number.isFinite(data.rngState)) {
+      this.rng.setState(data.rngState);
+    }
+    return true;
   }
 
   _remember(id) {
