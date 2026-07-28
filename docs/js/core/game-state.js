@@ -136,6 +136,7 @@ export class GameState {
     this.masteryMessage = '';
 
     this.consecutiveBarDays = 0;
+    this.maxConsecutiveBarDays = 0;
     this.lastLocationVisited = '';
     this._lastRentDayOfMonth = -1;
     this._lastRentJourneyDay = -1;
@@ -409,6 +410,7 @@ export class GameState {
       this.money = Math.min(this.money + MONEY_GAIN, MONEY_HARD_CEILING);
       this.sanity = Math.max(this.sanity - SANITY_LOSS, 0);
       this.consecutiveBarDays += 1;
+      this.maxConsecutiveBarDays = Math.max(this.maxConsecutiveBarDays, this.consecutiveBarDays);
     }
     this.lastLocationVisited = location;
     this._statsChanged();
@@ -419,8 +421,12 @@ export class GameState {
     const location = getLocation(locationId);
     this.lastLocationVisited = locationId;
     this.visitedLocations.add(locationId);
-    if (locationId === 'bar') this.consecutiveBarDays += 1;
-    else this.consecutiveBarDays = 0;
+    if (locationId === 'bar') {
+      this.consecutiveBarDays += 1;
+      this.maxConsecutiveBarDays = Math.max(this.maxConsecutiveBarDays, this.consecutiveBarDays);
+    } else {
+      this.consecutiveBarDays = 0;
+    }
     if (location?.tags.includes('night')) this.nightDays += 1;
     if (this.getFestival()) this.festivalsSeen += 1;
   }
@@ -450,8 +456,8 @@ export class GameState {
     if (this.reputation < 80) return false;
     if (this.money < 200) return false;
     if (this.visitedLocations.size < 18) return false;
-    // No more than 5 consecutive bar days in this run
-    if (this.consecutiveBarDays > 5) return false;
+    // No more than 5 consecutive bar days at any point in this run.
+    if (this.maxConsecutiveBarDays > 5) return false;
     this.masteryWon = true;
     this.masteryMessage =
       "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
@@ -645,6 +651,7 @@ export class GameState {
       masteryWon: this.masteryWon,
       masteryMessage: this.masteryMessage,
       consecutiveBarDays: this.consecutiveBarDays,
+      maxConsecutiveBarDays: this.maxConsecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       lastRentDayOfMonth: this._lastRentDayOfMonth,
       lastRentJourneyDay: this._lastRentJourneyDay,
@@ -687,6 +694,7 @@ export class GameState {
       typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
+    this.maxConsecutiveBarDays = num(migrated.maxConsecutiveBarDays, this.consecutiveBarDays);
     this.lastLocationVisited =
       typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
     this._lastRentDayOfMonth = num(migrated.lastRentDayOfMonth, -1);
@@ -740,6 +748,9 @@ export function migrateSave(data) {
       migrated.weatherSeed = Math.floor(Math.random() * 1e9);
     if (typeof migrated.masteryWon !== 'boolean') migrated.masteryWon = false;
     if (typeof migrated.masteryMessage !== 'string') migrated.masteryMessage = '';
+    if (typeof migrated.maxConsecutiveBarDays !== 'number') {
+      migrated.maxConsecutiveBarDays = migrated.consecutiveBarDays ?? 0;
+    }
   }
 
   return migrated;

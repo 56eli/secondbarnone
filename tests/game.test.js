@@ -98,8 +98,10 @@ test('bar trades sanity for money and counts consecutive days', () => {
   assert.equal(gs.money, START_MONEY + MONEY_GAIN);
   assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
   assert.equal(gs.consecutiveBarDays, 1);
+  assert.equal(gs.maxConsecutiveBarDays, 1);
   gs.applyLocationAction('bar');
   assert.equal(gs.consecutiveBarDays, 2);
+  assert.equal(gs.maxConsecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
@@ -107,8 +109,10 @@ test('visiting the community resets the consecutive bar counter', () => {
   gs.applyLocationAction('bar');
   gs.applyLocationAction('bar');
   assert.equal(gs.consecutiveBarDays, 2);
+  assert.equal(gs.maxConsecutiveBarDays, 2);
   gs.applyLocationAction('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
+  assert.equal(gs.maxConsecutiveBarDays, 2);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {

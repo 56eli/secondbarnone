@@ -23,6 +23,7 @@ const STATIC_REFS = [
   'index.html',
   'css/style.css',
   'js/main.js',
+  'assets/audio/warm-piano-loop.wav',
   // Every background named by a location, derived rather than hand-listed so
   // adding a location to the catalogue cannot silently ship a broken path.
   ...LOCATIONS.map((l) => l.bg).filter(Boolean),

@@ -5,7 +5,7 @@ by day and tends bar by night. Every day you pick one place to be. The community
 restores your sanity but costs money; the bar pays but grinds you down. Rent hits
 every Sunday. Let sanity or money reach zero and the run ends.
 
-Those two places are where you start. There are **22 locations across five
+Those two places are where you start. There are **23 locations across five
 districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
@@ -32,9 +32,9 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 |                 | Godot version                   | This version                                                                    |
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| Deploy payload  | 39.5 MB                         | **3.49 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
+| Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                            |
-| Automated tests | 0                               | **369**                                                                         |
+| Automated tests | 0                               | **371**                                                                         |
 | Coverage        | —                               | **~99.7%**                                                                      |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -57,7 +57,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 369 tests
+npm test                # 371 tests
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -94,11 +94,11 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       rng.js               seedable RNG
     data/
       characters.js        78 characters
-      locations.js         22 locations (each with a host)
+      locations.js         23 locations (each with a host)
       events.js            235 events, keyed by location (3+ per character)
       weather.js / perks.js
       festivals.js / achievements.js
-    ui/screens.js          hub, map, location, practice, portrait lightbox
+    ui/screens.js          hub, location, practice, almanac, people, settings, portrait lightbox
   assets/
     portraits/             288px thumbnails, one per character
     portraits/hi/          896px sheets for the enlarge-on-tap lightbox
@@ -136,8 +136,7 @@ Léon's portrait and name sit in the HUD on every screen.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
 - Rent: **−18 money** every Sunday, charged once.
-- A random event fires every 2–5 days. Weights are 10 for Common and 2 for each
-  Rare, so roughly one event in six is rare.
+- A random event fires every 2–5 days. Event weights are 10 for Common and 2 for each Rare. With the current catalogue (159 common, 67 rare-helpful, 9 rare-hurtful before location gates), rare events are deliberately occasional rather than evenly mixed into every visit.
 - Burnout unlocks only after 3 consecutive bar days.
 - The same event never fires twice in a row.
 - Reaching 0 sanity or 0 money ends the run.
@@ -165,7 +164,7 @@ Eleven things that make the city feel like a home:
 4. **Most events belong to side characters** — 222 of 235 — with their face on the result.
 5. **Daily greetings** that change with weekday and season.
 6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
-7. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
+7. **Dedicated backgrounds for all 23 locations**, including the home loft and every city destination.
 8. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
 9. **Soft 60-day endurance goal** — long enough to see the whole arc, short enough to finish.
 10. **Uncapped money** — tips stack; broke still kills the run.
@@ -184,4 +183,4 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 ## Known gaps
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
-- No audio yet.
+- Background music is a small compressed warm piano loop with a Settings slider; browser autoplay rules mean it starts only after player interaction and non-zero volume.

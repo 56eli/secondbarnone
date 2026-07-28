@@ -23,7 +23,6 @@ import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
   renderHub,
-  renderMap,
   renderLocation,
   renderCharacters,
   renderGameOver,
@@ -36,6 +35,8 @@ import {
 
 const FADE_MS = 350;
 const TOAST_MS = 2600;
+const MUSIC_VOLUME_KEY = 'secondbarnone.settings.musicVolume';
+const MUSIC_SRC = 'assets/audio/warm-piano-loop.wav';
 
 /**
  * Boot a game into the current document.
@@ -78,6 +79,7 @@ export function initGame(opts = {}) {
     insight: document.getElementById('insight-num'),
     sanityDelta: document.getElementById('sanity-delta'),
     moneyDelta: document.getElementById('money-delta'),
+    settingsBtn: document.getElementById('settings-btn'),
   };
 
   let stopParticles = null;
@@ -88,6 +90,142 @@ export function initGame(opts = {}) {
   dom.portraitBtn?.addEventListener('click', () => {
     if (leonProfile) openCharacterPopup(leonProfile);
   });
+
+  // ------------------------------------------------------------ settings
+
+  const readVolume = () => {
+    try {
+      const raw = storage?.getItem?.(MUSIC_VOLUME_KEY);
+      const parsed = raw === null || raw === undefined ? 0 : Number(raw);
+      return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0;
+    } catch {
+      return 0;
+    }
+  };
+  const writeVolume = (value) => {
+    try {
+      storage?.setItem?.(MUSIC_VOLUME_KEY, String(value));
+    } catch {
+      // Settings are nice-to-have; storage failures must not break the game.
+    }
+  };
+
+  const AudioCtor = globalThis.Audio ?? globalThis.window?.Audio;
+  const music = AudioCtor
+    ? new AudioCtor(MUSIC_SRC)
+    : { volume: 0, loop: false, preload: '', play: () => {}, pause: () => {} };
+  music.loop = true;
+  music.preload = 'auto';
+  music.volume = readVolume();
+
+  function playMusicIfWanted() {
+    if (music.volume <= 0) return;
+    const userAgent =
+      globalThis.navigator?.userAgent ?? globalThis.window?.navigator?.userAgent ?? '';
+    if (userAgent.includes('jsdom')) return;
+    try {
+      const maybePromise = music.play?.();
+      if (maybePromise && typeof maybePromise.catch === 'function') maybePromise.catch(() => {});
+    } catch {
+      // jsdom and some locked-down browsers may reject media playback here.
+    }
+  }
+
+  function setMusicVolume(value) {
+    const volume = Math.max(0, Math.min(1, Number(value) || 0));
+    music.volume = volume;
+    writeVolume(volume);
+    if (volume > 0) playMusicIfWanted();
+    else {
+      try {
+        music.pause?.();
+      } catch {
+        /* media may be stubbed in tests */
+      }
+    }
+    return volume;
+  }
+
+  document.addEventListener('pointerdown', playMusicIfWanted, { once: true });
+  document.addEventListener('keydown', playMusicIfWanted, { once: true });
+
+  function openSettings() {
+    document.querySelector('.settings-backdrop')?.remove();
+    const previouslyFocused = document.activeElement;
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop settings-backdrop';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'settings-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'settings-title');
+
+    const title = document.createElement('h2');
+    title.id = 'settings-title';
+    title.textContent = 'Settings';
+
+    const label = document.createElement('label');
+    label.className = 'settings-volume';
+    label.setAttribute('for', 'music-volume');
+    label.textContent = 'Background piano';
+
+    const value = document.createElement('span');
+    value.className = 'settings-volume-value';
+
+    const slider = document.createElement('input');
+    slider.id = 'music-volume';
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '100';
+    slider.step = '1';
+    slider.value = String(Math.round(music.volume * 100));
+    value.textContent = `${slider.value}%`;
+    slider.addEventListener('input', () => {
+      const volume = setMusicVolume(Number(slider.value) / 100);
+      value.textContent = `${Math.round(volume * 100)}%`;
+    });
+
+    const reset = document.createElement('button');
+    reset.className = 'btn btn-danger';
+    reset.type = 'button';
+    reset.textContent = 'Reset game';
+    reset.addEventListener('click', () => {
+      saveStore.clear(storage);
+      restart();
+      backdrop.remove();
+      toast('Save cleared.');
+    });
+
+    const close = document.createElement('button');
+    close.className = 'btn';
+    close.type = 'button';
+    close.textContent = 'Close';
+    const closeDialog = () => {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey);
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeDialog();
+    };
+    close.addEventListener('click', closeDialog);
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeDialog();
+    });
+
+    const row = document.createElement('div');
+    row.className = 'settings-actions';
+    row.append(reset, close);
+    label.append(value);
+    dialog.append(title, label, slider, row);
+    backdrop.append(dialog);
+    document.body.append(backdrop);
+    slider.focus();
+  }
+
+  dom.settingsBtn?.addEventListener('click', openSettings);
 
   // ---------------------------------------------------------------- HUD
 
@@ -203,17 +341,9 @@ export function initGame(opts = {}) {
   function hubScreen() {
     return renderHub(gs, {
       onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onMap: () => transitionTo(mapScreen),
       onCharacters: () => transitionTo(charactersScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
-    });
-  }
-
-  function mapScreen() {
-    return renderMap(gs, {
-      onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onBack: () => transitionTo(hubScreen),
     });
   }
 
@@ -333,7 +463,6 @@ export function initGame(opts = {}) {
     save: () => persist(),
     goto: {
       hub: () => showScreen(hubScreen()),
-      map: () => showScreen(mapScreen()),
       location: (id) => showScreen(locationScreen(id)),
       perks: () => showScreen(perksScreen()),
       almanac: () => showScreen(almanacScreen()),

@@ -1,5 +1,5 @@
 /**
- * DOM tests for the expanded UI: the map and practice tree,
+ * DOM tests for the expanded UI: the six-card hub, practice tree,
  * almanac, toasts, the calmer HUD and autosave.
  *
  * Boots the real index.html in jsdom and drives real buttons, same as
@@ -553,7 +553,7 @@ maybe('the flavour-only specials render without a button', async () => {
     gs.reputation = 100;
 
     api.goto.location('mountain_retreat');
-    assert.match(doc.querySelector('.special-note').textContent, /Three days/);
+    assert.match(doc.querySelector('.special-note').textContent, /feels like three days/i);
 
     api.goto.location('farmers_market');
     assert.equal(doc.querySelector('.special-note'), null, 'market has no retired inventory prompt');
@@ -916,3 +916,48 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
 
 
 // Removed obsolete inventory test.
+
+// =============================================================== settings
+
+maybe('the settings menu controls background piano volume', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    const settings = doc.getElementById('settings-btn');
+    assert.ok(settings, 'settings button should exist in the HUD');
+    settings.click();
+
+    const dialog = doc.querySelector('.settings-dialog');
+    assert.ok(dialog, 'settings dialog should open');
+    const slider = doc.getElementById('music-volume');
+    assert.ok(slider, 'music volume slider should render');
+
+    slider.value = '42';
+    slider.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.equal(storage.getItem('secondbarnone.settings.musicVolume'), '0.42');
+    assert.match(dialog.textContent, /42%/);
+  } finally { cleanup(window); }
+});
+
+maybe('reset game in settings clears the save and returns to a fresh run', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const { gs, api } = window.__game;
+    gs.money = 77;
+    gs.journeyDay = 12;
+    api.save();
+    assert.ok(storage.getItem(SAVE_KEY), 'setup should create a save');
+
+    const doc = window.document;
+    doc.getElementById('settings-btn').click();
+    click(doc, '.settings-dialog button', 'Reset game');
+    await settle();
+
+    assert.equal(storage.getItem(SAVE_KEY), null, 'save data should be cleared');
+    assert.equal(gs.journeyDay, 1);
+    assert.equal(Math.round(gs.money), 50);
+    assert.ok(doc.querySelector('.hub'), 'reset should return to the hub');
+  } finally { cleanup(window); }
+});
