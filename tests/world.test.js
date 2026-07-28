@@ -10,30 +10,53 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  LOCATIONS, CORE_LOCATION_IDS, DISTRICT_ORDER, District, Tag,
-  getLocation, locationIds, locationsInDistrict, hasTag,
-  evaluateUnlock, availableLocations,
-  isWelcomeDay, WELCOME_DAY, WELCOME_LOCATION_ID, WELCOME_SLOT_INDEX, HUB_FIXED_CHOICES,
+  LOCATIONS,
+  CORE_LOCATION_IDS,
+  DISTRICT_ORDER,
+  District,
+  Tag,
+  getLocation,
+  locationIds,
+  locationsInDistrict,
+  hasTag,
+  evaluateUnlock,
+  availableLocations,
+  isWelcomeDay,
+  WELCOME_DAY,
+  WELCOME_LOCATION_ID,
+  WELCOME_SLOT_INDEX,
+  HUB_FIXED_CHOICES,
 } from '../docs/js/data/locations.js';
 import {
-  WEATHER_TYPES, getWeather, weatherForDay, forecast, eligibleWeather, closedTags,
+  WEATHER_TYPES,
+  getWeather,
+  weatherForDay,
+  forecast,
+  eligibleWeather,
+  closedTags,
 } from '../docs/js/data/weather.js';
+import { PERKS, getPerk, perkIds, canBuyPerk, aggregatePerks } from '../docs/js/data/perks.js';
 import {
-  PERKS, getPerk, perkIds, canBuyPerk, aggregatePerks,
-} from '../docs/js/data/perks.js';
-import {
-  FESTIVALS, getFestival, festivalOn, upcomingFestivals,
+  FESTIVALS,
+  getFestival,
+  festivalOn,
+  upcomingFestivals,
 } from '../docs/js/data/festivals.js';
 import {
-  ACHIEVEMENTS, getAchievement, evaluateAchievements,
+  ACHIEVEMENTS,
+  getAchievement,
+  evaluateAchievements,
 } from '../docs/js/data/achievements.js';
 import { createAllProfiles, Role, SMALL_TALK, smallTalkFor } from '../docs/js/data/characters.js';
 import { buildEventPool } from '../docs/js/data/events.js';
 
 // ============================================================== locations
 
-test('the catalogue holds twenty-three locations with unique ids', () => {
-  assert.equal(LOCATIONS.length, 23);
+test('the catalogue holds the full city with unique ids', () => {
+  // 25 = the founding twenty-three + Les Mines de la Butte and Le Clos
+  // Bénévole (v2.6/v2.7). Update only with a content commit;
+  // scripts/new-location.js keeps this honest.
+  assert.equal(LOCATIONS.length, 25);
   const ids = locationIds();
   assert.equal(new Set(ids).size, ids.length);
 });
@@ -180,7 +203,11 @@ test('exactly one location carries the day-one welcome, and it is Brian’s', ()
   assert.equal(welcomes.length, 1, 'the opening should hold one invitation, not several');
   assert.equal(welcomes[0].id, WELCOME_LOCATION_ID);
   assert.equal(welcomes[0].id, 'house_of_middleway');
-  assert.equal(welcomes[0].host, 'brian', 'the welcome is only meaningful if Brian keeps the place');
+  assert.equal(
+    welcomes[0].host,
+    'brian',
+    'the welcome is only meaningful if Brian keeps the place',
+  );
 });
 
 test('every other location leaves dayOneWelcome off', () => {
@@ -229,7 +256,10 @@ test('the welcome still bows to the weather', () => {
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.ok(chapel.tags.includes(Tag.OUTDOOR), 'the chapel is out in the woods');
   const stormy = evaluateUnlock(chapel, {
-    journeyDay: 1, reputation: 0, weekday: 3, closedTags: [Tag.OUTDOOR],
+    journeyDay: 1,
+    reputation: 0,
+    weekday: 3,
+    closedTags: [Tag.OUTDOOR],
   });
   assert.equal(stormy.unlocked, false);
   assert.match(stormy.reason, /weather/i);
@@ -240,7 +270,11 @@ test('the welcome does not rebalance the chapel itself', () => {
   // is later in the run — same numbers, same cost.
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.deepEqual(chapel.effects, {
-    sanity: 13, money: -6, energy: -18, reputation: 3, insight: 2,
+    sanity: 13,
+    money: -6,
+    energy: -18,
+    reputation: 3,
+    insight: 2,
   });
   const { sanity, money, energy } = chapel.effects;
   assert.ok(sanity < 0 || money < 0 || energy < 0, 'the welcome is still not a free lunch');
@@ -256,17 +290,25 @@ test('the hub welcome slot is the fourth card — row two, column one', () => {
   assert.equal((WELCOME_SLOT_INDEX % columns) + 1, 1, 'column one');
   // …and it must land inside the rotating list the hub actually splices.
   const rotatingIndex = WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES;
-  assert.ok(rotatingIndex >= 0 && rotatingIndex < 4, 'slot must exist among the four rotating cards');
+  assert.ok(
+    rotatingIndex >= 0 && rotatingIndex < 4,
+    'slot must exist among the four rotating cards',
+  );
 });
 
 test('a fresh run opens with the two founding locations, home, and Brian’s welcome', () => {
   const open = availableLocations({ journeyDay: 1, reputation: 10, weekday: 3 });
-  assert.deepEqual(
-    open.map((l) => l.id).sort(),
-    ['bar', 'home_loft', 'house_of_middleway', 'spiritual_community'],
-  );
+  assert.deepEqual(open.map((l) => l.id).sort(), [
+    'bar',
+    'home_loft',
+    'house_of_middleway',
+    'spiritual_community',
+  ]);
   for (const id of CORE_LOCATION_IDS) {
-    assert.ok(open.some((l) => l.id === id), `${id} should be open on day one`);
+    assert.ok(
+      open.some((l) => l.id === id),
+      `${id} should be open on day one`,
+    );
   }
 });
 
@@ -275,10 +317,12 @@ test('day two closes Brian’s welcome again', () => {
   // early economy must be exactly what it was from journey day two onward.
   // (river_walk opening on day 2 is the catalogue's own, unrelated rule.)
   const open = availableLocations({ journeyDay: 2, reputation: 10, weekday: 4 });
-  assert.deepEqual(
-    open.map((l) => l.id).sort(),
-    ['bar', 'home_loft', 'river_walk', 'spiritual_community'],
-  );
+  assert.deepEqual(open.map((l) => l.id).sort(), [
+    'bar',
+    'home_loft',
+    'river_walk',
+    'spiritual_community',
+  ]);
   assert.ok(!open.some((l) => l.id === WELCOME_LOCATION_ID), 'the chapel closes again on day two');
 });
 
@@ -352,7 +396,10 @@ test('snow is winter-only and heatwaves are summer-only', () => {
 test('the forecast reads forward from the given day and matches the day query', () => {
   const days = forecast(10, 99, 'Summer', 5);
   assert.equal(days.length, 5);
-  assert.deepEqual(days.map((d) => d.day), [10, 11, 12, 13, 14]);
+  assert.deepEqual(
+    days.map((d) => d.day),
+    [10, 11, 12, 13, 14],
+  );
   for (const { day, weather } of days) {
     assert.equal(weather.id, weatherForDay(day, 99, 'Summer').id);
   }
@@ -445,7 +492,10 @@ test('canBuyPerk refuses unknown, owned, unaffordable and un-prerequisited perks
   assert.match(locked.reason, /Steady Breath/);
 
   assert.equal(canBuyPerk('steady_breath', { insight: 4, perks: [] }).ok, true);
-  assert.equal(canBuyPerk('thick_skin', { insight: 99, perks: new Set(['steady_breath']) }).ok, true);
+  assert.equal(
+    canBuyPerk('thick_skin', { insight: 99, perks: new Set(['steady_breath']) }).ok,
+    true,
+  );
 });
 
 test('canBuyPerk copes with a snapshot missing its perk list', () => {
@@ -465,14 +515,19 @@ test('aggregatePerks sums owned effects and ignores junk', () => {
   assert.equal(total.rentRelief, 0);
 
   const none = aggregatePerks([]);
-  assert.equal(Object.values(none).reduce((a, b) => a + b, 0), 0);
+  assert.equal(
+    Object.values(none).reduce((a, b) => a + b, 0),
+    0,
+  );
   assert.deepEqual(aggregatePerks(undefined), none);
 });
 
 test('owning every perk never produces a nonsensical aggregate', () => {
   const all = aggregatePerks(perkIds());
-  assert.ok(all.hurtfulDampening > 0 && all.hurtfulDampening < 1,
-    'dampening must stay a fraction or hurtful events would flip sign');
+  assert.ok(
+    all.hurtfulDampening > 0 && all.hurtfulDampening < 1,
+    'dampening must stay a fraction or hurtful events would flip sign',
+  );
   assert.ok(all.rentRelief < 18, 'rent relief must not make rent free');
 });
 
@@ -487,8 +542,10 @@ test('festivals sit on unique, real calendar dates', () => {
     assert.ok(f.monthIndex >= 0 && f.monthIndex <= 11, `${f.id} month`);
     // A festival on 31 September, or on 29 February, would simply never fire.
     const shortest = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][f.monthIndex];
-    assert.ok(f.dayOfMonth >= 1 && f.dayOfMonth <= shortest,
-      `${f.id} falls on ${f.dayOfMonth} of a ${shortest}-day month`);
+    assert.ok(
+      f.dayOfMonth >= 1 && f.dayOfMonth <= shortest,
+      `${f.id} falls on ${f.dayOfMonth} of a ${shortest}-day month`,
+    );
     assert.ok(f.line.length > 20, `${f.id} line`);
   }
 });
@@ -593,7 +650,10 @@ test('getAchievement resolves by id', () => {
 
 test('almost_broke does not fire on a dead run', () => {
   // Zero is game over, not a near miss — the predicate must exclude it.
-  assert.equal(getAchievement('almost_broke').test({ ...blankSnapshot(), sanity: 0, money: 0 }), false);
+  assert.equal(
+    getAchievement('almost_broke').test({ ...blankSnapshot(), sanity: 0, money: 0 }),
+    false,
+  );
 });
 
 test('District constants are all used by the order list', () => {
@@ -615,8 +675,15 @@ test('every location host has several deterministic character-specific small-tal
     const lines = SMALL_TALK[location.host];
     assert.ok(lines, `${location.id} host ${location.host} needs small talk`);
     assert.ok(lines.length >= 3, `${location.host} needs a list of lines`);
-    assert.equal(smallTalkFor(location.host, 3), smallTalkFor(location.host, 3), 'same visit is stable');
-    assert.ok(lines.includes(smallTalkFor(location.host, 1)), `${location.host} line comes from their list`);
+    assert.equal(
+      smallTalkFor(location.host, 3),
+      smallTalkFor(location.host, 3),
+      'same visit is stable',
+    );
+    assert.ok(
+      lines.includes(smallTalkFor(location.host, 1)),
+      `${location.host} line comes from their list`,
+    );
   }
   assert.equal(smallTalkFor('nobody', 1), 'It is good to see you.');
 });
@@ -636,9 +703,13 @@ test('every event is tied to a real character', () => {
 test('at least half of all events belong to side characters', () => {
   const profiles = new Map(createAllProfiles().map((person) => [person.id, person]));
   const pool = buildEventPool();
-  const sideEvents = pool.filter((event) => profiles.get(event.character)?.role === Role.SIDE_CHARACTER);
-  assert.ok(sideEvents.length * 2 >= pool.length,
-    `${sideEvents.length}/${pool.length} events are side-character events`);
+  const sideEvents = pool.filter(
+    (event) => profiles.get(event.character)?.role === Role.SIDE_CHARACTER,
+  );
+  assert.ok(
+    sideEvents.length * 2 >= pool.length,
+    `${sideEvents.length}/${pool.length} events are side-character events`,
+  );
 });
 
 test('Sato and Alex each have multi-beat arcs', () => {

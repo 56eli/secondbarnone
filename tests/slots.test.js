@@ -196,21 +196,51 @@ test('the lineup always offers one location per slot', () => {
   }
 });
 
-test('an open location is always preferred over a locked one', () => {
+test('a progress-locked location never displaces an earned one', () => {
+  // Progress gates (day, reputation, perk, weekday) alone decide what a slot
+  // may offer: an unearned card must never bump an earned one. Weather is
+  // the deliberate exception — see the next test.
   const gs = new GameState({ seed: 5 });
   for (let day = 1; day <= 120; day += 1) {
     gs.journeyDay = day;
     gs.reputation = Math.min(100, day);
-    const snap = snapshot(gs);
+    const snap = { ...snapshot(gs), closedTags: [] };
     for (const slot of HUB_SLOTS) {
       const chosen = locationForSlot(slot, snap, gs.weatherSeed);
       if (evaluateUnlock(chosen, snap).unlocked) continue;
-      // A locked card is only acceptable when the slot has nothing open.
       const anyOpen = locationsInSlot(slot).some((l) => evaluateUnlock(l, snap).unlocked);
       assert.equal(anyOpen, false,
-        `slot ${slot} showed a locked ${chosen.id} on day ${day} with an open option available`);
+        `slot ${slot} showed a locked ${chosen.id} on day ${day} with an earned option available`);
     }
   }
+});
+
+test('a storm shutting the markets is visible on the board', () => {
+  // v2.6 fix for "weather closes a card 0.2% of the time". Weather closures
+  // used to be silently swapped out of the hub's slot pools, so a storm's
+  // only visible effect was an unchanged board. A closed place now stays on
+  // its card with the reason showing, which is what the four-day forecast
+  // exists to let you plan around. This measures the actual board over many
+  // seeded runs: visible closures must be ordinary, not sightings.
+  const seen = { total: 0, withClosure: 0 };
+  for (let seed = 0; seed < 24; seed += 1) {
+    const gs = new GameState({ seed });
+    gs.reputation = 100;
+    for (let day = 20; day <= 80; day += 1) {
+      gs.journeyDay = day;
+      const snap = snapshot(gs);
+      if (snap.closedTags.length === 0) continue;
+      const lineup = dailySlotLineup(snap, gs.weatherSeed).filter(Boolean);
+      seen.total += 1;
+      const anyShut = lineup.some((l) => !evaluateUnlock(l, snap).unlocked);
+      if (anyShut) seen.withClosure += 1;
+    }
+  }
+  assert.ok(seen.total > 24, 'the sampled window should contain closure days');
+  assert.ok(
+    seen.withClosure / seen.total >= 0.5,
+    `only ${seen.withClosure}/${seen.total} closure days showed a shut card — the sky is hiding again`,
+  );
 });
 
 test('a slot with no locations at all yields null rather than throwing', () => {

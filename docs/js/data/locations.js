@@ -2,7 +2,7 @@
  * Location catalogue.
  *
  * The original game had exactly two places to spend a day. This module turns
- * that into a data-driven network of twenty-two locations spread over five
+ * that into a data-driven network of twenty-five locations spread over five
  * districts, each with its own effects, tags, unlock rule and flavour.
  *
  * The two original locations keep their exact numbers (+15/−10 and +12/−12) so
@@ -315,10 +315,18 @@ export const LOCATIONS = [
     desc: 'Basement of the old union hall. Two hundred covers a night, industrial pots, and a radio nobody is allowed to change.',
     actionLabel: 'Cook the Service',
     actionDesc:
-      'You chopped onions for four hours and served two hundred people. Your back aches. The neighbourhood noticed.',
+      'You chopped onions for four hours, served two hundred people, and ate with the crew after. Your back aches in the honest way. The neighbourhood noticed.',
     historyLabel: 'Cooked at the soup kitchen',
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR, Tag.SOCIAL],
-    effects: eff(5, -5, -20, 9, 0),
+    // Repriced in v2.6. The old bundle (sanity 5, money -5, energy -20,
+    // rep 9, no insight) sat at a 0.3% pick rate — nine events and three
+    // portraits of effectively dead content. The cost is unchanged (a full
+    // day's energy); the reward now matches the work: service restores you,
+    // the crew meal means no money changes hands, and four hours of real
+    // cooking teaches. The mines remain the dedicated reputation engine
+    // (v2.7, issue #16); the kitchen is the restorative for when the
+    // spirit, not the ledger, is flagging.
+    effects: eff(10, 0, -20, 4, 1),
     variance: vary(3, 3, 6, 4, 0),
     slot: 4,
     unlock: { minDay: 11, minReputation: 25 },
@@ -643,6 +651,55 @@ export const LOCATIONS = [
     dayOneWelcome: true,
     bg: 'assets/backgrounds/house_of_middleway.webp',
   }),
+  loc({
+    id: 'gypsum_mines',
+    host: 'lakshay',
+    name: 'Les Mines de la Butte',
+    emoji: '⛏️',
+    district: District.UPTOWN,
+    desc: 'Under the hill run the gypsum tunnels the city dug for two centuries and half forgot. Lakshay keeps the legal gallery: forty-one lamps, a marked walking circuit, and the community’s taped archive humming at cave temperature. Nobody performs down here. The standing you earn is for keeping the lamps lit, a round at a time.',
+    actionLabel: 'Walk the Lamplight Round',
+    actionDesc:
+      'You walked the galleries until the lamps blurred into one long thought. Your legs are done, your head is strangely clean, and the people who watch these things saw you keep at it.',
+    historyLabel: 'Walked the lamplight round in the mines',
+    tags: [Tag.SPIRITUAL, Tag.INDOOR, Tag.QUIET],
+    // v2.7 — implements the owner's issue #16: the "LOC mines", the place
+    // you grind spiritual practice for reputation gain. The numbers are the
+    // design: +14 is the highest single-day standing in the city (the radio
+    // pays 12 behind a reputation-40 gate, the clinic 7) and it is all the
+    // place pays. Energy cost of a bar shift, no money, barely any warmth,
+    // in the dark. You come here when standing is the thing you are buying
+    // and you pay for it with the rest of your week; the soup kitchen stays
+    // the restorative (v2.6), the Clos the late-game garden. Nobody else's
+    // job is taken.
+    effects: eff(2, -8, -26, 14, 2),
+    variance: vary(3, 3, 7, 3, 1),
+    slot: 5,
+    unlock: { minDay: 28, minReputation: 20 },
+    bg: 'assets/backgrounds/gypsum_mines.webp',
+  }),
+  loc({
+    id: 'clos_montmartre',
+    host: 'blokely',
+    name: 'Le Clos Bénévole',
+    emoji: '🍇',
+    district: District.UPTOWN,
+    desc: 'A walled working vineyard on Montmartre’s north slope, one of the last in Paris, kept alive by a volunteer rota Crveni wrote on a crate label. blokely taps the dry-stone terraces with one knuckle before he lets you lean on them; the remedy rows between the vines are Hanans’ and drying twice.',
+    actionLabel: 'Work the Vines',
+    actionDesc:
+      'You worked the rows until your hands were sticky and your back was warm. Paid in fruit, a sold basket, and the particular tired that sleep actually fixes.',
+    historyLabel: 'Worked the vines at the Clos',
+    tags: [Tag.COMMUNITY, Tag.OUTDOOR, Tag.VOLUNTEER, Tag.QUIET],
+    // The late-game restorative garden: real warmth and pocket money for a
+    // full day's work. Deliberately not a standing engine (+4) — that job
+    // belongs to the mines, one slot and half a city away.
+    effects: eff(14, 4, -20, 4, 2),
+    variance: vary(4, 2, 6, 2, 1),
+    slot: 6,
+    unlock: { minDay: 44, minReputation: 45 },
+    bg: 'assets/backgrounds/clos_montmartre.webp',
+  }),
+  // [[scaffold:location]] — scripts/new-location.js inserts above this line. Keep it last.
 ];
 
 /** Ids of the two locations the game opens with. */
@@ -737,7 +794,16 @@ export function locationForSlot(slot, snap, seed = 0) {
   const inSlot = locationsInSlot(slot);
   if (inSlot.length === 0) return null;
 
-  const open = inSlot.filter((l) => evaluateUnlock(l, snap).unlocked);
+  // Progress gates (day, reputation, perk, weekday) decide what the slot may
+  // offer at all; an unearned place never displaces an earned one. Weather
+  // closures are deliberately excepted from the swap-out: a storm-shut
+  // market stays on the board and renders as closed, with the reason
+  // visible. Before v2.6, weather was filtered out of the pool too, so a
+  // closure only ever surfaced when an *entire* slot shut (~0.2% of cards)
+  // and the four-day forecast had nothing visible to be about. The founding
+  // pair are always open, so the board is never fully shut.
+  const progressSnap = { ...snap, closedTags: [] };
+  const open = inSlot.filter((l) => evaluateUnlock(l, progressSnap).unlocked);
   const pool = open.length > 0 ? open : inSlot;
   const day = snap?.journeyDay ?? 1;
   const index = hashString(`slot:${slot}:${day}`, seed >>> 0) % pool.length;

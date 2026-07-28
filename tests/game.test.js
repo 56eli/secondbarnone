@@ -10,10 +10,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS, ENDURANCE_GOAL_DAYS,
+  GameState,
+  MAX_STAT,
+  MONEY_HARD_CEILING,
+  START_SANITY,
+  START_MONEY,
+  RENT_AMOUNT,
+  ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
-import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
+import {
+  EventManager,
+  MIN_EVENT_GAP_DAYS,
+  MAX_EVENT_GAP_DAYS,
+  BURNOUT_THRESHOLD,
+} from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
 import { LOCATIONS, locationIds, getLocation } from '../docs/js/data/locations.js';
 import { getWeather } from '../docs/js/data/weather.js';
@@ -85,43 +95,51 @@ test('starting stats are 50/50', () => {
 });
 
 test('spiritual community trades money for sanity', () => {
+  // The founding pair's numbers live on the location definitions; the day
+  // applies them and marks the visit (v2.6: was the legacy applyLocationAction).
   const gs = new GameState();
-  gs.applyLocationAction('spiritual_community');
-  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
-  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
+  const community = getLocation('spiritual_community');
+  gs.applyDeltas(community.effects);
+  gs.noteVisit('spiritual_community');
+  assert.equal(gs.sanity, START_SANITY + community.effects.sanity);
+  assert.equal(gs.money, START_MONEY + community.effects.money);
+  assert.ok(community.effects.sanity > 0 && community.effects.money < 0);
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
-  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
+  const bar = getLocation('bar');
+  gs.applyDeltas(bar.effects);
+  gs.noteVisit('bar');
+  assert.equal(gs.money, START_MONEY + bar.effects.money);
+  assert.equal(gs.sanity, START_SANITY + bar.effects.sanity);
+  assert.ok(bar.effects.money > 0 && bar.effects.sanity < 0);
   assert.equal(gs.consecutiveBarDays, 1);
   assert.equal(gs.maxConsecutiveBarDays, 1);
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
   assert.equal(gs.maxConsecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
   assert.equal(gs.maxConsecutiveBarDays, 2);
-  gs.applyLocationAction('spiritual_community');
+  gs.noteVisit('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
   assert.equal(gs.maxConsecutiveBarDays, 2);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyEventDeltas(999, 999);
+  gs.applyDeltas({ sanity: 999, money: 999 });
   assert.equal(gs.sanity, MAX_STAT);
   assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
   assert.ok(gs.money > MAX_STAT);
-  gs.applyEventDeltas(-99999, -99999);
+  gs.applyDeltas({ sanity: -99999, money: -99999 });
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
 });
@@ -129,7 +147,7 @@ test('sanity is capped; money is uncapped but floors at zero', () => {
 test('money can grow well past 100 without being clamped', () => {
   const gs = new GameState();
   gs.money = 95;
-  gs.applyLocationAction('bar');
+  gs.applyDeltas({ money: 10 });
   assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
   gs.applyDeltas({ money: 500 });
   assert.ok(gs.money >= 500);
@@ -139,13 +157,13 @@ test('money can grow well past 100 without being clamped', () => {
 // --------------------------------------------------------------- rent
 
 test('rent is charged on Sunday only', () => {
-  const gs = new GameState();               // Thursday
+  const gs = new GameState(); // Thursday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Friday
+  gs.advanceDay(); // Friday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Saturday
+  gs.advanceDay(); // Saturday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Sunday
+  gs.advanceDay(); // Sunday
   const before = gs.money;
   assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.money, before - RENT_AMOUNT);
@@ -153,7 +171,7 @@ test('rent is charged on Sunday only', () => {
 
 test('rent is charged at most once per Sunday', () => {
   const gs = new GameState();
-  for (let i = 0; i < 3; i++) gs.advanceDay();  // Sunday
+  for (let i = 0; i < 3; i++) gs.advanceDay(); // Sunday
   assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.applyRentIfSunday(), 0);
   assert.equal(gs.applyRentIfSunday(), 0);
@@ -172,7 +190,9 @@ test('rent cannot push money below zero', () => {
 test('sanity reaching zero ends the game', () => {
   const gs = new GameState();
   let msg = null;
-  gs.on('game_over_triggered', (m) => { msg = m; });
+  gs.on('game_over_triggered', (m) => {
+    msg = m;
+  });
   gs.sanity = 0;
   assert.equal(gs.checkGameOver(), true);
   assert.match(msg, /sanity/i);
@@ -181,7 +201,9 @@ test('sanity reaching zero ends the game', () => {
 test('money reaching zero ends the game', () => {
   const gs = new GameState();
   let msg = null;
-  gs.on('game_over_triggered', (m) => { msg = m; });
+  gs.on('game_over_triggered', (m) => {
+    msg = m;
+  });
   gs.money = 0;
   assert.equal(gs.checkGameOver(), true);
   assert.match(msg, /broke/i);
@@ -190,7 +212,9 @@ test('money reaching zero ends the game', () => {
 test('game over fires only once', () => {
   const gs = new GameState();
   let count = 0;
-  gs.on('game_over_triggered', () => { count += 1; });
+  gs.on('game_over_triggered', () => {
+    count += 1;
+  });
   gs.sanity = 0;
   gs.checkGameOver();
   gs.checkGameOver();
@@ -211,7 +235,13 @@ test('history keeps only the five most recent entries, newest first', () => {
 
 test('season maps from month index', () => {
   const gs = new GameState();
-  const cases = [[0, 'Winter'], [3, 'Spring'], [6, 'Summer'], [9, 'Autumn'], [11, 'Winter']];
+  const cases = [
+    [0, 'Winter'],
+    [3, 'Spring'],
+    [6, 'Summer'],
+    [9, 'Autumn'],
+    [11, 'Winter'],
+  ];
   for (const [monthIndex, season] of cases) {
     gs.monthIndex = monthIndex;
     assert.equal(gs.getSeason(), season);
@@ -220,13 +250,17 @@ test('season maps from month index', () => {
 
 test('daily focus cue reflects combined stat pressure without prescribing a destination', () => {
   const gs = new GameState();
-  gs.sanity = 10; gs.money = 10;
+  gs.sanity = 10;
+  gs.money = 10;
   assert.match(gs.getDailyNudge().label, /gently/i);
-  gs.sanity = 10; gs.money = 50;
+  gs.sanity = 10;
+  gs.money = 50;
   assert.match(gs.getDailyNudge().label, /room/i);
-  gs.sanity = 50; gs.money = 10;
+  gs.sanity = 50;
+  gs.money = 10;
   assert.match(gs.getDailyNudge().label, /wallet/i);
-  gs.sanity = 90; gs.money = 90;
+  gs.sanity = 90;
+  gs.money = 90;
   assert.match(gs.getDailyNudge().label, /No rush/i);
 });
 
@@ -234,8 +268,12 @@ test('daily focus cue reflects combined stat pressure without prescribing a dest
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  // Three events per character across the cast, Kaden's fourth beat, and the first earned host cohort.
-  assert.equal(pool.length, 244);
+  // Count update protocol: bump only alongside a content commit you authored;
+  // if the number moved without one, find out why. 266 = the v2.7 restaff:
+  // the two new locations now play the existing cast (owner rule — cast
+  // additions are owner discretion), 18 events relocated with their owners
+  // and three new beats written.
+  assert.equal(pool.length, 266);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
@@ -254,10 +292,11 @@ test('every event is gated by location, tag, weather or a minimum day', () => {
   // An event with no gate at all would fire anywhere, at any time, which is
   // how a pool ends up feeling like noise. Every entry must earn its place.
   for (const e of buildEventPool()) {
-    const gated = e.requiredLocation !== ''
-      || e.requiredTag !== ''
-      || e.requiredWeather !== ''
-      || e.minimumDay > 1;
+    const gated =
+      e.requiredLocation !== '' ||
+      e.requiredTag !== '' ||
+      e.requiredWeather !== '' ||
+      e.minimumDay > 1;
     assert.ok(gated, `${e.id} has no gate of any kind`);
   }
 });
@@ -281,10 +320,12 @@ test('tag-gated events use tags that some location actually has', () => {
 test('weather-gated events name a real weather type', () => {
   for (const e of buildEventPool()) {
     if (!e.requiredWeather) continue;
-    assert.ok(getWeather(e.requiredWeather), `${e.id} requires unknown weather ${e.requiredWeather}`);
+    assert.ok(
+      getWeather(e.requiredWeather),
+      `${e.id} requires unknown weather ${e.requiredWeather}`,
+    );
   }
 });
-
 
 test('rarity weights follow the 10 / 2 / 2 rule', () => {
   for (const e of buildEventPool()) {
@@ -316,9 +357,12 @@ test('tag-gated events only fire where the tag applies', () => {
   em.initialize(['Geo']);
   const library = getLocation('public_library');
   for (let day = 1; day <= 300; day++) {
-    const e = em.selectEvent(day, day % 7, 'public_library', 0,
-      { tags: library.tags, weatherId: 'overcast' });
-    if (e?.requiredTag) assert.ok(library.tags.includes(e.requiredTag), `${e.id} fired at the library`);
+    const e = em.selectEvent(day, day % 7, 'public_library', 0, {
+      tags: library.tags,
+      weatherId: 'overcast',
+    });
+    if (e?.requiredTag)
+      assert.ok(library.tags.includes(e.requiredTag), `${e.id} fired at the library`);
   }
 });
 
@@ -348,7 +392,10 @@ test('burnout becomes reachable at the threshold', () => {
     em.initialize(['Geo']);
     for (let day = 1; day <= 300; day++) {
       const e = em.selectEvent(day, day % 7, 'bar', BURNOUT_THRESHOLD);
-      if (e?.id === 'burnout') { seen = true; break; }
+      if (e?.id === 'burnout') {
+        seen = true;
+        break;
+      }
     }
   }
   assert.ok(seen, 'burnout should be selectable once the threshold is met');
@@ -430,7 +477,7 @@ test('a full turn applies action, rent and event in order', () => {
   const gs = new GameState({ seed: 4242 });
   const em = new EventManager(seeded());
   em.initialize(gs.getCharacterNames());
-  for (let i = 0; i < 3; i++) gs.advanceDay();   // land on Sunday
+  for (let i = 0; i < 3; i++) gs.advanceDay(); // land on Sunday
   const before = gs.money;
   const { total } = computeDayEffects(gs, 'bar');
   const r = resolveTurn(gs, em, 'bar');
@@ -514,7 +561,10 @@ test('reset restores a clean starting state', () => {
   const gs = new GameState();
   const em = new EventManager(seeded());
   em.initialize(gs.getCharacterNames());
-  for (let i = 0; i < 8; i++) { resolveTurn(gs, em, 'bar'); gs.advanceDay(); }
+  for (let i = 0; i < 8; i++) {
+    resolveTurn(gs, em, 'bar');
+    gs.advanceDay();
+  }
   gs.resetGame();
   assert.equal(gs.sanity, START_SANITY);
   assert.equal(gs.money, START_MONEY);
@@ -528,6 +578,10 @@ test('reset restores a clean starting state', () => {
 
 test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   const chars = createAllProfiles();
+  // 78 = the launch cast, full stop. v2.6 briefly drafted six new faces for
+  // the two new locations; the owner's standing rule is that cast additions
+  // are his call alone, so the mines and the Clos are staffed by re-binding
+  // existing people (v2.7). Change this number only on the owner's say-so.
   assert.equal(chars.length, 78);
   assert.equal(chars.filter((c) => c.role === Role.PROTAGONIST).length, 1);
   assert.equal(chars.find((c) => c.role === Role.PROTAGONIST).id, 'leon');
@@ -536,7 +590,10 @@ test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   assert.equal(nemeses.length, 1);
   assert.equal(nemeses[0].id, 'kaden');
 
-  const rivals = chars.filter((c) => c.role === Role.RIVAL).map((c) => c.id).sort();
+  const rivals = chars
+    .filter((c) => c.role === Role.RIVAL)
+    .map((c) => c.id)
+    .sort();
   assert.deepEqual(rivals, ['alex', 'sato']);
 });
 
@@ -584,11 +641,16 @@ test('every character has full biography text', () => {
   }
 });
 
-test('the friend-name pool excludes the protagonist', () => {
+test('the friend-name pool is people a warm reunion could be with', () => {
+  // "old_friend_calls" draws from this pool. It must exclude Léon (it is his
+  // door) and anyone whose arrival would not be warm: the arch nemesis and
+  // the two rivals. 74 = 78 cast − Léon − Kaden − Sato − Alex.
   const gs = new GameState();
   const names = gs.getCharacterNames();
-  assert.equal(names.length, 77);
-  assert.ok(!names.includes('Léon'));
+  assert.equal(names.length, 74);
+  for (const implausible of ['Léon', 'Kaden', 'Sato', 'Alex']) {
+    assert.ok(!names.includes(implausible), `the reunion cannot be ${implausible}`);
+  }
 });
 
 test('initials fall back sensibly', () => {

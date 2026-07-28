@@ -8,7 +8,7 @@
  * Still strictly DOM-free: everything here is testable headlessly.
  */
 
-import { createAllProfiles } from '../data/characters.js';
+import { createAllProfiles, Role } from '../data/characters.js';
 import { aggregatePerks, canBuyPerk, getPerk } from '../data/perks.js';
 import {
   activeObservanceEffects,
@@ -25,10 +25,6 @@ import {
   START_SANITY,
   START_MONEY,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_RECOVERY,
@@ -69,10 +65,6 @@ export {
   START_MONEY,
   MONEY_SOFT_CAP,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_FULL_RECOVERY_DAYS,
@@ -145,6 +137,38 @@ const LEGACY_SAVE_KEYS = [
   'secondbarnone.save.v4',
   'secondbarnone.save.v3',
 ];
+
+/**
+ * Named save slots (v2.7).
+ *
+ * There are three. The first slot *is* the historical single save key, so an
+ * existing player keeps their run with no migration to write — they simply
+ * discover, in Settings, that the game now calls it "Run 1" and that two
+ * more shelves exist beside it.
+ *
+ * The save payload is unchanged (schema v7); what changed is only *which
+ * keys* autosave writes and loads. Two side keys hold the machinery:
+ *
+ *   `secondbarnone.save.active`  which slot key autosave currently targets
+ *   `secondbarnone.save.names`   { [slotKey]: displayName } renames
+ *
+ * Deliberate decisions, stated so a future editor does not re-derive them:
+ *
+ *   - The *active slot pointer* is separate from the saves themselves, and
+ *     `saveStore.save()`/`load()`/`has()` without a slot argument all work
+ *     on it. Every existing call site keeps the same one-line shape.
+ *   - Switching slots always banks the current run first (the caller does
+ *     this), because "switch" must never mean "silently discard".
+ *   - Reset erases only the active slot. A player with two runs who resets
+ *     one of them should not lose the other.
+ */
+export const SAVE_SLOTS = [
+  { key: SAVE_KEY, defaultName: 'Run 1' },
+  { key: `${SAVE_KEY}.b`, defaultName: 'Run 2' },
+  { key: `${SAVE_KEY}.c`, defaultName: 'Run 3' },
+];
+const ACTIVE_SLOT_KEY = 'secondbarnone.save.active';
+const SLOT_NAMES_KEY = 'secondbarnone.save.names';
 
 /** Schema versions `loadFrom()` accepts after migration. */
 export const SUPPORTED_SAVE_VERSIONS = Object.freeze([3, 4, 5, 6, 7]);
@@ -409,23 +433,6 @@ export class GameState {
     return { deltas: out, used };
   }
 
-  /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(
-    sanityDelta,
-    moneyDelta,
-    energyDelta = 0,
-    reputationDelta = 0,
-    insightDelta = 0,
-  ) {
-    this.applyDeltas({
-      sanity: sanityDelta,
-      money: moneyDelta,
-      energy: energyDelta,
-      reputation: reputationDelta,
-      insight: insightDelta,
-    });
-  }
-
   /** Overnight energy recovery, boosted by Second Wind. */
   recoverEnergy() {
     const perks = this.getPerkEffects();
@@ -665,23 +672,6 @@ export class GameState {
     this.emit('observance_changed', null);
     this._statsChanged();
     return finished;
-  }
-
-  /** Legacy two-location action, retained so old callers keep working. */
-  applyLocationAction(location) {
-    if (location === 'spiritual_community') {
-      this.sanity = Math.min(this.sanity + SANITY_GAIN, MAX_STAT);
-      this.money = Math.max(this.money - MONEY_LOSS, 0);
-      this.consecutiveBarDays = 0;
-    } else if (location === 'bar') {
-      // Money is uncapped — bar tips keep stacking past the old 100 ceiling.
-      this.money = Math.min(this.money + MONEY_GAIN, MONEY_HARD_CEILING);
-      this.sanity = Math.max(this.sanity - SANITY_LOSS, 0);
-      this.consecutiveBarDays += 1;
-      this.maxConsecutiveBarDays = Math.max(this.maxConsecutiveBarDays, this.consecutiveBarDays);
-    }
-    this.lastLocationVisited = location;
-    this._statsChanged();
   }
 
   // ---------------- relationships ----------------
@@ -1059,9 +1049,19 @@ export class GameState {
     };
   }
 
-  /** Friend-event name pool — everyone except the protagonist. */
+  /**
+   * Friend-event name pool.
+   *
+   * Side characters only. The pool used to be every non-Léon profile, which
+   * made "an old friend turns up at your door" able to land on Kaden — the
+   * man suing the community out of its home — or on either rival mid-feud.
+   * The substitution events are warm reunions, so the pool is the people a
+   * reunion could plausibly be warm with. Rivals can rejoin the pool if the
+   * fiction ever grows a bonding arc; until then the arch nemesis does not
+   * get to drop by without agenda.
+   */
   getCharacterNames() {
-    return this.characterProfiles.filter((p) => p.id !== 'leon').map((p) => p.name);
+    return this.characterProfiles.filter((p) => p.role === Role.SIDE_CHARACTER).map((p) => p.name);
   }
 
   getAllCharacters() {
@@ -1278,21 +1278,115 @@ export const saveStore = {
   available(storage = globalThis.localStorage) {
     return Boolean(storage);
   },
-  save(gs, storage = globalThis.localStorage, eventManager = null) {
+
+  // --------------------------------------------------------- slot plumbing
+  // See SAVE_SLOTS above for the design. Everything in this section is
+  // best-effort and total: private browsing, a corrupted names key, or a
+  // storage that rejects reads must degrade to "single slot, unnamed" rather
+  // than to a broken game.
+
+  /** The slot key autosave targets. Defaults to Run 1's historical key. */
+  activeSlotKey(storage = globalThis.localStorage) {
+    try {
+      const raw = storage?.getItem?.(ACTIVE_SLOT_KEY);
+      return SAVE_SLOTS.some((s) => s.key === raw) ? raw : SAVE_KEY;
+    } catch {
+      return SAVE_KEY;
+    }
+  },
+
+  /** Point autosave at a different slot. Unknown keys are refused. */
+  setActiveSlot(storage = globalThis.localStorage, slotKey) {
+    if (!SAVE_SLOTS.some((s) => s.key === slotKey)) return false;
+    try {
+      storage?.setItem?.(ACTIVE_SLOT_KEY, slotKey);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /** Rename a slot. Blank resets to the default name. */
+  renameSlot(storage = globalThis.localStorage, slotKey, name) {
+    if (!SAVE_SLOTS.some((s) => s.key === slotKey) || typeof name !== 'string') return false;
+    try {
+      const names = this._slotNames(storage);
+      const clean = name.trim().slice(0, 24);
+      if (clean === '') delete names[slotKey];
+      else names[slotKey] = clean;
+      storage?.setItem?.(SLOT_NAMES_KEY, JSON.stringify(names));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /** Name overrides read tolerantly; a bad names key reads as no renames. */
+  _slotNames(storage = globalThis.localStorage) {
+    try {
+      const parsed = JSON.parse(storage?.getItem?.(SLOT_NAMES_KEY) ?? '{}');
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  },
+
+  /**
+   * The three slots with their display names and a peek at each run:
+   * how far along it is and when it was last written, when known.
+   */
+  slots(storage = globalThis.localStorage) {
+    const names = this._slotNames(storage);
+    const active = this.activeSlotKey(storage);
+    return SAVE_SLOTS.map((s) => {
+      const out = {
+        key: s.key,
+        name: names[s.key] ?? s.defaultName,
+        defaultName: s.defaultName,
+        active: s.key === active,
+        present: false,
+        journeyDay: null,
+        savedAt: null,
+      };
+      try {
+        const raw = storage?.getItem?.(s.key);
+        if (raw) {
+          const snapshot = JSON.parse(raw);
+          const state = snapshot?.gameState ?? snapshot;
+          out.present = true;
+          out.journeyDay = Number.isFinite(state?.journeyDay) ? state.journeyDay : null;
+          out.savedAt = typeof snapshot?.savedAt === 'string' ? snapshot.savedAt : null;
+        }
+      } catch {
+        // A corrupted slot reads as absent, never as a crash.
+      }
+      return out;
+    });
+  },
+
+  // -------------------------------------------------------------- save/load
+  save(gs, storage = globalThis.localStorage, eventManager = null, slotKey = null) {
     if (!storage) return false;
+    const key = slotKey ?? this.activeSlotKey(storage);
+    if (!SAVE_SLOTS.some((s) => s.key === key)) return false;
     try {
       const gameState = gs.toJSON();
       const snapshot = eventManager
-        ? { v: CURRENT_SAVE_VERSION, gameState, eventManager: eventManager.toJSON() }
+        ? {
+            v: CURRENT_SAVE_VERSION,
+            savedAt: new Date().toISOString(),
+            gameState,
+            eventManager: eventManager.toJSON(),
+          }
         : gameState;
-      storage.setItem(SAVE_KEY, JSON.stringify(snapshot));
+      storage.setItem(key, JSON.stringify(snapshot));
       // Prune superseded slots once the current one is safely written. A
       // migrated run previously left its old key behind forever, so two
       // divergent saves coexisted and the next schema bump would have had to
       // guess which was real.
-      for (const key of LEGACY_SAVE_KEYS) {
+      for (const legacy of LEGACY_SAVE_KEYS) {
         try {
-          storage.removeItem(key);
+          storage.removeItem(legacy);
         } catch {
           // A storage that rejects removal is still a storage we just wrote to.
         }
@@ -1302,12 +1396,14 @@ export const saveStore = {
       return false;
     }
   },
-  load(gs, storage = globalThis.localStorage, eventManager = null) {
+  load(gs, storage = globalThis.localStorage, eventManager = null, slotKey = null) {
     if (!storage) return false;
+    const key = slotKey ?? this.activeSlotKey(storage);
     try {
-      // Keep v3 runs playable; task and journal fields are intentionally ignored
-      // as part of the calmer v5 state shape.
-      const raw = [SAVE_KEY, ...LEGACY_SAVE_KEYS].map((key) => storage.getItem(key)).find(Boolean);
+      // Only the default slot looks at legacy keys: a v3–v6 run migrates
+      // into Run 1, never silently into a side slot.
+      const candidates = key === SAVE_KEY ? [SAVE_KEY, ...LEGACY_SAVE_KEYS] : [key];
+      const raw = candidates.map((k) => storage.getItem(k)).find(Boolean);
       if (!raw) return false;
       const snapshot = JSON.parse(raw);
       const state = snapshot?.gameState ?? snapshot;
@@ -1319,20 +1415,28 @@ export const saveStore = {
       return false;
     }
   },
-  clear(storage = globalThis.localStorage) {
+  clear(storage = globalThis.localStorage, slotKey = null) {
     if (!storage) return false;
+    const key = slotKey ?? this.activeSlotKey(storage);
+    // Refuse unknown keys like save/load/has do: a caller typo must surface
+    // as `false`, not as a silent no-op that reports success.
+    if (!SAVE_SLOTS.some((s) => s.key === key)) return false;
     try {
-      storage.removeItem(SAVE_KEY);
-      for (const key of LEGACY_SAVE_KEYS) storage.removeItem(key);
+      storage.removeItem(key);
+      // Erasing the default slot also retires any legacy saves it would
+      // otherwise resurrect on next boot.
+      if (key === SAVE_KEY) for (const legacy of LEGACY_SAVE_KEYS) storage.removeItem(legacy);
       return true;
     } catch {
       return false;
     }
   },
-  has(storage = globalThis.localStorage) {
+  has(storage = globalThis.localStorage, slotKey = null) {
     if (!storage) return false;
+    const key = slotKey ?? this.activeSlotKey(storage);
     try {
-      return [SAVE_KEY, ...LEGACY_SAVE_KEYS].some((key) => storage.getItem(key) !== null);
+      const candidates = key === SAVE_KEY ? [SAVE_KEY, ...LEGACY_SAVE_KEYS] : [key];
+      return candidates.some((k) => storage.getItem(k) !== null);
     } catch {
       return false;
     }

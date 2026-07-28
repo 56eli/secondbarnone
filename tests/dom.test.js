@@ -198,6 +198,8 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
+    // 78 = the launch cast. Cast additions are the repo owner's call (see
+    // game.test.js), so this number moves only on his say-so.
     assert.equal(rows.length, 78, 'all characters listed');
     assert.match(doc.querySelector('.detail').textContent, /Select a character/);
 
@@ -242,6 +244,7 @@ maybe('searching filters the character list', async () => {
     const search = doc.querySelector('.char-search');
     const visible = () => [...doc.querySelectorAll('.char-row')].filter((r) => !r.hidden).length;
 
+    // 78 = the launch cast, same update protocol as above.
     assert.equal(visible(), 78);
 
     search.value = 'Kaden';

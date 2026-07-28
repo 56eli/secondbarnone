@@ -17,7 +17,7 @@ import { LOCATIONS, WELCOME_SLOT_INDEX } from '../docs/js/data/locations.js';
 import { ACHIEVEMENTS } from '../docs/js/data/achievements.js';
 import { PERKS } from '../docs/js/data/perks.js';
 import { OBSERVANCES } from '../docs/js/data/observances.js';
-import { SAVE_KEY, CURRENT_SAVE_VERSION } from '../docs/js/core/game-state.js';
+import { SAVE_KEY, CURRENT_SAVE_VERSION, saveStore } from '../docs/js/core/game-state.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -1133,6 +1133,134 @@ maybe('reset game in settings clears the save and returns to a fresh run', async
     assert.equal(gs.journeyDay, 1);
     assert.equal(Math.round(gs.money), 50);
     assert.ok(doc.querySelector('.hub'), 'reset should return to the hub');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('settings lists the three run slots with the current one marked', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    window.__game.gs.journeyDay = 12;
+    window.__game.api.save();
+
+    doc.getElementById('settings-btn').click();
+    const rows = [...doc.querySelectorAll('.settings-slot')];
+    assert.equal(rows.length, 3, 'three run slots should be listed');
+    assert.equal(rows[0].querySelector('.settings-slot-current')?.textContent, 'current');
+    assert.match(rows[0].textContent, /Day 12/, 'the current run shows its progress');
+    assert.match(rows[1].textContent, /Empty/, 'slots without a run say so honestly');
+    assert.ok(rows[1].querySelector('input'), 'every slot can be renamed');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('switching to an empty slot banks the old run before starting fresh', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+    gs.journeyDay = 12;
+    gs.money = 77;
+    api.save();
+
+    doc.getElementById('settings-btn').click();
+    click(doc, '.settings-slot button', 'Start here');
+    await settle();
+
+    assert.equal(gs.journeyDay, 1, 'the new slot starts at day 1');
+    assert.equal(
+      storage.getItem('secondbarnone.save.active'),
+      `${SAVE_KEY}.b`,
+      'autosave now targets the new slot',
+    );
+    const banked = JSON.parse(storage.getItem(SAVE_KEY));
+    assert.equal(
+      banked.gameState.journeyDay,
+      12,
+      'the run that was left must be banked, not discarded',
+    );
+
+    // Switch back: the banked run resumes where it left off.
+    doc.getElementById('settings-btn').click();
+    click(doc, '.settings-slot button', 'Switch');
+    await settle();
+    assert.equal(gs.journeyDay, 12);
+    assert.equal(Math.round(gs.money), 77);
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('renaming a slot persists the name across a fresh read of storage', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    doc.getElementById('settings-btn').click();
+    const input = [...doc.querySelectorAll('.settings-slot')][1].querySelector('input');
+    assert.equal(input.value, 'Run 2');
+
+    input.value = 'Night shift';
+    input.dispatchEvent(new window.Event('change', { bubbles: true }));
+    const names = JSON.parse(storage.getItem('secondbarnone.save.names'));
+    assert.equal(names[`${SAVE_KEY}.b`], 'Night shift');
+
+    // Reopen the dialog: the name survives a fresh slots() read.
+    click(doc, '.settings-dialog button', 'Close');
+    doc.getElementById('settings-btn').click();
+    const reopened = [...doc.querySelectorAll('.settings-slot')][1].querySelector('input');
+    assert.equal(reopened.value, 'Night shift');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('erasing another slot asks first and never touches the current run', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+    gs.journeyDay = 21;
+    api.save(); // bank a day-21 run in Run 1
+
+    saveStore.setActiveSlot(storage, `${SAVE_KEY}.b`);
+    gs.journeyDay = 5;
+    api.save(); // and a day-5 run in Run 2
+
+    saveStore.setActiveSlot(storage, SAVE_KEY);
+    saveStore.load(gs, storage); // back in the day-21 run
+
+    doc.getElementById('settings-btn').click();
+    const rows = [...doc.querySelectorAll('.settings-slot')];
+    assert.match(rows[0].textContent, /Day 21/);
+    assert.match(rows[1].textContent, /Day 5/);
+
+    const arm = [...rows[1].querySelectorAll('button')].find((b) => b.textContent === 'Erase');
+    assert.ok(arm, 'a filled slot offers erase');
+    arm.click();
+    assert.ok(storage.getItem(`${SAVE_KEY}.b`), 'the first click must only arm');
+
+    const confirm = [...rows[1].querySelectorAll('button')].find((b) =>
+      /really/i.test(b.textContent),
+    );
+    assert.ok(confirm, 'an armed confirmation should appear');
+    confirm.click();
+    await settle();
+
+    assert.equal(storage.getItem(`${SAVE_KEY}.b`), null, 'only Run 2 is erased');
+    assert.ok(storage.getItem(SAVE_KEY), 'Run 1 is untouched');
+    assert.equal(gs.journeyDay, 21, 'the current run keeps playing');
+    assert.match(
+      [...doc.querySelectorAll('.settings-slot')][1].textContent,
+      /Empty/,
+      'the row updates in place',
+    );
   } finally {
     cleanup(window);
   }

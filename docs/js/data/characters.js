@@ -65,7 +65,10 @@ function portraitHiFor(id) {
   return `assets/portraits/hi/${id}.webp`;
 }
 
-const RAW = [
+// Exported raw so tooling (scripts/new-location.js) can introspect the cast
+// without inventing a second source of truth. Game code goes through
+// createAllProfiles() — it derives location names and portrait paths.
+export const RAW = [
   // ---- Protagonist ----
   {
     id: 'leon',
@@ -90,10 +93,10 @@ const RAW = [
     id: 'lakshay',
     name: 'Lakshay',
     role: Role.SIDE_CHARACTER,
-    bio: 'Runs the IT department nobody upstairs knows they have. Two floors below the meditation hall, in a vaulted cellar that used to hold wine, Lakshay keeps racks of servers humming through the night — a digitised library of scanned sutras, out-of-print commentaries, recorded dharma talks and every session the community has ever taped. He calls it the archive. Everyone else calls it the basement. He has never lost a byte, mirrors everything three times, and gets genuinely emotional about backup schedules. A brass singing bowl sits on top of rack one, which he insists is for humidity and not for luck.',
+    bio: 'Runs the archive nobody above ground remembers they have. Down in the cool galleries under the butte — old gypsum tunnels the city dug and half forgot — Lakshay keeps racks of servers humming beside the lamplight circuit: a digitised library of scanned sutras, out-of-print commentaries, recorded talks and every session the community has ever taped. He calls it the archive. Everyone else calls it the mines. He has never lost a byte, mirrors everything three times, and gets genuinely emotional about the lamp roster. A brass singing bowl sits on top of rack one, which he insists is for humidity and not for luck.',
     relationship:
       'Lakshay quietly digitised Léon\u2019s earliest, worst guided meditations and refuses to delete them, on the grounds that an archive that only keeps the good parts is not an archive. He brings chai down the stairs and forgets to drink it.',
-    locationId: 'spiritual_community',
+    locationId: 'gypsum_mines',
   },
   {
     id: 'arian',
@@ -277,10 +280,10 @@ const RAW = [
     id: 'hanans',
     name: 'Hanans',
     role: Role.SIDE_CHARACTER,
-    bio: 'A pharmacist with an encyclopaedic memory for herbal remedies and a deep scepticism of most of them. Joined the community to argue and stayed because the arguments were good.',
+    bio: 'A pharmacist with an encyclopaedic memory for herbal remedies and a deep scepticism of most of them. Keeps the remedy rows between the vines at the Clos, dries everything twice, and will tell you exactly which harvest claims are nonsense. Joined the community to argue and stayed because the arguments were good.',
     relationship:
       'Léon\u2019s favourite sparring partner on questions of faith and evidence. Neither has convinced the other of anything.',
-    locationId: 'free_clinic',
+    locationId: 'clos_montmartre',
   },
   {
     id: 'brock_lee',
@@ -388,10 +391,10 @@ const RAW = [
     id: 'qustoge',
     name: 'Qusтoge',
     role: Role.SIDE_CHARACTER,
-    bio: 'A translator working across four languages and fluent in the silences between them. Joined the community when she realised she had spent a decade speaking only other people\u2019s words.',
+    bio: 'A translator working across four languages and fluent in the silences between them. Joined the community when she realised she had spent a decade speaking only other people\u2019s words. Down in the galleries she mostly listens; the dark has no accent at all.',
     relationship:
       'Helps Léon phrase difficult things. He suspects she improves his meaning in transit.',
-    locationId: 'public_library',
+    locationId: 'gypsum_mines',
   },
   {
     id: 'groovyphoenix',
@@ -413,9 +416,9 @@ const RAW = [
     id: 'self',
     name: 'Self',
     role: Role.SIDE_CHARACTER,
-    bio: 'Legally changed their name during a retreat and declines all follow-up questions. Attends every session, contributes rarely, and radiates an unsettling contentment.',
+    bio: 'Legally changed their name during a retreat and declines all follow-up questions. Attends every session, contributes rarely, and radiates an unsettling contentment. Lately they keep to the lamplight round under the butte — first down the shaft, last up.',
     relationship: 'Once told Léon "you are doing it already" and refused to clarify what "it" was.',
-    locationId: 'house_of_middleway',
+    locationId: 'gypsum_mines',
   },
   {
     id: 'daniela',
@@ -585,17 +588,17 @@ const RAW = [
     id: 'crveni',
     name: 'Crveni',
     role: Role.SIDE_CHARACTER,
-    bio: 'A union organiser who drinks slowly and listens fast. Has quietly resolved three workplace disputes from a barstool.',
+    bio: 'A union organiser who drinks slowly and listens fast. Has quietly resolved three workplace disputes from a barstool. Wrote the Clos\u2019s volunteer rota on the back of a crate label; nobody has dared improve it.',
     relationship: 'Keeps telling Léon he is underpaying himself. Léon keeps changing the subject.',
-    locationId: 'landlord_office',
+    locationId: 'clos_montmartre',
   },
   {
     id: 'blokely',
     name: 'blokely',
     role: Role.SIDE_CHARACTER,
-    bio: 'A bricklayer turned sculptor who works in salvaged materials. Built the community\u2019s garden wall out of things other people threw away.',
-    relationship: 'Says the wall is unfinished. It has looked finished for a year.',
-    locationId: 'community_garden',
+    bio: 'A bricklayer turned sculptor who works in salvaged materials. Built the community\u2019s garden wall out of things other people threw away. Lately he keeps the Clos\u2019s dry-stone terraces the way they were kept for two hundred years: no mortar, no hurry, one knuckle-tap before he trusts a course.',
+    relationship: 'Says the wall is unfinished. Every wall, everywhere, forever.',
+    locationId: 'clos_montmartre',
   },
   {
     id: 'jits',
@@ -748,6 +751,10 @@ const RAW = [
       'Sleeps on Léon\u2019s cushion whenever he stands up, which the community considers a teaching.',
     locationId: 'spiritual_community',
   },
+  // [[scaffold:character]] — marker retained for tooling, but cast additions
+  // are the repo owner's call, never an automated by-product of adding a
+  // location. See docs/DESIGN_PRINCIPLES.md ("the cast is curated") — new
+  // places are staffed by re-binding the people already here.
 ];
 
 /**
@@ -908,6 +915,17 @@ export const SMALL_TALK = Object.freeze({
     'Grin first, questions later. That is how we do it here.',
     'You knew me before the beard, Léon. Some things do not need to be explained twice.',
   ]),
+  lakshay: Object.freeze([
+    'Forty-one lamps out, forty-one lamps back. That is the whole report.',
+    'The dark down here is not empty. It is archived.',
+    'Mind the third lamp; it gutters. Everything else keeps.',
+  ]),
+  blokely: Object.freeze([
+    'Stone first, words after. The wall teaches the order.',
+    'Tap before you trust it. Works on people too.',
+    'The low corner is older than the city\u2019s name for this hill. Mind how you lean on it.',
+  ]),
+  // [[scaffold:smalltalk]] — scripts/new-location.js inserts above this line. Keep it last.
 });
 
 /** Return a host-specific line for the given journey day. */

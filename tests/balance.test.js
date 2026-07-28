@@ -419,9 +419,25 @@ test('the whole city and the whole perk tree open before the goal', () => {
   );
 
   const latest = Math.max(...LOCATIONS.map((l) => l.unlock.minDay));
+  // v2.6: this bound used to be 0.6 — everything opened by day 36 and the
+  // last third of the run got nothing new (roadmap 2.4). The world's doors
+  // now open through the mid-run. What must still hold: the last location
+  // lands early enough to actually be lived in before the goal — at least a
+  // fifth of the run — and the mid-run keeps opening rather than stalling
+  // after the early unlocks. Two locations arrive in days 21–50 (Les Mines
+  // de la Butte, Le Clos Bénévole); the eager budget verifiably fits no
+  // third — the rest of the cadence is delivered by day- and
+  // reputation-gated event beats, which cost no payload.
   assert.ok(
-    latest < ENDURANCE_GOAL_DAYS * 0.6,
+    latest <= ENDURANCE_GOAL_DAYS * 0.8,
     `the last location opens on day ${latest}, leaving no time to enjoy it`,
+  );
+  const midRunArrivals = LOCATIONS.filter(
+    (l) => l.unlock.minDay > 20 && l.unlock.minDay <= 50,
+  ).length;
+  assert.ok(
+    midRunArrivals >= 2,
+    'at least two locations must arrive in days 21–50, or the run stops opening before the goal (roadmap 2.4)',
   );
 });
 

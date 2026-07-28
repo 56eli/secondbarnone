@@ -101,6 +101,13 @@ function ev(id, character, title, description, category, rarity, deltas = {}, ex
     minimumDay: 1,
     /** Optional relationship gate: requires this many previous events with the owner. */
     minAffinity: 0,
+    /**
+     * Optional reputation gate: the event only enters the pool once the run's
+     * reputation reached this. Used for mid-run beats at places the run
+     * unlocks early but whose deeper circles take standing to reach — so
+     * reputation keeps mattering after the last location gate.
+     */
+    minReputation: 0,
     allowedWeekdays: [],
     /** Retained for compatibility; the location gate is the primary one. */
     requiredTag: '',
@@ -122,6 +129,16 @@ export const EVENTS_BY_LOCATION = {
   // ==================================================== La Maison Calme
   // Geo, Yun, Lakshay and the cat: the founding room.
   spiritual_community: [
+    ev(
+      'cat_king_unwell',
+      'cat',
+      'The King Is Briefly Unwell',
+      'Cat eats something inadvisable behind the altar and is loudly, dramatically unwell through the evening sit. The emergency vet accepts cards. Geo carries him there in the good tote, and the whole hall pretends not to watch the door until they are back.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -5, money: -12, energy: -4 },
+      { minimumDay: 3 },
+    ),
     ev(
       'inspiring_meditation',
       'geo',
@@ -176,34 +193,6 @@ export const EVENTS_BY_LOCATION = {
       Category.COMMUNITY,
       RH,
       { sanity: 6, money: 5, reputation: 6 },
-    ),
-
-    ev(
-      'community_support',
-      'lakshay',
-      'Ninety-Four Percent',
-      'Lakshay surfaces from the cellar to report the archive is at ninety-four percent capacity and that everyone is very glad you are here, in that order.',
-      Category.COMMUNITY,
-      S,
-      { sanity: 8 },
-    ),
-    ev(
-      'lakshay_drive_failure',
-      'lakshay',
-      'A Drive Gives Out',
-      'Rack two throws an error at 3am. Nothing is lost — nothing is ever lost — but the replacement is not cheap and Lakshay will not let you not replace it.',
-      Category.FINANCIAL,
-      S,
-      { sanity: -3, money: -9 },
-    ),
-    ev(
-      'lakshay_old_recording',
-      'lakshay',
-      'The Tape You Forgot',
-      'He plays you a session from the first winter. You are audibly terrified on it. The room it was recorded in is the room you are standing in.',
-      Category.DISCOVERY,
-      RH,
-      { sanity: 12, insight: 3 },
     ),
 
     ev(
@@ -374,6 +363,15 @@ export const EVENTS_BY_LOCATION = {
   // ========================================================== Home Loft
   home_loft: [
     ev(
+      'mrone_declutters',
+      'mrone',
+      'Decluttered Without Consent',
+      'Mrone \u201chelps\u201d while you are at the launderette. Three boxes march to the charity shop, one of them containing the kettle, your only good mug, and the letters you were not ready to name. Buying your own life back across the counter is a special kind of afternoon.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -9, money: -6 },
+    ),
+    ev(
       'real_sleep',
       'leon',
       'Actual Sleep',
@@ -461,6 +459,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ============================================================ Rooftop
   rooftop: [
+    ev(
+      'aril_sky_fulfilled',
+      'aril_stellar',
+      'The Sky Fulfils the Forecast',
+      'Her newsletter warned of \u201ca difficult Sunday\u201d and the whole roof believed her. When the neighbours\u2019 drone show kills the evening quiet, everyone nods like prophecy fulfilled and looks at you to do something about it. There is nothing to be done about a sky.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -7, energy: -5 },
+    ),
     ev(
       'yume_sketches_you',
       'yume',
@@ -605,34 +612,6 @@ export const EVENTS_BY_LOCATION = {
     ),
 
     ev(
-      'hanans_argument',
-      'hanans',
-      'An Excellent Argument',
-      'Ninety minutes on evidence, faith and what counts as either. Neither of you gives ground and both of you enjoy it enormously.',
-      Category.SPIRITUAL,
-      S,
-      { sanity: 6, insight: 2 },
-    ),
-    ev(
-      'hanans_debunks',
-      'hanans',
-      'The Tincture Does Nothing',
-      'Hanans dismantles a remedy half the community swears by, kindly and completely. Two people are upset. She is still right.',
-      Category.COMMUNITY,
-      S,
-      { sanity: -5, reputation: -3 },
-    ),
-    ev(
-      'hanans_stock_donation',
-      'hanans',
-      'A Box From the Back Room',
-      'Short-dated stock the pharmacy would have binned arrives at the clinic instead. It is worth more than she will let you say.',
-      Category.COMMUNITY,
-      RH,
-      { money: 12, reputation: 6 },
-    ),
-
-    ev(
       'compassion_fatigue',
       'nestomalt',
       'Compassion Fatigue',
@@ -663,6 +642,15 @@ export const EVENTS_BY_LOCATION = {
 
   // =================================================== La Cantine Solidaire
   soup_kitchen: [
+    ev(
+      'luca_boiler_last_word',
+      'luca',
+      'The Boiler Gets the Last Word',
+      'Mid-service, the kitchen\u2019s ancient boiler gives up with a noise like a dropped tray. Forty bowls to go, no hot water. The call-out fee comes out of the biscuit tin; you and Luca wash up cold and take turns being cheerful about it.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -6, money: -9 },
+    ),
     ev(
       'community_potluck',
       'siekamcebule',
@@ -751,6 +739,15 @@ export const EVENTS_BY_LOCATION = {
   // ========================================================== Canal Walk
   river_walk: [
     ev(
+      'oh_diesel_slick',
+      'oh',
+      'Diesel on the Water',
+      'A barge has slicked the canal above the lock. Volunteers carry swans past in towels while Oh stands very still, watching. The eleven words stay unpublished. Some days the river is just a road that leaks.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -7 },
+    ),
+    ev(
       'heron',
       'joar',
       'The Heron',
@@ -838,6 +835,15 @@ export const EVENTS_BY_LOCATION = {
   // ==================================================== Community Garden
   community_garden: [
     ev(
+      'hazel_blight',
+      'hazel',
+      'Blight in the Tea Bed',
+      'The chamomile \u2014 half of the winter blend \u2014 comes up spotted. Hazel pronounces it lost with clinical tenderness and hands you the fork. You pull it up root by root while she writes the label for the empty bed: \u201cAlso a harvest.\u201d',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -8, money: -4 },
+    ),
+    ev(
       'good_pitch',
       'brock_lee',
       'A Good Pitch',
@@ -894,34 +900,6 @@ export const EVENTS_BY_LOCATION = {
     ),
 
     ev(
-      'blokely_wall',
-      'blokely',
-      'The Wall Is Not Finished',
-      'It has looked finished for a year. Blokely disagrees, at length, with a trowel in his hand and no intention of stopping.',
-      Category.COMMUNITY,
-      S,
-      { sanity: 4, energy: -8 },
-    ),
-    ev(
-      'blokely_salvage_run',
-      'blokely',
-      'A Skip Worth Climbing Into',
-      'Half a demolished conservatory, free to anyone with a van. The cold frames it becomes are worth real money.',
-      Category.DISCOVERY,
-      S,
-      { money: 6, energy: -10 },
-    ),
-    ev(
-      'blokely_sculpture',
-      'blokely',
-      'Something Nobody Expected',
-      'The thing in the corner of the garden turns out to be a sculpture, and it turns out to be very good. People come to see it.',
-      Category.DISCOVERY,
-      RH,
-      { sanity: 8, reputation: 11 },
-    ),
-
-    ev(
       'emily_fosters',
       'emily',
       'Four Kittens in a Crate',
@@ -952,6 +930,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ==================================================== Saturday Market
   farmers_market: [
+    ev(
+      'sir_cruds_weights_measures',
+      'sir_cruds',
+      'The Weights and Measures Man',
+      'A trading-standards officer arrives to weigh wheels with great theatre. Sir Cruds\u2019s beloved brass scale is fifty grams proud and the fine is real. \u201cA trumped-up toll, my liege,\u201d he says, paying it with a flourish that costs him more than the money.',
+      Category.FINANCIAL,
+      RX,
+      { money: -12, sanity: -5 },
+    ),
     ev(
       'trader_tipoff',
       'ahyeon',
@@ -1039,6 +1026,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ========================================================== Bathhouse
   bathhouse: [
+    ev(
+      'daniela_boiler_day_off',
+      'daniela',
+      "The Boiler's Day Off",
+      'The hammam boiler chooses your long-planned soaking day to go cold. Daniela calls it contrast therapy with a perfectly straight face. You call it several other things, under your breath, through chattering teeth.',
+      Category.COMMUNITY,
+      RX,
+      { energy: -12, sanity: -5 },
+    ),
     ev(
       'unwelcome_quiet',
       'renata',
@@ -1234,6 +1230,15 @@ export const EVENTS_BY_LOCATION = {
   // ================================================ Puces de Saint-Ouen
   flea_market: [
     ev(
+      'raul_officer_word',
+      'raul',
+      'The Officer Would Like a Word',
+      'A crate of \u201cestate jewellery\u201d you helped price turns out to be from a burglary in the 11th. Statements are taken, the margin walks out in an evidence bag, and Raul\u2019s blackletter apology note is only partial comfort.',
+      Category.FINANCIAL,
+      RX,
+      { money: -8, sanity: -8, reputation: -3 },
+    ),
+    ev(
       'short_changed',
       'baris',
       'Short-Changed',
@@ -1321,6 +1326,15 @@ export const EVENTS_BY_LOCATION = {
   // ================================================= Bibliothèque Forney
   public_library: [
     ev(
+      'kaj_reading_room_closed',
+      'kaj',
+      'A Closing Notice, Not a Recommendation',
+      'A hygiene scare shuts the reading room for the day; even Kaj\u2019s corner lamp stays dark. You end up buying the novel you only meant to borrow four more chapters of, and the ending was not worth the queue.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -6, money: -6 },
+    ),
+    ev(
       'marginalia',
       'lou',
       'Somebody Else\u2019s Marginalia',
@@ -1405,33 +1419,6 @@ export const EVENTS_BY_LOCATION = {
     ),
 
     ev(
-      'qustoge_phrasing',
-      'qustoge',
-      'Better in Transit',
-      'She helps you phrase something difficult. You suspect the version that comes out is a small improvement on what you meant.',
-      Category.COMMUNITY,
-      S,
-      { sanity: 6, insight: 2 },
-    ),
-    ev(
-      'qustoge_silences',
-      'qustoge',
-      'A Decade of Other People\u2019s Words',
-      'Qusтoge says out loud what she joined for, and then goes very quiet. You sit with it rather than filling it.',
-      Category.SPIRITUAL,
-      S,
-      { sanity: -4, insight: 3 },
-    ),
-    ev(
-      'qustoge_interpreting',
-      'qustoge',
-      'Four Languages, One Room',
-      'A meeting that should have failed does not, entirely because she was in it. Word gets around about that.',
-      Category.COMMUNITY,
-      RH,
-      { sanity: 8, reputation: 10 },
-    ),
-    ev(
       'lou_sets_aside_the_right_book',
       'lou',
       'Lou Sets Aside the Right Book',
@@ -1445,6 +1432,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ================================================== Verrier, Antiquaire
   pawn_shop: [
+    ev(
+      'isra_wrong_bag',
+      'isra',
+      'The Wrong Bag',
+      'You hand over the donations and the keepsake box in one distracted trip, and the founding-year medal \u2014 not yours to lose, safe in your keeping \u2014 is sold by lunch. Unselling it costs the day and a finder\u2019s premium.',
+      Category.FINANCIAL,
+      RX,
+      { sanity: -10, money: -8 },
+    ),
     ev(
       'sc_generous_donor',
       'stephen',
@@ -1532,6 +1528,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ====================================================== Radio Station
   radio_station: [
+    ev(
+      'jared_dead_air',
+      'jared',
+      'Forty Seconds of Dead Air',
+      'The transmitter\u2019s last good valve gives up mid-broadcast. Jared hears the hum change half a second before anyone else and looks physically wounded. The replacement part costs what the station earns in a week.',
+      Category.COMMUNITY,
+      RX,
+      { money: -9, sanity: -7 },
+    ),
     ev(
       'hawkinstv_feature',
       'hawkinstv',
@@ -1647,6 +1652,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ==================================================== Caveau des Poètes
   open_mic: [
+    ev(
+      'tarrasqu_second_row',
+      'tarrasqu',
+      'The Man in the Second Row',
+      'A heckler who brought notes keeps rolling actual dice to decide who to savage next. You spend the night as diplomat and shield, and his one good point about \u201cperformative calm\u201d follows you home.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -12, reputation: -2 },
+    ),
     ev(
       'klaudia_set',
       'klaudia',
@@ -1804,34 +1818,6 @@ export const EVENTS_BY_LOCATION = {
     ),
 
     ev(
-      'neighborhood_drama',
-      'crveni',
-      'Mediation, Unpaid',
-      'A dispute that had been brewing for months gets settled in a waiting room, mostly because Crveni was in it.',
-      Category.COMMUNITY,
-      S,
-      { sanity: -4, reputation: 5 },
-    ),
-    ev(
-      'crveni_underpaying',
-      'crveni',
-      'You Are Underpaying Yourself',
-      'He says it again, with figures this time. You change the subject again. He lets you, again.',
-      Category.FINANCIAL,
-      S,
-      { sanity: -3, insight: 2 },
-    ),
-    ev(
-      'crveni_union_win',
-      'crveni',
-      'A Quiet Win',
-      'Something is dropped, quietly, that should never have been filed. Crveni will not say how and buys the coffees.',
-      Category.COMMUNITY,
-      RH,
-      { sanity: 10, money: 8, reputation: 6 },
-    ),
-
-    ev(
       'wise_elder',
       'simon',
       'Simon Has Seen This Before',
@@ -1895,6 +1881,38 @@ export const EVENTS_BY_LOCATION = {
       RH,
       { sanity: -2, money: 6, insight: 3 },
       { minAffinity: 3, minimumDay: 24 },
+    ),
+    // The arc continues. The land fight does not end on day 18; it escalates,
+    // goes quiet, and — if the run lasts — resolves into something earned.
+    ev(
+      'kaden_adjacent_lot',
+      'kaden',
+      'Scaffolding on the Verge',
+      'Kaden has bought the building next door and the surveyors are back, this time inside your sightline every morning. The community garden watches the fence go up. He waves again, courteous as a closing door.',
+      Category.NEMESIS,
+      S,
+      { sanity: -7, money: -4 },
+      { minimumDay: 32 },
+    ),
+    ev(
+      'kaden_long_pause',
+      'kaden',
+      'The Long Pause',
+      'Two weeks of silence from the agency. No filings, no letters, no wave. Crveni calls it the quiet part of the siege, and the waiting takes more out of the hall than any notice ever did.',
+      Category.NEMESIS,
+      S,
+      { sanity: -4, insight: 2 },
+      { minimumDay: 40, minAffinity: 4 },
+    ),
+    ev(
+      'kaden_stands_down',
+      'kaden',
+      'The Withdrawal',
+      'The redevelopment plan is withdrawn without ceremony — the parcel goes to a community land trust, and Kaden reads the notice twice before folding it very small. At the door he stops and gives you one stiff nod, the kind that costs more than the paperwork.',
+      Category.NEMESIS,
+      RH,
+      { sanity: 10, reputation: 6, insight: 3 },
+      { minimumDay: 50, minAffinity: 5 },
     ),
   ],
 
@@ -2000,6 +2018,15 @@ export const EVENTS_BY_LOCATION = {
   // ========================================================== Vermillion
   alex_cocktail_bar: [
     ev(
+      'artem_sent_back',
+      'artem',
+      'Sent Back Twice',
+      'Artem\u2019s table client sends two signature rounds back, loudly, with Alex watching from the pass like a cat at an aquarium. Artem tries to pay you to forget it happened, which makes it worse for everyone.',
+      Category.BAR,
+      RX,
+      { sanity: -9, reputation: -3 },
+    ),
+    ev(
       'alex_respect',
       'alex',
       'Alex, Grudgingly',
@@ -2098,6 +2125,15 @@ export const EVENTS_BY_LOCATION = {
 
   // ============================================ Père Lachaise Garden
   memorial_garden: [
+    ev(
+      'kate_paint_on_stone',
+      'kate',
+      'Paint on Stone',
+      'Overnight, spray paint across the memorial stones \u2014 nothing legible, just damage. You spend the morning on soft brushes and solvent, and Kate puts her notebook away for once and simply works beside you.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -10 },
+    ),
     ev(
       'marlies_organises',
       'marlies',
@@ -2269,10 +2305,29 @@ export const EVENTS_BY_LOCATION = {
       S,
       { sanity: -6, energy: -6 },
     ),
+    ev(
+      'iulian_dawn_key',
+      'iulian',
+      'The Dawn Key',
+      'Iulian presses a heavy iron key into your palm: the crypt gate, for the hour the tour coaches have not found yet. \u201cThe stones say more when there is nobody to say it to,\u201d he says. You have the nave to yourself until the light goes long.',
+      Category.SPIRITUAL,
+      RH,
+      { sanity: 12, insight: 3 },
+      { minimumDay: 30, minReputation: 55 },
+    ),
   ],
 
   // ============================================== Fontainebleau Retreat
   mountain_retreat: [
+    ev(
+      'jits_learning_to_fall',
+      'jits',
+      'Learning to Fall, Again',
+      'On the scree below the ridge you fall exactly the way he taught you not to. Jits splints your wrist without a word of commentary, and the retreat\u2019s silence has never said anything quite so loudly.',
+      Category.SPIRITUAL,
+      RX,
+      { sanity: -8, energy: -10 },
+    ),
     ev(
       'the_bell',
       'kopung',
@@ -2355,6 +2410,16 @@ export const EVENTS_BY_LOCATION = {
       Category.FINANCIAL,
       RH,
       { money: 20, reputation: 6 },
+    ),
+    ev(
+      'kopung_kiln_weekend',
+      'kopung',
+      'The Kiln Weekend',
+      'Kopung unbricks the kiln at dawn and lets you feed the first fire. \u201cThe firing decides, not us,\u201d he says. When the shelf comes out, one bowl has warped into something neither of you planned, and he sets it aside for you with the smallest nod.',
+      Category.SPIRITUAL,
+      RH,
+      { sanity: 12, insight: 4, energy: -6 },
+      { minimumDay: 30, minReputation: 70 },
     ),
   ],
 
@@ -2445,33 +2510,6 @@ export const EVENTS_BY_LOCATION = {
     ),
 
     ev(
-      'sc_spiritual_crisis',
-      'self',
-      'Spiritual Crisis',
-      'A wave of existential doubt in the middle of Brian\u2019s chapel. Self watches with unsettling contentment and says nothing at all.',
-      Category.SPIRITUAL,
-      RX,
-      { sanity: -20 },
-    ),
-    ev(
-      'self_you_are_doing_it',
-      'self',
-      'You Are Doing It Already',
-      'Said once, quietly, with no clarification of what it was. You have been trying to work it out for a year.',
-      Category.SPIRITUAL,
-      S,
-      { sanity: 6, insight: 3 },
-    ),
-    ev(
-      'self_declines_questions',
-      'self',
-      'All Follow-Up Questions Declined',
-      'Somebody new asks about the name. The answer is a smile and a very long silence, and the newcomer does not return.',
-      Category.COMMUNITY,
-      S,
-      { sanity: -4, reputation: -3 },
-    ),
-    ev(
       'brian_drops_the_sermon_voice',
       'brian',
       'Brian Drops the Sermon Voice',
@@ -2482,6 +2520,212 @@ export const EVENTS_BY_LOCATION = {
       { minAffinity: 3 },
     ),
   ],
+  // ================================================== Les Mines de la Butte
+  // Lakshay, Self, Qusтoge — practice as repetition, underground. Arrives
+  // day 28+. The mines are where you grind spiritual practice for standing
+  // (owner issue #16); the deep beat asks for standing first.
+  gypsum_mines: [
+    ev(
+      'community_support',
+      'lakshay',
+      'Forty-One Lamps, All Lit',
+      'Lakshay does the lamp count at the head of the gallery — forty-one out, forty-one back — and reports the galleries are holding and that everyone is very glad you are here, in that order.',
+      Category.COMMUNITY,
+      S,
+      { sanity: 8 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'lakshay_drive_failure',
+      'lakshay',
+      'A Drive Gives Out',
+      'Rack two throws an error in the cool of the third gallery. Nothing is lost — nothing is ever lost — but the replacement is not cheap and Lakshay will not let you not replace it.',
+      Category.FINANCIAL,
+      S,
+      { sanity: -3, money: -9 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'lakshay_old_recording',
+      'lakshay',
+      'The Tape You Forgot',
+      'He plays you a session from the first winter, when the circle met down here because nowhere above ground would have it. You are audibly terrified on it. The dark it was recorded in is the dark you are standing in.',
+      Category.DISCOVERY,
+      RH,
+      { sanity: 12, insight: 3 },
+      { minimumDay: 28 },
+    ),
+
+    ev(
+      'sc_spiritual_crisis',
+      'self',
+      'Spiritual Crisis',
+      'A wave of existential doubt on your eleventh round, where the lamps stop and the dark presses close. Self watches with unsettling contentment and says nothing at all.',
+      Category.SPIRITUAL,
+      RX,
+      { sanity: -20 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'self_you_are_doing_it',
+      'self',
+      'You Are Doing It Already',
+      'Said once, quietly, somewhere between the second lamp and the third, with no clarification of what it was. You have been trying to work it out for a year.',
+      Category.SPIRITUAL,
+      S,
+      { sanity: 6, insight: 3 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'self_declines_questions',
+      'self',
+      'All Follow-Up Questions Declined',
+      'Somebody new asks about the name, and then about the dark. The answer is a smile and a very long silence, and the newcomer does not return.',
+      Category.COMMUNITY,
+      S,
+      { sanity: -4, reputation: -3 },
+      { minimumDay: 28 },
+    ),
+
+    ev(
+      'qustoge_phrasing',
+      'qustoge',
+      'Better in Transit',
+      'She helps you phrase something difficult, down where nobody can overhear it. You suspect the version that comes out is a small improvement on what you meant.',
+      Category.COMMUNITY,
+      S,
+      { sanity: 6, insight: 2 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'qustoge_silences',
+      'qustoge',
+      'A Decade of Other People\u2019s Words',
+      'Qusтoge says out loud what she joined for, and then goes very quiet, and the galleries hold the quiet the way they hold the lamps. You walk on rather than filling it.',
+      Category.SPIRITUAL,
+      S,
+      { sanity: -4, insight: 3 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'qustoge_interpreting',
+      'qustoge',
+      'Four Languages, One Tunnel',
+      'A lost family comes down the shaft with a folded map and forty minutes of gestures. They leave by lamplight certain they found the place. Word gets around about that.',
+      Category.COMMUNITY,
+      RH,
+      { sanity: 8, reputation: 10 },
+      { minimumDay: 28 },
+    ),
+    ev(
+      'lakshay_counts_backwards',
+      'lakshay',
+      'He Counts Backwards',
+      'On your three hundredth round, Lakshay starts the lamp count at forty-one and counts down, and the whole gallery understands at once: today the lamps come to you. \u201cThe dark knows you now,\u201d he says. The regulars walk a little straighter.',
+      Category.SPIRITUAL,
+      RH,
+      { sanity: 12, reputation: 5, insight: 2 },
+      { minimumDay: 40, minReputation: 60 },
+    ),
+  ],
+  // ===================================================== Le Clos Bénévole
+  // blokely, Hanans, Crveni — the vine rows the city lets you into once it
+  // knows you. Arrives day 44+; the deepest beat asks for standing.
+  clos_montmartre: [
+    ev(
+      'crveni_rota',
+      'crveni',
+      'The Crate-Label Rota',
+      'A dispute over the top-slope rota that had brewed since spring gets settled between the vines, mostly because Crveni was in earshot and pretending not to be.',
+      Category.COMMUNITY,
+      S,
+      { sanity: -4, reputation: 5 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'crveni_underpaying',
+      'crveni',
+      'You Are Underpaying Yourself',
+      'He runs the volunteer numbers — litres, hours, the going rate — and says it again, with figures this time. You change the subject again. He lets you, again.',
+      Category.FINANCIAL,
+      S,
+      { sanity: -3, insight: 2 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'crveni_union_win',
+      'crveni',
+      'A Quiet Win',
+      'Something is dropped, quietly, that should never have been filed — the Clos keeps its place in the borough plan another year. Crveni will not say how and buys the coffees.',
+      Category.COMMUNITY,
+      RH,
+      { sanity: 10, money: 8, reputation: 6 },
+      { minimumDay: 44 },
+    ),
+
+    ev(
+      'hanans_argument',
+      'hanans',
+      'An Excellent Argument',
+      'Ninety minutes between the rows on evidence, faith and whether biodynamic compost counts as either. Neither of you gives ground and both of you enjoy it enormously.',
+      Category.SPIRITUAL,
+      S,
+      { sanity: 6, insight: 2 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'hanans_frost_honesty',
+      'hanans',
+      'The Bud Count',
+      'Every other voice on the slope says the frost missed the top rows. Hanans counts the buds twice and says the number out loud. Nobody thanks her until November.',
+      Category.COMMUNITY,
+      RX,
+      { sanity: -8, energy: -5, reputation: -3 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'hanans_stock_donation',
+      'hanans',
+      'The Good Tins',
+      'Dried stock from her remedy rows goes to the harvest table unasked — the good tins, not the short-dated ones. It is worth more than she will let you say.',
+      Category.COMMUNITY,
+      S,
+      { money: 8, reputation: 4 },
+      { minimumDay: 44 },
+    ),
+
+    ev(
+      'blokely_salvage_run',
+      'blokely',
+      'A Skip Worth Climbing Into',
+      'Half a demolished conservatory, free to anyone with a van. The cloche frames it becomes are worth real money to the top slope.',
+      Category.DISCOVERY,
+      S,
+      { money: 6, energy: -10 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'blokely_sculpture',
+      'blokely',
+      'Something Nobody Expected',
+      'The thing at the turn of the fourth terrace — pruned canes, wire, a door somebody threw away — turns out to be a sculpture, and it turns out to be very good. People climb the hill to see it.',
+      Category.DISCOVERY,
+      S,
+      { sanity: 6, reputation: 6, insight: 1 },
+      { minimumDay: 44 },
+    ),
+    ev(
+      'blokely_oldest_wall',
+      'blokely',
+      'The Oldest Wall',
+      'Below the low corner nobody weeds, where the first terrace eats into the rock itself, he shows you the course he was taught never to touch. \u201cMine now,\u201d he says, meaning he keeps it, meaning it keeps him. He built the community\u2019s garden wall out of throwaways. This is where he learned why a wall matters.',
+      Category.SPIRITUAL,
+      RH,
+      { sanity: 10, reputation: 5, insight: 2 },
+      { minimumDay: 46, minReputation: 60 },
+    ),
+  ],
+  // [[scaffold:events]] — scripts/new-location.js inserts above this line. Keep it last.
 };
 
 /**

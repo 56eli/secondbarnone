@@ -170,6 +170,7 @@ export class EventManager {
         const count = affinity[e.character] ?? 0;
         if (count < e.minAffinity) return false;
       }
+      if ((e.minReputation ?? 0) > (context.reputation ?? 0)) return false;
       if (e.id === 'burnout' && this._consecutiveBarDays < BURNOUT_THRESHOLD) return false;
       if (e.category === Category.FRIEND && this._characterNames.length === 0) return false;
       return true;

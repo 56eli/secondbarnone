@@ -585,8 +585,14 @@ export function renderPerks(gs, { onBuy, onBack, onObserve }) {
         : el('button', {
             class: 'btn btn-small',
             disabled: !check.ok,
+            // Honest tooltip. This used to claim "Estimated: reachable ~day N"
+            // computed as cost/1.2 + requires*5 — a made-up number that had no
+            // relationship to the player's income and read as a projection.
+            // What the player can actually use is the truth: the price, and
+            // what they hold against it. If that is not enough here, the
+            // honest fix is to say less, not to estimate harder.
             title: check.ok
-              ? `Estimated: reachable ~day ${Math.ceil(perk.cost / 1.2 + (perk.requires.length || 0) * 5)}`
+              ? `You hold ${Math.floor(gs.insight)} 🔮 — enough to learn this now`
               : check.reason,
             text: `${perk.cost} 🔮`,
             onclick: () => onBuy(perk.id),

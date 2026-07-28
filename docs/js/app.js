@@ -448,6 +448,137 @@ export function initGame(opts = {}) {
       if (e.target === backdrop) closeDialog();
     });
 
+    // --- save slots -------------------------------------------------------
+    // Three runs side by side. Run 1's slot *is* the historical single save
+    // key, so an existing player finds their run where it always was, now
+    // named. The rules a player pays for if we get them wrong:
+    //
+    //   - Switching banks the run being left first. "Switch" must never mean
+    //     "silently discard".
+    //   - An empty slot is a fresh start, not an error.
+    //   - Erasing asks first and only touches its own slot. Reset and the
+    //     other runs are unaffected.
+    //
+    // Event memory (the anti-repetition seen-event set) stays shared across
+    // slots on purpose: it exists so consecutive runs do not deal the same
+    // beats, and that property is most useful precisely when a household
+    // shares one browser.
+    const slotsHeading = document.createElement('h3');
+    slotsHeading.className = 'section-h';
+    slotsHeading.textContent = 'Your runs';
+
+    const slotsWrap = document.createElement('div');
+    slotsWrap.className = 'settings-slots';
+
+    if (saveStore.available(storage)) {
+      for (const slot of saveStore.slots(storage)) {
+        const slotRow = document.createElement('div');
+        slotRow.className = 'settings-slot';
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'settings-slot-name';
+        nameInput.value = slot.name;
+        nameInput.maxLength = 24;
+        nameInput.setAttribute('aria-label', `Name for ${slot.defaultName}`);
+        nameInput.addEventListener('change', () => {
+          saveStore.renameSlot(storage, slot.key, nameInput.value);
+          // Re-read so a blank rename visibly falls back to the default name.
+          const renamed = saveStore.slots(storage).find((s) => s.key === slot.key);
+          nameInput.value = renamed?.name ?? slot.defaultName;
+        });
+
+        const status = document.createElement('span');
+        status.className = 'settings-slot-status';
+        const savedAt =
+          slot.savedAt && !Number.isNaN(Date.parse(slot.savedAt))
+            ? ` · ${new Date(slot.savedAt).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+              })}`
+            : '';
+        status.textContent = slot.present
+          ? `Day ${slot.journeyDay ?? '?'}${savedAt}`
+          : 'Empty — begin a new run here';
+
+        const slotActions = document.createElement('span');
+        slotActions.className = 'settings-slot-actions';
+
+        if (slot.active) {
+          const badge = document.createElement('span');
+          badge.className = 'settings-slot-current';
+          badge.textContent = 'current';
+          slotActions.append(badge);
+        } else {
+          const switchBtn = document.createElement('button');
+          switchBtn.className = 'btn btn-small';
+          switchBtn.type = 'button';
+          switchBtn.textContent = slot.present ? 'Switch' : 'Start here';
+          switchBtn.addEventListener('click', () => {
+            // Bank the run being left before the pointer moves.
+            persist();
+            saveStore.setActiveSlot(storage, slot.key);
+            const displayName = nameInput.value.trim() || slot.defaultName;
+            if (saveStore.load(gs, storage, events)) {
+              hud.hidden = false;
+              updateHud();
+              closeDialog();
+              transitionTo(hubScreen);
+              toast(`Resumed ${displayName}.`);
+            } else {
+              // Empty or corrupted slot: restart clears its key and deals day 1.
+              restart();
+              closeDialog();
+              toast(`A new run begins in ${displayName}.`);
+            }
+          });
+          slotActions.append(switchBtn);
+        }
+
+        if (slot.present) {
+          const eraseBtn = document.createElement('button');
+          eraseBtn.className = 'btn btn-small btn-danger';
+          eraseBtn.type = 'button';
+          eraseBtn.textContent = 'Erase';
+          let eraseArmed = false;
+          eraseBtn.addEventListener('click', () => {
+            if (!eraseArmed) {
+              eraseArmed = true;
+              eraseBtn.textContent = 'Really erase?';
+              eraseBtn.classList.add('armed');
+              setTimeout(() => {
+                if (!eraseArmed) return;
+                eraseArmed = false;
+                eraseBtn.textContent = 'Erase';
+                eraseBtn.classList.remove('armed');
+              }, 6000);
+              return;
+            }
+            saveStore.clear(storage, slot.key);
+            if (slot.active) {
+              // Erasing the run in hand is a reset: clear dealt, deal day 1.
+              restart();
+              closeDialog();
+              toast('Run erased. Day 1, again.');
+            } else {
+              status.textContent = 'Empty — begin a new run here';
+              eraseBtn.remove();
+              toast(`${nameInput.value.trim() || slot.defaultName} erased.`);
+            }
+          });
+          slotActions.append(eraseBtn);
+        }
+
+        slotRow.append(nameInput, status, slotActions);
+        slotsWrap.append(slotRow);
+      }
+    } else {
+      const noSlots = document.createElement('p');
+      noSlots.className = 'settings-slot-status';
+      noSlots.textContent = 'Saved runs are unavailable in this browser mode.';
+      slotsWrap.append(noSlots);
+    }
+
     const row = document.createElement('div');
     row.className = 'settings-actions';
     row.append(reset, close);
@@ -455,13 +586,24 @@ export function initGame(opts = {}) {
 
     const saveHeading = document.createElement('h3');
     saveHeading.className = 'section-h';
-    saveHeading.textContent = 'Your run';
+    saveHeading.textContent = 'Save backup';
 
     const accessHeading = document.createElement('h3');
     accessHeading.className = 'section-h';
     accessHeading.textContent = 'Accessibility';
 
-    dialog.append(title, label, slider, accessHeading, accessTools, saveHeading, saveTools, row);
+    dialog.append(
+      title,
+      label,
+      slider,
+      accessHeading,
+      accessTools,
+      slotsHeading,
+      slotsWrap,
+      saveHeading,
+      saveTools,
+      row,
+    );
     backdrop.append(dialog);
     document.body.append(backdrop);
     // Same trap as the result modal: aria-modal is a promise about

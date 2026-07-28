@@ -305,14 +305,23 @@ magickTest('every deployed background is a daytime scene', () => {
   // All backgrounds were regenerated in a daylight pass (July 2026). The hub
   // had shipped at 0.085 mean luminance (a night scene) while its neighbours
   // sat around 0.34. None should read as night or dusk any more.
+  //
+  // The one standing exception: Les Mines de la Butte is underground. Its
+  // galleries are dark *by design* and lit by their working lamps, so it
+  // answers to a lower floor — warm lamplight (~0.26), never the 0.085
+  // night-black this rule was written against. An above-ground scene must
+  // not appear in this list; a new underground one must be argued for in
+  // docs/ART_DIRECTION.md first.
   const bgDir = join(DOCS, 'assets', 'backgrounds');
   const DAYLIGHT_FLOOR = 0.28;
+  const UNDERGROUND = new Map([['gypsum_mines.webp', 0.2]]);
   for (const f of readdirSync(bgDir)) {
     if (!f.endsWith('.webp')) continue;
+    const floor = UNDERGROUND.get(f) ?? DAYLIGHT_FLOOR;
     const mean = luminance(join(bgDir, f));
     assert.ok(
-      mean > DAYLIGHT_FLOOR,
-      `${f} reads as ${mean.toFixed(3)} — below the ${DAYLIGHT_FLOOR} daylight floor`,
+      mean > floor,
+      `${f} reads as ${mean.toFixed(3)} — below its ${floor} luminance floor`,
     );
   }
 });

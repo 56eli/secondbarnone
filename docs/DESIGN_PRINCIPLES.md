@@ -221,19 +221,42 @@ author remembering will eventually meet an author who does not.
 This is what makes a location somewhere specific people are rather than a slot
 machine with scenery. Enforced by test.
 
-**Known limitation:** 77 of 78 characters have *exactly* three, so the floor is
-also the ceiling. `affinity` exists to break this — see the roadmap.
+**Known limitation:** the floor is close to the ceiling — 50 of 78 characters
+have exactly three events, 27 have four, and only Kaden has a real arc (8).
+`affinity` exists to break this — see the roadmap.
 
-### 4.3 Adding content is a checklist, and it should be a script
+### 4.3 The cast is curated — additions are the owner's call
 
-Adding one location currently means coordinated edits across `locations.js`,
-`characters.js` (×3 people), `events.js` (×9 events), `SMALL_TALK`, two asset
-directories and six image files. The failure mode is a red suite rather than a
-helpful error.
+New named characters enter the cast only at the repo owner's direction. Not
+via tooling, not as a by-product of adding a location, not because a beat
+wanted a new face (owner decision, July 2026 — see the roadmap's v2.7 notes).
+
+The reason is the same as every other entry in this file: the cast is the
+game's most expensive asset to keep coherent — every added person is a
+portrait batch, a binding decision, a small-talk voice, and a permanent share
+of the asset budget — and it is the hardest content for a reviewer to vet at
+diff time. So the default answer to "this place needs someone" is **re-bind
+someone who already exists**, and the tooling enforces it:
+`scripts/new-location.js` refuses ids that are not already in the cast and
+moves people (and their events) instead of inventing them — exactly how Les
+Mines de la Butte (Lakshay, Self, Qusтoge) and Le Clos Bénévole (blokely,
+Hanans, Crveni) are staffed. The cast-count pin in `tests/game.test.js` is the
+tripwire: it only moves on the owner's say-so.
+
+### 4.4 Adding content is a checklist, and it should be a script
+
+Adding one location means coordinated edits across `locations.js`,
+`characters.js` (re-bind the movers), `events.js` (their events move with
+them), `SMALL_TALK`, and the background art tiers. The failure mode is a red
+suite rather than a helpful error — so `scripts/new-location.js` does the
+mechanical 90%, marks every placeholder for the human 10%, and refuses the
+kinds of additions that are the owner's call (4.3).
 
 **Check the asset budget first** — `node scripts/check-assets.js` hard-fails
-above 8 MB and the margin is thin. See `DEVELOPMENT_ROADMAP.md` for the
-scaffolding tooling this wants.
+above the 4 MB eager payload and prints the live headroom, and
+`node scripts/validate-content.js` runs the content invariants (unlocks,
+event floors, one bad day per place, budget projection) before the suite
+does.
 
 ---
 

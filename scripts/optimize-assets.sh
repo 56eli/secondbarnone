@@ -21,6 +21,15 @@ fi
 
 BACKGROUND_WIDTH=1000
 BACKGROUND_QUALITY=80
+# Backgrounds are budgeted against the 4 MB eager payload, and a handful of
+# detail-rich scenes (foliage, crowds, stonework) overshoot their share at
+# q80. Encode at q80 first; anything still over the target gets one
+# deterministic step down. The step is small: at 1000px and 3:2, q68 is
+# visually indistinguishable for these painterly scenes, and the alternative —
+# refusing new locations — is worse. Measured: eight heavy backgrounds,
+# 997K at q80 -> 763K at q68.
+BACKGROUND_TARGET_KB=100
+BACKGROUND_QUALITY_HEAVY=68
 
 mkdir -p docs/assets/portraits docs/assets/backgrounds
 
@@ -54,10 +63,18 @@ for name in $wanted; do
       || echo "  ! no source for ${name}" >&2
     continue
   fi
+  out="docs/assets/backgrounds/${name}.webp"
+  q="$BACKGROUND_QUALITY"
   convert "$src" -resize "${BACKGROUND_WIDTH}x>" \
-    -quality "$BACKGROUND_QUALITY" -define webp:method=6 \
-    "docs/assets/backgrounds/${name}.webp"
-  printf '  %-22s %s\n' "$name" "$(du -h "docs/assets/backgrounds/${name}.webp" | cut -f1)"
+    -quality "$q" -define webp:method=6 "$out"
+  size_kb=$(( $(stat -c%s "$out") / 1024 ))
+  if [ "$size_kb" -gt "$BACKGROUND_TARGET_KB" ]; then
+    q="$BACKGROUND_QUALITY_HEAVY"
+    convert "$src" -resize "${BACKGROUND_WIDTH}x>" \
+      -quality "$q" -define webp:method=6 "$out"
+    size_kb=$(( $(stat -c%s "$out") / 1024 ))
+  fi
+  printf '  %-22s %s (q%s)\n' "$name" "$(du -h "$out" | cut -f1)" "$q"
 done
 
 echo "Regenerating procedural avatars…"

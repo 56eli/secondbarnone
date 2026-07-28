@@ -13,6 +13,7 @@ import {
   GameState,
   saveStore,
   SAVE_KEY,
+  SAVE_SLOTS,
   MAX_STAT,
   MAX_ENERGY,
   MAX_REPUTATION,
@@ -167,12 +168,12 @@ test('applyDeltas ignores unknown keys and an empty bundle', () => {
   assert.equal(gs.energy, before.e);
 });
 
-test('the legacy applyEventDeltas signature still works', () => {
+test('applyDeltas takes a full or partial five-stat bundle', () => {
   const gs = fresh();
-  gs.applyEventDeltas(-5, 7);
+  gs.applyDeltas({ sanity: -5, money: 7 });
   assert.equal(gs.sanity, 45);
   assert.equal(gs.money, 57);
-  gs.applyEventDeltas(0, 0, -10, 5, 2);
+  gs.applyDeltas({ energy: -10, reputation: 5, insight: 2 });
   assert.equal(gs.energy, START_ENERGY - 10);
   assert.equal(gs.reputation, START_REPUTATION + 5);
   assert.equal(gs.insight, 2);
@@ -372,4 +373,183 @@ test('mastery is awarded once and persists independently of the sixty-day win', 
   assert.equal(loaded.loadFrom(gs.toJSON()), true);
   assert.equal(loaded.masteryWon, true);
   assert.equal(loaded.masteryMessage, gs.masteryMessage);
+});
+
+// ============================================================= save slots
+//
+// The slot layer's storage-key contract (`secondbarnone.save.active` and
+// `.save.names` beside the three slot keys) is load-bearing in the other
+// direction too: renaming a key orphans every existing player's pointer.
+// These tests pin the strings down on purpose.
+
+const SLOT_A_KEY = SAVE_KEY; // Run 1 *is* the historical single save key.
+const SLOT_B_KEY = `${SAVE_KEY}.b`;
+const SLOT_C_KEY = `${SAVE_KEY}.c`;
+const ACTIVE_POINTER_KEY = 'secondbarnone.save.active';
+const SLOT_NAMES_STORAGE_KEY = 'secondbarnone.save.names';
+
+test('three slots exist and Run 1 is the historical save, active by default', () => {
+  const storage = fakeStorage();
+  assert.deepEqual(
+    SAVE_SLOTS.map((s) => s.key),
+    [SLOT_A_KEY, SLOT_B_KEY, SLOT_C_KEY],
+    'Run 1 must keep the long-standing key so existing players keep their run',
+  );
+  assert.equal(saveStore.activeSlotKey(storage), SLOT_A_KEY);
+
+  const slots = saveStore.slots(storage);
+  assert.equal(slots.length, 3);
+  assert.deepEqual(
+    slots.map((s) => s.name),
+    ['Run 1', 'Run 2', 'Run 3'],
+  );
+  assert.equal(slots[0].active, true, 'with no pointer stored, Run 1 is active');
+  assert.ok(slots.every((s) => !s.present && s.journeyDay === null));
+});
+
+test('saving follows the active-slot pointer and slots stay isolated', () => {
+  const storage = fakeStorage();
+  const gs = fresh(11);
+  gs.journeyDay = 12;
+
+  // A save with no slot argument lands in Run 1, as it always has.
+  assert.equal(saveStore.save(gs, storage), true);
+  assert.ok(storage.getItem(SLOT_A_KEY));
+  assert.equal(storage.getItem(SLOT_B_KEY), null);
+
+  // Move the pointer, advance differently, save again: two divergent runs.
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_B_KEY), true);
+  gs.journeyDay = 30;
+  gs.money = 500;
+  assert.equal(saveStore.save(gs, storage), true);
+
+  const intoA = fresh(1);
+  const intoB = fresh(1);
+  assert.equal(saveStore.load(intoA, storage, null, SLOT_A_KEY), true);
+  assert.equal(saveStore.load(intoB, storage, null, SLOT_B_KEY), true);
+  assert.equal(intoA.journeyDay, 12);
+  assert.equal(intoB.journeyDay, 30);
+  assert.notEqual(intoA.money, intoB.money);
+
+  // Erasing one slot must not touch its neighbour, and the pointer survives.
+  assert.equal(saveStore.clear(storage, SLOT_B_KEY), true);
+  assert.equal(storage.getItem(SLOT_B_KEY), null);
+  assert.ok(storage.getItem(SLOT_A_KEY), 'erasing Run 2 must not erase Run 1');
+  assert.equal(saveStore.activeSlotKey(storage), SLOT_B_KEY, 'erasing does not move the pointer');
+});
+
+test('no-argument save/load/has/clear all work the active slot', () => {
+  const storage = fakeStorage();
+  const gs = fresh();
+  assert.equal(saveStore.has(storage), false);
+  assert.equal(saveStore.save(gs, storage), true);
+  assert.equal(saveStore.has(storage), true);
+
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_C_KEY), true);
+  assert.equal(saveStore.has(storage), false, 'Run 3 is fresh');
+
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_A_KEY), true);
+  assert.equal(saveStore.has(storage), true);
+  assert.equal(saveStore.clear(storage), true, 'clear() with no slot clears the active one');
+  assert.equal(storage.getItem(SLOT_A_KEY), null);
+});
+
+test('unknown slot keys are refused everywhere', () => {
+  const storage = fakeStorage();
+  const gs = fresh();
+  assert.equal(saveStore.setActiveSlot(storage, 'nonsense'), false);
+  assert.equal(saveStore.save(gs, storage, null, 'nonsense'), false);
+  assert.equal(saveStore.load(gs, storage, null, 'nonsense'), false);
+  assert.equal(saveStore.clear(storage, 'nonsense'), false);
+  assert.equal(saveStore.has(storage, 'nonsense'), false);
+  assert.equal(saveStore.renameSlot(storage, 'nonsense', 'x'), false);
+});
+
+test('a corrupted or unknown active-slot pointer degrades to Run 1', () => {
+  const storage = fakeStorage();
+  storage.setItem(ACTIVE_POINTER_KEY, 'not-a-real-slot');
+  assert.equal(saveStore.activeSlotKey(storage), SLOT_A_KEY);
+  storage.setItem(ACTIVE_POINTER_KEY, 'null');
+  assert.equal(saveStore.activeSlotKey(storage), SLOT_A_KEY);
+});
+
+test('renames persist, cap at 24 characters and blank resets to the default', () => {
+  const storage = fakeStorage();
+  assert.equal(saveStore.renameSlot(storage, SLOT_B_KEY, "Mara's run"), true);
+  assert.equal(saveStore.slots(storage)[1].name, "Mara's run");
+  assert.ok(JSON.parse(storage.getItem(SLOT_NAMES_STORAGE_KEY))[SLOT_B_KEY]);
+
+  const longName = 'a'.repeat(40);
+  saveStore.renameSlot(storage, SLOT_B_KEY, longName);
+  assert.equal(saveStore.slots(storage)[1].name, longName.slice(0, 24));
+
+  saveStore.renameSlot(storage, SLOT_B_KEY, '   ');
+  assert.equal(
+    saveStore.slots(storage)[1].name,
+    'Run 2',
+    'a blank rename visibly falls back to the default name',
+  );
+});
+
+test('a corrupted names key reads as no renames, and a saving storage failure is swallowed', () => {
+  const storage = fakeStorage();
+  storage.setItem(SLOT_NAMES_STORAGE_KEY, '{broken json');
+  assert.equal(saveStore.slots(storage)[1].name, 'Run 2');
+
+  const hostile = {
+    getItem() {
+      throw new Error('denied');
+    },
+    setItem() {
+      throw new Error('denied');
+    },
+    removeItem() {
+      throw new Error('denied');
+    },
+  };
+  assert.equal(saveStore.activeSlotKey(hostile), SLOT_A_KEY);
+  assert.equal(saveStore.setActiveSlot(hostile, SLOT_B_KEY), false);
+  assert.doesNotThrow(() => saveStore.slots(hostile));
+  assert.equal(saveStore.renameSlot(hostile, SLOT_B_KEY, 'x'), false);
+});
+
+test('slots() peeks at each run without loading it', () => {
+  const storage = fakeStorage();
+  const gs = fresh(3);
+  const em = manager();
+  gs.journeyDay = 27;
+  saveStore.save(gs, storage, em);
+
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_B_KEY), true);
+  const slots = saveStore.slots(storage);
+  assert.equal(slots[0].present, true);
+  assert.equal(slots[0].journeyDay, 27, 'the settings list reads day and date without a load');
+  assert.equal(typeof slots[0].savedAt, 'string');
+  assert.ok(!Number.isNaN(Date.parse(slots[0].savedAt)), 'savedAt should be a real timestamp');
+  assert.equal(slots[1].present, false);
+  assert.equal(slots[1].active, true, 'the pointer moved, the save stayed in Run 1');
+
+  // A corrupted slot reads as absent, never as a crash.
+  storage.setItem(SLOT_B_KEY, 'not json at all{');
+  assert.equal(saveStore.slots(storage)[1].present, false);
+});
+
+test('legacy save keys migrate into Run 1 only, never into a side slot', () => {
+  const storage = fakeStorage();
+  const gs = fresh(9);
+  gs.journeyDay = 8;
+  saveStore.save(gs, storage);
+  // Move the save sideways onto a legacy key, as if written by an old build.
+  storage.setItem('secondbarnone.save.v3', storage.getItem(SLOT_A_KEY));
+  storage.removeItem(SLOT_A_KEY);
+
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_B_KEY), true);
+  assert.equal(saveStore.has(storage), false, 'Run 2 must not see the legacy save');
+  assert.equal(saveStore.load(fresh(), storage), false);
+
+  assert.equal(saveStore.setActiveSlot(storage, SLOT_A_KEY), true);
+  assert.equal(saveStore.has(storage), true, 'Run 1 still finds and adopts the legacy save');
+  const restored = fresh();
+  assert.equal(saveStore.load(restored, storage), true);
+  assert.equal(restored.journeyDay, 8);
 });
