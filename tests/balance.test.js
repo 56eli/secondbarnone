@@ -41,7 +41,7 @@ function newRun(seed = 1) {
   return { gs, em };
 }
 
-/** The unlock snapshot the hub and map both build. */
+/** The unlock snapshot the hub and location catalogue both use. */
 const snapshot = (gs) => ({
   journeyDay: gs.journeyDay,
   reputation: gs.reputation,

@@ -1,7 +1,7 @@
 /**
  * DOM tests for clickable/tappable character portraits.
  *
- * Every portrait in the game (HUD, location host banner, map host chips,
+ * Every portrait in the game (HUD, location host banner, People screen,
  * People rows/detail, event modal) should surface a small read-only popup
  * with the character's bio when clicked or tapped, without touching game
  * state or navigating away from the current screen.
@@ -227,20 +227,6 @@ maybe('People rows open the popup instead of double-nesting a button', async () 
     detailAvatarBtn.click();
     const popup = doc.querySelector('.portrait-popup-backdrop');
     assert.ok(popup, 'clicking the detail avatar should open the popup');
-  } finally { cleanup(window); }
-});
-
-maybe('the map\u2019s host chip does not nest a button inside the location card', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    window.__game.api.goto.map();
-
-    const card = doc.querySelector('.loc-card');
-    assert.ok(card, 'the map should render location cards');
-    assert.equal(card.querySelector('button.avatar-btn'), null, 'no nested button inside a location card');
-    // The host mini-avatar is still present, just not independently clickable.
-    assert.ok(card.querySelector('.host-avatar'), 'the host mini-avatar should still render');
   } finally { cleanup(window); }
 });
 

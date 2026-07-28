@@ -20,6 +20,7 @@ describe('new gameplay loop improvements', () => {
     gs.money = 250;
     gs.visitedLocations = new Set(['spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic', 'river_walk', 'community_garden', 'farmers_market', 'bathhouse', 'night_market', 'flea_market', 'public_library', 'pawn_shop', 'radio_station', 'open_mic', 'landlord_office', 'sato_studio', 'alex_cocktail_bar']);
     gs.consecutiveBarDays = 2;
+    gs.maxConsecutiveBarDays = 5;
     assert.strictEqual(gs.checkSecondWin(), true);
   });
 
@@ -49,5 +50,23 @@ describe('new gameplay loop improvements', () => {
     const nudge = gs.getDailyNudge();
     assert.ok(typeof nudge.text === 'string');
     assert.ok(nudge.text.includes('Pace') || nudge.text.includes('empty') || nudge.text.includes('rest'));
+  });
+});
+
+describe('mastery bar-streak memory', () => {
+  it('tracks the highest consecutive bar streak and uses it for mastery', () => {
+    const gs = new GameState();
+    for (let i = 0; i < 6; i += 1) gs.noteVisit('bar');
+    assert.strictEqual(gs.consecutiveBarDays, 6);
+    assert.strictEqual(gs.maxConsecutiveBarDays, 6);
+    gs.noteVisit('home_loft');
+    assert.strictEqual(gs.consecutiveBarDays, 0);
+    assert.strictEqual(gs.maxConsecutiveBarDays, 6);
+
+    gs.journeyDay = 100;
+    gs.reputation = 85;
+    gs.money = 250;
+    gs.visitedLocations = new Set(['spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic', 'river_walk', 'community_garden', 'farmers_market', 'bathhouse', 'night_market', 'flea_market', 'public_library', 'pawn_shop', 'radio_station', 'open_mic', 'landlord_office', 'sato_studio', 'alex_cocktail_bar']);
+    assert.strictEqual(gs.checkSecondWin(), false);
   });
 });

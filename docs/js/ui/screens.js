@@ -11,7 +11,6 @@ import { MAX_STAT, MAX_ENERGY, MAX_REPUTATION, ENDURANCE_GOAL_DAYS } from '../co
 import { computeDayEffects } from '../core/turn.js';
 import {
   LOCATIONS,
-  DISTRICT_ORDER,
   getLocation,
   evaluateUnlock,
   isWelcomeDay,
@@ -243,23 +242,6 @@ function findCharacter(gsOrList, id) {
   return list.find((p) => p.id === id) || null;
 }
 
-/**
- * Small "kept by …" chip used on location cards and the location screen.
- * `clickable` controls whether the mini avatar opens the character popup;
- * it must be false when the chip sits inside another button (the map's
- * location cards), since a <button> cannot contain another <button>.
- */
-function hostChip(gs, hostId, cls = 'host-chip', { clickable = true } = {}) {
-  const host = findCharacter(gs, hostId);
-  if (!host) return null;
-  return el(
-    'div',
-    { class: cls },
-    avatar(host, 'avatar host-avatar', { clickable }),
-    el('span', { class: 'host-name', text: host.name }),
-  );
-}
-
 /** Standard back button used by every sub-screen. */
 function backRow(onBack, ...extra) {
   return el(
@@ -447,72 +429,6 @@ export function renderHub(gs, handlers) {
   );
 }
 
-// ------------------------------------------------------------------- map
-
-export function renderMap(gs, { onVisit, onBack }) {
-  const snap = {
-    journeyDay: gs.journeyDay,
-    reputation: gs.reputation,
-    weekday: gs.getWeekdayIndex(),
-    perks: gs.perks,
-    closedTags: gs.getClosedTags(),
-  };
-
-  const districts = DISTRICT_ORDER.map((district) => {
-    const here = LOCATIONS.filter((l) => l.district === district);
-    if (here.length === 0) return null;
-
-    const cards = here.map((location) => {
-      const { unlocked, reason } = evaluateUnlock(location, snap);
-      const { total } = computeDayEffects(gs, location.id);
-      const visited = gs.visitedLocations.has(location.id);
-
-      const card = el(
-        'button',
-        {
-          class: `loc-card${unlocked ? '' : ' locked'}${visited ? ' visited' : ''}`,
-          disabled: !unlocked,
-          'data-location': location.id,
-        },
-        el('span', { class: 'loc-name', text: `${location.emoji} ${location.name}` }),
-        hostChip(gs, location.host, 'host-chip compact', { clickable: false }),
-        unlocked
-          ? effectChips(total, 'chips loc-chips')
-          : el('span', { class: 'loc-lock', text: `🔒 ${reason}` }),
-        el('span', { class: 'loc-tags', text: location.tags.join(' · ') }),
-      );
-
-      if (unlocked) card.addEventListener('click', () => onVisit(location.id));
-      return card;
-    });
-
-    const open = here.filter((l) => evaluateUnlock(l, snap).unlocked).length;
-    return el(
-      'section',
-      { class: 'district' },
-      el(
-        'h3',
-        { class: 'district-title' },
-        district,
-        el('span', { class: 'district-count', text: ` ${open}/${here.length} open` }),
-      ),
-      el('div', { class: 'loc-grid' }, ...cards),
-    );
-  }).filter(Boolean);
-
-  return el(
-    'div',
-    { class: 'screen map-screen' },
-    el('h2', { class: 'screen-title', text: 'The City' }),
-    el('p', {
-      class: 'screen-sub',
-      text: 'Effects shown include today’s weather, festivals, and your practice.',
-    }),
-    ...districts,
-    backRow(onBack),
-  );
-}
-
 // ------------------------------------------------------------- location
 
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
@@ -624,7 +540,7 @@ function renderSpecial(gs, location, onSpecial) {
   if (location.special === 'long_trip') {
     return el('p', {
       class: 'special-note',
-      text: 'Three days, counted as one. They will not let you leave early.',
+      text: 'It feels like three days. The game counts it as one.',
     });
   }
 

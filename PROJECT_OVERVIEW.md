@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 369 tests, ~99.7% coverage on the shipped code.
+> **Status:** playable, 371 tests, ~99.7% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -32,9 +32,9 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current                                            |
 | --------------- | ------------------------------- | -------------------------------------------------- |
-| Deploy payload  | 39.5 MB                         | **3.49 MB** to play (+4.36 MB on-demand portraits) |
+| Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB on-demand portraits) |
 | Build step      | Godot binary + export templates | none                                               |
-| Automated tests | 0                               | **369**                                            |
+| Automated tests | 0                               | **371**                                            |
 | Coverage        | —                               | **~99.7%**                                         |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -60,15 +60,15 @@ docs/js/
     rng.js           seedable RNG
   data/
     characters.js    78 profiles, each bound to one location
-    locations.js     22 locations, 5 districts, 4 hub slots
+    locations.js     23 locations, 5 districts, 4 hub slots
     events.js        235 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     festivals.js      9 fixed calendar events
-    achievements.js  22 predicates over a state snapshot
+    achievements.js  20 predicates over a state snapshot
   ui/
-    screens.js       hub, map, location, practice, almanac,
-                     characters, modal, game over
+    screens.js       hub, location, practice, almanac,
+                     characters, settings, modal, game over
 ```
 
 Every module under `data/` is pure data plus pure helpers, which is why the
@@ -181,7 +181,7 @@ becomes either a free lottery ticket or a tax.
 
 ### Locations
 
-**22 locations across 5 districts.** Each carries tags (`quiet`, `night`,
+**23 locations across 5 districts.** Each carries tags (`quiet`, `night`,
 `market`, `pilgrimage`, …) which are the join key for the whole game: weather
 modifies by tag and perks bonus by tag.
 
@@ -215,7 +215,7 @@ renderer, so it is testable headlessly — and the rendered cards carry a
 assert.
 
 Locations unlock on journey day, reputation, weekday, or a required perk/item.
-A fresh run can reach three places; a long, well-regarded one can reach all 22.
+A fresh run can reach three rotating/fixed choices plus the day-one welcome; a long, well-regarded one can reach all 23 through the six-card hub rotation.
 
 **The day-one welcome.** Journey day 1 is the single exception. Brian keeps a
 place for Léon at the **House of Middleway**, so the chapel is offered on the
@@ -226,7 +226,7 @@ slot's rotation instead of moving somewhere else. From day 2 the ordinary gate a
 rotation like anywhere else, so the early economy is untouched.
 
 The exception lives in `evaluateUnlock()` rather than in the hub renderer,
-which matters: the map screen, the preview maths and the hub all agree without
+which matters: the preview maths and the hub agree without
 being told separately, and the rule is testable headlessly. The one thing the
 welcome does _not_ override is the weather — a storm shuts the clearing for
 Brian the same as for anyone, because the alternative is a location whose
@@ -408,14 +408,14 @@ rack, Arian mid-story over a glass, Dorian immovable in his armchair.
 The largest avatar the game renders inline is **84 CSS px**, so the previous
 single 512px sheet was ~6x oversized on every page load — while being too
 _small_ for the enlarged view, which renders up to 560 CSS px. Splitting the
-tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
+tiers cut the portrait eager payload from ~4.85 MB to **~2.93 MB** and made the
 enlarged view genuinely sharp. `scripts/build-portraits.js` emits both tiers,
 picks the largest available source rather than the first matching format, and
 never upscales.
 
 ### The portrait lightbox
 
-Every portrait — HUD, host banner, map, People screen, day-result event card —
+Every portrait — HUD, host banner, People screen, day-result event card —
 is a clickable/tappable button. It opens **the artwork and nothing else**: no
 name, no role, no bio, no relationship (see `renderPortraitPopup` /
 `openCharacterPopup` in `docs/js/ui/screens.js`). The reasoning is that the
@@ -428,7 +428,7 @@ The lightbox fetches the hi-res sheet lazily and falls back once to the
 thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
 rather than an empty frame.
 
-**22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+**23 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
 playable location. Background paths are derived from the location catalogue by
 `scripts/check-assets.js`, so adding a location cannot silently ship a broken
 image path, and an _unreferenced_ background now fails a test rather than
@@ -455,7 +455,7 @@ asserts every repainted background keeps its master.
 Missing portraits fall back to an initials chip, which is exercised by test.
 
 Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/` is 3.49 MB eager plus 4.36 MB of on-demand portrait sheets (7.85 MB total).
+`docs/` is 3.62 MB eager plus 4.36 MB of on-demand portrait sheets (7.98 MB total).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -463,14 +463,14 @@ one pass.
 
 ## Testing
 
-**369 tests** across eleven files.
+**371 tests** across twelve files.
 
-| File                 | Tests   | Scope                                                                                                                                                      |
-| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `balance.test.js`    | 34      | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
-| `cast.test.js`       | 28      | Character↔location binding, the three-events-each floor, and event reachability                                                                            |
-| `slots.test.js`      | 22      | Hub slot assignment and rotation, in data and in the rendered DOM                                                                                          |
-| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants                                       |
+| Area | Scope |
+| ---- | ----- |
+| Balance and simulations | Energy rate and pressure, exhaustion curve, variance, rent pressure, endurance reachability and invalid-state guards over seeded playthroughs |
+| Cast and events | Character↔location binding, the three-events-each floor, event reachability, rarity weights and antagonist/rival arcs |
+| Hub slots and UI | Six-card hub assignment and rotation, settings/audio controls, almanac, practice tree, People screen, modals, toasts and autosave |
+| Assets and coverage edges | Portrait tiers, background references, retired-art hashes, accessibility affordances, save migration and branch/edge coverage |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
@@ -546,6 +546,5 @@ by a dedicated test that boots the app with the media query forced on.
 ## Known gaps
 
 - **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
-  a real phone is still worthwhile (HUD identity row + map grid).
-- **No audio.**
-  has not bitten yet.
+  a real phone is still worthwhile (HUD identity row, six-card hub grid and settings dialog).
+- **Audio is intentionally minimal.** A compressed warm piano loop lives in `docs/assets/audio/` and is controlled from Settings; more sound design should stay optional and respect browser autoplay limits.

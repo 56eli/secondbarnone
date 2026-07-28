@@ -39,7 +39,7 @@ export const District = Object.freeze({
   OUTSKIRTS: 'Paris Edges',
 });
 
-/** Districts in the order the map screen shows them. */
+/** Districts in the order location tooling and reports use them. */
 export const DISTRICT_ORDER = [
   District.HOME,
   District.RIVERSIDE,
@@ -517,10 +517,10 @@ export const LOCATIONS = [
     emoji: '📄',
     district: District.UPTOWN,
     desc: 'Grey carpet tiles, a ticket machine, and a laminated notice about respecting staff. Somewhere behind it all, Kaden\u2019s paperwork.',
-    actionLabel: 'Settle the Rent Early',
+    actionLabel: 'Handle Paperwork',
     actionDesc:
-      'You paid ahead, got a stamped receipt, and walked out lighter than the amount you handed over would suggest.',
-    historyLabel: 'Settled rent at the letting office',
+      'You waited under the buzzing ticket display, handled forms, and left with the rent feeling named instead of looming.',
+    historyLabel: 'Handled paperwork at the letting office',
     tags: [Tag.ADMIN, Tag.INDOOR],
     effects: eff(9, 0, -12, 0, 0),
     variance: vary(3, 2, 3, 0, 0),
