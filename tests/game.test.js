@@ -234,8 +234,8 @@ test('daily focus cue reflects combined stat pressure without prescribing a dest
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  // Three events per character across a cast of 78, plus Kaden's fourth beat.
-  assert.equal(pool.length, 235);
+  // Three events per character across the cast, Kaden's fourth beat, and the first earned host cohort.
+  assert.equal(pool.length, 244);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
@@ -354,7 +354,7 @@ test('burnout becomes reachable at the threshold', () => {
   assert.ok(seen, 'burnout should be selectable once the threshold is met');
 });
 
-test('the event gap always falls within 2-5 days', () => {
+test('the event gap always falls within the configured cadence', () => {
   const em = new EventManager(seeded());
   em.initialize(['Geo']);
   const firedOn = [];

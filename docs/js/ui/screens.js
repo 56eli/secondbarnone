@@ -271,7 +271,7 @@ function backRow(onBack, ...extra) {
 // ------------------------------------------------------------------ hub
 
 export function renderHub(gs, handlers) {
-  const { onVisit, onCharacters, onPerks, onAlmanac } = handlers;
+  const { onVisit, onCharacters, onPerks, onAlmanac, onRetire } = handlers;
   const weather = gs.getWeather();
   const festival = gs.getFestival();
   const nudge = typeof gs.getDailyNudge === 'function' ? gs.getDailyNudge() : null;
@@ -405,6 +405,9 @@ export function renderHub(gs, handlers) {
       el('span', { class: 'tool-label', text: 'Keep close' }),
       el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice ${gs.insight}` }),
       el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Weather & milestones' }),
+      gs.journeyDay >= ENDURANCE_GOAL_DAYS
+        ? el('button', { class: 'btn btn-small', onclick: onRetire, text: '🕯️ Rest here' })
+        : null,
       el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 People' }),
     ),
 
@@ -703,6 +706,15 @@ export function renderAlmanac(gs, { onBack }) {
           : '',
     }),
 
+    el('h3', { class: 'section-h', text: 'The sixty-day rest' }),
+    el('p', {
+      class: 'energy-forecast',
+      text:
+        gs.journeyDay >= ENDURANCE_GOAL_DAYS
+          ? 'You have held long enough. The hub now offers Rest here when you want this run to become an ending.'
+          : `${ENDURANCE_GOAL_DAYS - gs.journeyDay} day${ENDURANCE_GOAL_DAYS - gs.journeyDay === 1 ? '' : 's'} until you can rest here and end the run on your own terms.`,
+    }),
+
     // Mastery was previously live code with no achievement, no almanac entry
     // and no mention in any document — unreachable *and* undiscoverable.
     ...(typeof gs.masteryProgress === 'function'
@@ -952,20 +964,28 @@ export function renderCharacters(profiles, { onBack, affinity = {} }) {
 export function renderGameOver(gs, message, { onRestart }) {
   const stats = [
     ['Days survived', gs.journeyDay],
+    ['Ending shape', typeof gs.getEnding === 'function' ? gs.getEnding().shape : '—'],
     ['Places visited', `${gs.visitedLocations.size} / ${LOCATIONS.length}`],
     ['Perks learned', gs.perks.size],
     ['Achievements', `${gs.achievements.size} / ${ACHIEVEMENTS.length}`],
     ['Reputation', Math.round(gs.reputation)],
   ];
 
+  const ending = typeof gs.getEnding === 'function' ? gs.getEnding() : null;
   const title =
-    gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS ? 'A Long Road Ended' : 'The Balance Broke';
+    ending?.title ??
+    (gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS ? 'A Long Road Ended' : 'The Balance Broke');
+  const subtitle = ending?.subtitle ?? message;
 
   return el(
     'div',
     { class: 'screen gameover' },
     el('h2', { text: title }),
-    el('p', { text: message }),
+    el('p', { text: subtitle }),
+    ending?.body ? el('p', { text: ending.body }) : el('p', { text: message }),
+    ending && message && message !== ending.body && message !== subtitle
+      ? el('p', { class: 'ending-cause', text: message })
+      : null,
     gs.won
       ? el('p', {
           class: 'win-note',
@@ -1014,6 +1034,8 @@ export function renderResultModal(result, gs, { onContinue, fatal = false }) {
     festival,
     achievements,
     exhaustion,
+    resilienceGained,
+    resilienceUsed,
     masteryWon,
     masteryMessage,
     resolvedDate,
@@ -1048,6 +1070,9 @@ export function renderResultModal(result, gs, { onContinue, fatal = false }) {
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
   if (exhaustion)
     notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
+  if (resilienceGained)
+    notes.push(`🫶 The community left you ${resilienceGained} resilience for harder days.`);
+  if (resilienceUsed) notes.push(`🫶 Community resilience absorbed ${resilienceUsed} of the blow.`);
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 

@@ -176,6 +176,17 @@ export function computeDayEffects(gs, locationId) {
     factors.push({ kind: 'perks', emoji: '🔮', label: 'Perks' });
   }
 
+  // The bar's unique job is crisis money. It will still take you past empty,
+  // but when you arrive already scraping the bottom Barret keeps you on for
+  // the last cash-out. That makes it a dangerous lifeline rather than a better
+  // cocktail bar: extra money, extra wear, previewed before you commit.
+  if (locationId === 'bar' && (gs.energy ?? 100) < 5) {
+    const lastOrders = { sanity: -2, money: 4, energy: 0, reputation: 0, insight: 0 };
+    accumulate(total, lastOrders);
+    reasons.push('Last orders');
+    factors.push({ kind: 'location-role', emoji: '🍻', label: 'Last orders' });
+  }
+
   // De-duplicate both views the same way: a tag can match a weather rule more
   // than once, and the player only wants to be told about it once.
   const seen = new Set();
@@ -211,7 +222,7 @@ export function scaleEventDeltas(event, perks) {
  *            gameOver:boolean, justWon:boolean, winMessage:string, masteryWon:boolean,
  *            masteryMessage:string, deltas:object, reasons:string[],
  *            achievements:object[],
- *            exhaustion:number,
+ *            exhaustion:number, resilienceGained:number, resilienceUsed:number,
  *            sanityDelta:number, moneyDelta:number,
  *            prevSanity:number, prevMoney:number, weather:object,
  *            festival:object|null}}
@@ -230,8 +241,10 @@ export function resolveTurn(gs, eventManager, locationId) {
 
   // 1 — the day itself
   const { total, reasons } = computeDayEffects(gs, locationId);
+  const resilienceBefore = gs.resilience ?? 0;
   gs.applyDeltas(total);
   gs.noteVisit(locationId);
+  const resilienceGained = Math.max(0, (gs.resilience ?? 0) - resilienceBefore);
   const actionDesc = location?.actionDesc ?? getLocation(locationId)?.actionDesc ?? '';
 
   // 2 — exhaustion
@@ -249,10 +262,16 @@ export function resolveTurn(gs, eventManager, locationId) {
       gs.getWeekdayIndex(),
       locationId,
       gs.consecutiveBarDays,
-      { tags: location?.tags ?? [], weatherId: weather.id },
+      { tags: location?.tags ?? [], weatherId: weather.id, affinity: gs.affinity ?? {} },
     );
     if (event) {
-      gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
+      const scaled = scaleEventDeltas(event, gs.getPerkEffects());
+      const shielded =
+        typeof gs.absorbEventLosses === 'function'
+          ? gs.absorbEventLosses(scaled)
+          : { deltas: scaled, used: 0 };
+      gs.applyDeltas(shielded.deltas);
+      event = { ...event, appliedDeltas: shielded.deltas, resilienceUsed: shielded.used };
       // Meeting someone counts. This is the only place affinity is earned,
       // so "how well do I know this person" always means "how many of their
       // moments have I actually been present for".
@@ -315,6 +334,8 @@ export function resolveTurn(gs, eventManager, locationId) {
     reasons,
     achievements,
     exhaustion,
+    resilienceGained,
+    resilienceUsed: event?.resilienceUsed ?? 0,
     weather,
     festival,
     prevSanity: prev.sanity,

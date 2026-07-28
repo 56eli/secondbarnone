@@ -1,8 +1,8 @@
 /**
  * EventManager.
  *
- * Scheduling model (unchanged): after a reset the first event is scheduled
- * 2-5 journey-days ahead; after each event the next is scheduled another 2-5
+ * Scheduling model: after a reset the first event is scheduled
+ * 1-3 journey-days ahead; after each event the next is scheduled another 1-3
  * days ahead. No probability roll happens once the scheduled day is reached.
  *
  * Gating has grown with the world. An event may require a location id (as
@@ -17,8 +17,14 @@
 import { buildEventPool, Category } from '../data/events.js';
 import { createRng } from './rng.js';
 
-export const MIN_EVENT_GAP_DAYS = 2;
-export const MAX_EVENT_GAP_DAYS = 5;
+export const MIN_EVENT_GAP_DAYS = 1;
+export const MAX_EVENT_GAP_DAYS = 3;
+
+/** Catalogue-discovery weights. A faster cadence shows more days, and these
+ * multipliers make sure those slots widen the cast rather than repeating the
+ * same familiar faces. */
+export const RUN_UNSEEN_EVENT_WEIGHT = 2.2;
+export const EVER_UNSEEN_EVENT_WEIGHT = 1.6;
 
 /** Consecutive bar days required before the burnout event unlocks. */
 export const BURNOUT_THRESHOLD = 3;
@@ -32,6 +38,8 @@ export class EventManager {
     this._allEvents = [];
     this._previousEventId = null;
     this._recentIds = [];
+    this._seenIds = new Set();
+    this._globalSeenIds = new Set();
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;
     this._characterNames = [];
@@ -41,6 +49,7 @@ export class EventManager {
     this._characterNames = [...characterNames];
     this._allEvents = buildEventPool();
     this._recentIds = [];
+    this._seenIds = new Set();
     this._scheduleNextEvent(1);
   }
 
@@ -83,14 +92,17 @@ export class EventManager {
     );
 
     const weightedPool = pool.map((e) => {
-      if (recentChars.has(e.character)) {
-        return { ...e, weight: e.weight * 0.7 };
-      }
-      return e;
+      let weight = e.weight;
+      if (recentChars.has(e.character)) weight *= 0.7;
+      if (!this._seenIds.has(e.id)) weight *= RUN_UNSEEN_EVENT_WEIGHT;
+      if (!this._globalSeenIds.has(e.id)) weight *= EVER_UNSEEN_EVENT_WEIGHT;
+      return { ...e, weight };
     });
 
     const selected = this._weightedSelect(weightedPool);
     this._remember(selected.id);
+    this._seenIds.add(selected.id);
+    this._globalSeenIds.add(selected.id);
     this._scheduleNextEvent(journeyDay);
 
     // Copy before any substitution so the shared pool stays clean.
@@ -109,6 +121,7 @@ export class EventManager {
       nextEventDay: this._nextEventDay,
       recentIds: [...this._recentIds],
       previousEventId: this._previousEventId,
+      seenIds: [...this._seenIds],
       rngState: typeof this.rng.getState === 'function' ? this.rng.getState() : null,
     };
   }
@@ -124,6 +137,9 @@ export class EventManager {
       ? data.recentIds.filter((id) => validIds.has(id)).slice(-RECENT_MEMORY)
       : [];
     this._previousEventId = validIds.has(data.previousEventId) ? data.previousEventId : null;
+    this._seenIds = Array.isArray(data.seenIds)
+      ? new Set(data.seenIds.filter((id) => validIds.has(id)))
+      : this._seenIds;
     if (typeof this.rng.setState === 'function' && Number.isFinite(data.rngState)) {
       this.rng.setState(data.rngState);
     }
@@ -149,6 +165,11 @@ export class EventManager {
       if (e.requiredLocation !== '' && e.requiredLocation !== location) return false;
       if (e.requiredTag && !tags.includes(e.requiredTag)) return false;
       if (e.requiredWeather && e.requiredWeather !== weatherId) return false;
+      if ((e.minAffinity ?? 0) > 0) {
+        const affinity = context.affinity ?? {};
+        const count = affinity[e.character] ?? 0;
+        if (count < e.minAffinity) return false;
+      }
       if (e.id === 'burnout' && this._consecutiveBarDays < BURNOUT_THRESHOLD) return false;
       if (e.category === Category.FRIEND && this._characterNames.length === 0) return false;
       return true;
@@ -166,9 +187,19 @@ export class EventManager {
     return pool[pool.length - 1];
   }
 
+  setGlobalSeenIds(ids = []) {
+    const validIds = new Set(this._allEvents.map((event) => event.id));
+    this._globalSeenIds = new Set([...ids].filter((id) => validIds.has(id)));
+  }
+
+  seenEventIds() {
+    return [...new Set([...this._globalSeenIds, ...this._seenIds])];
+  }
+
   reset() {
     this._previousEventId = null;
     this._recentIds = [];
+    this._seenIds = new Set();
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;
     this._scheduleNextEvent(0);

@@ -99,6 +99,8 @@ function ev(id, character, title, description, category, rarity, deltas = {}, ex
     /** Filled in by buildEventPool() from the declaring key. */
     requiredLocation: '',
     minimumDay: 1,
+    /** Optional relationship gate: requires this many previous events with the owner. */
+    minAffinity: 0,
     allowedWeekdays: [],
     /** Retained for compatibility; the location gate is the primary one. */
     requiredTag: '',
@@ -232,6 +234,16 @@ export const EVENTS_BY_LOCATION = {
       S,
       { sanity: -3, money: -11 },
     ),
+    ev(
+      'geo_after_the_room_trusts_you',
+      'geo',
+      'Geo Leaves You the Key',
+      'Geo has to cross town and hands you the key without ceremony. The room runs anyway: cushions set out, kettle on, one newcomer helped before they could bolt.',
+      Category.COMMUNITY,
+      RH,
+      { sanity: 7, reputation: 6, insight: 2 },
+      { minAffinity: 3 },
+    ),
   ],
 
   // ==================================================== Le Dernier Verre
@@ -346,6 +358,16 @@ export const EVENTS_BY_LOCATION = {
       Category.FRIEND,
       RH,
       { sanity: 15, insight: 2 },
+    ),
+    ev(
+      'barret_counts_you_in',
+      'barret',
+      'Barret Counts You In',
+      'Barret does the cash-out with you beside him instead of sending you home. Not a promotion, exactly. More like proof that he thinks you will still be here next week.',
+      Category.BAR,
+      RH,
+      { sanity: 4, money: 10 },
+      { minAffinity: 3 },
     ),
   ],
 
@@ -1100,6 +1122,16 @@ export const EVENTS_BY_LOCATION = {
       RH,
       { sanity: 12, insight: 3 },
     ),
+    ev(
+      'renata_keeps_the_silent_bench',
+      'renata',
+      'The Silent Bench Is Saved',
+      'Renata catches your eye before anyone else can take the corner bench. No words, no favour named aloud, just a place kept for someone who has learned how to be quiet here.',
+      Category.SPIRITUAL,
+      RH,
+      { sanity: 10, energy: 6 },
+      { minAffinity: 3 },
+    ),
   ],
 
   // ======================================================== Night Market
@@ -1186,6 +1218,16 @@ export const EVENTS_BY_LOCATION = {
       Category.FRIEND,
       RH,
       { sanity: 13, insight: 3 },
+    ),
+    ev(
+      'cheezl_saves_you_a_corner',
+      'cheezl',
+      'Cheezl Saves You a Corner',
+      'Cheezl has already wedged a crate behind the stall for you to sit on. In the market, being expected is a currency. Tonight it spends well.',
+      Category.MARKET,
+      RH,
+      { sanity: 5, money: 7, energy: 4 },
+      { minAffinity: 3 },
     ),
   ],
 
@@ -1388,6 +1430,16 @@ export const EVENTS_BY_LOCATION = {
       Category.COMMUNITY,
       RH,
       { sanity: 8, reputation: 10 },
+    ),
+    ev(
+      'lou_sets_aside_the_right_book',
+      'lou',
+      'Lou Sets Aside the Right Book',
+      'Lou says the book arrived by accident, which is how librarians say they ordered something for you three weeks ago. The margin notes feel like a handrail.',
+      Category.DISCOVERY,
+      RH,
+      { sanity: 6, insight: 4 },
+      { minAffinity: 3 },
     ),
   ],
 
@@ -1834,6 +1886,16 @@ export const EVENTS_BY_LOCATION = {
       RH,
       { sanity: 8, money: 11 },
     ),
+    ev(
+      'kaden_shows_the_margin',
+      'kaden',
+      'Kaden Shows the Margin',
+      'Kaden slides the marked-up page across without quite meeting your eyes. He still wants the land. He also wants you to understand where the next pressure point will be.',
+      Category.NEMESIS,
+      RH,
+      { sanity: -2, money: 6, insight: 3 },
+      { minAffinity: 3, minimumDay: 24 },
+    ),
   ],
 
   // ====================================================== Sato's Studio
@@ -1923,6 +1985,16 @@ export const EVENTS_BY_LOCATION = {
       RH,
       { money: 14, reputation: 8 },
     ),
+    ev(
+      'sato_unlocks_the_back_room',
+      'sato',
+      'Sato Unlocks the Back Room',
+      'The public studio is all blonde wood and polish. The back room is mats with frayed corners, bad tea, and Sato admitting what the brand leaves out.',
+      Category.RIVAL,
+      RH,
+      { sanity: 6, reputation: 5, insight: 2 },
+      { minAffinity: 3 },
+    ),
   ],
 
   // ========================================================== Vermillion
@@ -2011,6 +2083,16 @@ export const EVENTS_BY_LOCATION = {
       Category.COMMUNITY,
       RH,
       { sanity: 8, money: 18, reputation: 8 },
+    ),
+    ev(
+      'alex_pours_the_staff_drink',
+      'alex',
+      'Alex Pours the Staff Drink',
+      'Alex makes two tiny drinks after close and tells you exactly what is in them, including the apology. It is easier to accept when it has a recipe.',
+      Category.RIVAL,
+      RH,
+      { sanity: 6, money: 8, reputation: 3 },
+      { minAffinity: 3 },
     ),
   ],
 
@@ -2388,6 +2470,16 @@ export const EVENTS_BY_LOCATION = {
       Category.COMMUNITY,
       S,
       { sanity: -4, reputation: -3 },
+    ),
+    ev(
+      'brian_drops_the_sermon_voice',
+      'brian',
+      'Brian Drops the Sermon Voice',
+      'After everyone leaves, Brian speaks plainly for once: about doubt, splinters in the floorboards, and how tired a smile can get. It is the most trustworthy he has sounded.',
+      Category.COMMUNITY,
+      RH,
+      { sanity: 9, insight: 3 },
+      { minAffinity: 3 },
     ),
   ],
 };

@@ -17,6 +17,7 @@ import {
   MAX_ENERGY,
   MAX_REPUTATION,
   MONEY_SOFT_CAP,
+  ENDURANCE_GOAL_DAYS,
   saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
@@ -37,6 +38,7 @@ const FADE_MS = 350;
 const TOAST_MS = 2600;
 const MUSIC_VOLUME_KEY = 'secondbarnone.settings.musicVolume';
 const MUSIC_SRC = 'assets/audio/warm-piano-loop.wav';
+const EVENT_MEMORY_KEY = 'secondbarnone.events.seen.v1';
 
 /**
  * Where the background piano starts for a player who has never touched the
@@ -56,6 +58,13 @@ export function initGame(opts = {}) {
   events.initialize(gs.getCharacterNames());
 
   const storage = 'storage' in opts ? opts.storage : globalThis.localStorage;
+
+  try {
+    const rawSeen = storage?.getItem?.(EVENT_MEMORY_KEY);
+    if (rawSeen) events.setGlobalSeenIds(JSON.parse(rawSeen));
+  } catch {
+    // Cross-run novelty is nice-to-have; a bad memory key must not block boot.
+  }
 
   const content = document.getElementById('content');
   const fade = document.getElementById('fade');
@@ -92,7 +101,16 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
-  const persist = () => saveStore.save(gs, storage, events);
+  const persistEventMemory = () => {
+    try {
+      storage?.setItem?.(EVENT_MEMORY_KEY, JSON.stringify(events.seenEventIds()));
+    } catch {}
+  };
+  const persist = () => {
+    const ok = saveStore.save(gs, storage, events);
+    persistEventMemory();
+    return ok;
+  };
 
   dom.portraitBtn?.addEventListener('click', () => {
     if (leonProfile) openCharacterPopup(leonProfile);
@@ -437,6 +455,7 @@ export function initGame(opts = {}) {
       onCharacters: () => transitionTo(charactersScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
+      onRetire: handleRetire,
     });
   }
 
@@ -481,6 +500,19 @@ export function initGame(opts = {}) {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
   }
 
+  function handleRetire() {
+    if (gs.journeyDay < ENDURANCE_GOAL_DAYS) return;
+    const ok = globalThis.confirm
+      ? globalThis.confirm('Rest here and end this run? You can begin again afterwards.')
+      : true;
+    if (!ok) return;
+    if (!gs.retireRun()) return;
+    persistEventMemory();
+    saveStore.clear(storage);
+    updateHud();
+    showGameOver(gs.gameOverMessage);
+  }
+
   // -------------------------------------------------------------- extras
 
   function handleSpecial(kind, arg, locationId) {
@@ -522,6 +554,7 @@ export function initGame(opts = {}) {
     if (result.gameOver) {
       // The run is over, so the save goes — but only after the player has
       // read what happened.
+      persistEventMemory();
       saveStore.clear(storage);
       const modal = renderResultModal(result, gs, {
         fatal: true,
@@ -608,6 +641,7 @@ export function initGame(opts = {}) {
     gs.resetGame();
     events.reset();
     saveStore.clear(storage);
+    persistEventMemory();
     hud.hidden = false;
     updateHud();
     transitionTo(hubScreen);

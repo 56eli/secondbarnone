@@ -53,6 +53,8 @@ import {
   MASTERY_MONEY,
   MASTERY_LOCATIONS,
   MASTERY_MAX_BAR_STREAK,
+  COMMUNITY_RESILIENCE_GAIN,
+  COMMUNITY_RESILIENCE_MAX,
 } from './balance.js';
 
 /**
@@ -96,6 +98,8 @@ export {
   MASTERY_MONEY,
   MASTERY_LOCATIONS,
   MASTERY_MAX_BAR_STREAK,
+  COMMUNITY_RESILIENCE_GAIN,
+  COMMUNITY_RESILIENCE_MAX,
 } from './balance.js';
 
 export const WEEKDAY_NAMES = [
@@ -134,16 +138,17 @@ const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
  * — since v6 — is *pruned* once a run has been migrated and re-saved, so two
  * divergent saves cannot coexist indefinitely.
  */
-export const SAVE_KEY = 'secondbarnone.save.v6';
+export const SAVE_KEY = 'secondbarnone.save.v7';
 const LEGACY_SAVE_KEYS = [
+  'secondbarnone.save.v6',
   'secondbarnone.save.v5',
   'secondbarnone.save.v4',
   'secondbarnone.save.v3',
 ];
 
 /** Schema versions `loadFrom()` accepts after migration. */
-export const SUPPORTED_SAVE_VERSIONS = Object.freeze([3, 4, 5, 6]);
-export const CURRENT_SAVE_VERSION = 6;
+export const SUPPORTED_SAVE_VERSIONS = Object.freeze([3, 4, 5, 6, 7]);
+export const CURRENT_SAVE_VERSION = 7;
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -174,6 +179,8 @@ export class GameState {
     this.winMessage = '';
     this.masteryWon = false;
     this.masteryMessage = '';
+    this.retired = false;
+    this.endingOutcome = '';
 
     this.consecutiveBarDays = 0;
     this.maxConsecutiveBarDays = 0;
@@ -187,6 +194,7 @@ export class GameState {
     this.perks = new Set();
     this.achievements = new Set();
     this.visitedLocations = new Set();
+    this.locationVisitCounts = {};
     this.nightDays = 0;
     this.festivalsSeen = 0;
     this.pendingAchievements = [];
@@ -208,6 +216,9 @@ export class GameState {
      * than a Map so `toJSON()` stays a straight copy.
      */
     this.affinity = {};
+
+    /** Buffer earned only at the founding community and spent only on event losses. */
+    this.resilience = 0;
 
     /** Per-run seed driving the (deterministic) weather. */
     this.weatherSeed = this._seedOption ?? Math.floor(Math.random() * 1e9);
@@ -365,6 +376,37 @@ export class GameState {
     this.reputation = clamp(this.reputation + (d.reputation ?? 0), 0, MAX_REPUTATION);
     this.insight = Math.max(this.insight + (d.insight ?? 0), 0);
     this._statsChanged();
+  }
+
+  /** Earn event-loss buffer from the founding community, capped. */
+  gainResilience(amount = COMMUNITY_RESILIENCE_GAIN) {
+    const before = this.resilience;
+    this.resilience = clamp(this.resilience + amount, 0, COMMUNITY_RESILIENCE_MAX);
+    if (this.resilience !== before) this.emit('resilience_changed', this.resilience);
+    return this.resilience - before;
+  }
+
+  /**
+   * Spend resilience against random-event losses only.
+   *
+   * Rent, exhaustion and bad choices are still real. The buffer represents
+   * people catching Léon when the city throws something at him, so it is
+   * applied only to negative event deltas and before those deltas touch stats.
+   */
+  absorbEventLosses(d = {}) {
+    if (this.resilience <= 0) return { deltas: { ...d }, used: 0 };
+    const out = { ...d };
+    let used = 0;
+    for (const key of ['sanity', 'money', 'energy', 'reputation']) {
+      const loss = Math.max(0, -(out[key] ?? 0));
+      if (loss <= 0 || this.resilience <= 0) continue;
+      const shield = Math.min(loss, this.resilience);
+      out[key] += shield;
+      this.resilience -= shield;
+      used += shield;
+    }
+    if (used > 0) this.emit('resilience_changed', this.resilience);
+    return { deltas: out, used };
   }
 
   /** Back-compat shim for the original two-stat signature. */
@@ -684,6 +726,8 @@ export class GameState {
     const location = getLocation(locationId);
     this.lastLocationVisited = locationId;
     this.visitedLocations.add(locationId);
+    this.locationVisitCounts[locationId] = (this.locationVisitCounts[locationId] ?? 0) + 1;
+    if (locationId === 'spiritual_community') this.gainResilience();
     if (locationId === 'bar') {
       this.consecutiveBarDays += 1;
       this.maxConsecutiveBarDays = Math.max(this.maxConsecutiveBarDays, this.consecutiveBarDays);
@@ -699,6 +743,7 @@ export class GameState {
     if (this.sanity <= 0) {
       this.gameOver = true;
       this.won = false;
+      this.endingOutcome = 'out_of_sanity';
       this.gameOverMessage = 'Your sanity has crumbled. The spiritual path was neglected too long.';
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
@@ -706,6 +751,7 @@ export class GameState {
     if (this.money <= 0) {
       this.gameOver = true;
       this.won = false;
+      this.endingOutcome = 'out_of_money';
       this.gameOverMessage = "You're broke. The bills pile up and you can't sustain the community.";
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
@@ -784,6 +830,92 @@ export class GameState {
     this.winMessage = `${ENDURANCE_GOAL_DAYS} days. The community still stands, the bar still opens, and you are still here. That is enough.`;
     this.emit('win_triggered', this.winMessage);
     return true;
+  }
+
+  /** Retire after the endurance goal: an ending chosen, not a failure reached. */
+  retireRun() {
+    if (this.gameOver || this.journeyDay < ENDURANCE_GOAL_DAYS) return false;
+    this.won = true;
+    this.retired = true;
+    this.gameOver = true;
+    this.endingOutcome = 'retired';
+    const ending = this.getEnding();
+    this.gameOverMessage = ending.body;
+    this.emit('game_over_triggered', this.gameOverMessage);
+    return true;
+  }
+
+  endingShape() {
+    const visits = this.locationVisitCounts ?? {};
+    const days = Math.max(
+      1,
+      Object.values(visits).reduce((sum, n) => sum + n, 0),
+    );
+    const community = visits.spiritual_community ?? 0;
+    const bar = visits.bar ?? 0;
+    const topAffinity = Math.max(0, ...Object.values(this.affinity ?? {}));
+    if (this.visitedLocations.size >= 16) return 'wanderer';
+    if (this.visitedLocations.size <= 5 && this.journeyDay >= 20) return 'recluse';
+    if (bar / days >= 0.28 || this.maxConsecutiveBarDays >= 6) return 'bar-led';
+    if (community / days >= 0.22 || this.resilience >= COMMUNITY_RESILIENCE_MAX)
+      return 'community-led';
+    if (this.nightDays / days >= 0.28) return 'night-owl';
+    if (this.reputation >= 75) return 'steward';
+    if (this.perks.size >= 8 || this.observancesKept >= 5) return 'mystic';
+    if (topAffinity >= 4) return 'known';
+    return 'balanced';
+  }
+
+  getEnding() {
+    const outcome =
+      this.endingOutcome ||
+      (this.sanity <= 0 ? 'out_of_sanity' : this.money <= 0 ? 'out_of_money' : 'retired');
+    const shape = this.endingShape();
+    const outcomeCopy = {
+      retired: 'You chose to stop while there was still enough of you left to choose.',
+      out_of_sanity: 'The city did not end. Your room in it did.',
+      out_of_money: 'The notices kept arriving until there was nowhere gentle left to stand.',
+    };
+    const shapeCopy = {
+      'community-led': [
+        'A House That Held',
+        'The community became less a project than a net: imperfect, warm, and there when the day went wrong.',
+      ],
+      'bar-led': [
+        'Last Orders',
+        'The bar paid for more than rent. Its zinc counter became the place you knew how to survive, even when survival looked too much like work.',
+      ],
+      wanderer: [
+        'The Map in Your Pocket',
+        'You learned the city by crossing it: markets, rooftops, libraries, offices, rooms where people knew your name for one afternoon.',
+      ],
+      recluse: [
+        'A Small Circle',
+        'You kept close to the few places that felt safe. The city widened around you, but not every life has to answer it.',
+      ],
+      'night-owl': [
+        'After Midnight',
+        'Most of what mattered happened under lamps: late shifts, open doors, voices lower than daylight allows.',
+      ],
+      steward: [
+        'The Neighbourhood Remembers',
+        'People came to trust your presence. Not loudly, not all at once, but enough that your absence will change the room.',
+      ],
+      mystic: [
+        'A Practice With Teeth',
+        'The habits stopped being ideas and became the shape of your days. You survived by making attention practical.',
+      ],
+      known: [
+        'A Familiar Face',
+        'One person at a time, the city stopped being anonymous. You were not everywhere, but somewhere you were expected.',
+      ],
+      balanced: [
+        'Second Bar None',
+        'You kept the impossible bargain for as long as you could: spirit and rent, care and fatigue, enough and not enough.',
+      ],
+    };
+    const [title, body] = shapeCopy[shape] ?? shapeCopy.balanced;
+    return { outcome, shape, title, subtitle: outcomeCopy[outcome], body };
   }
 
   /** Time-of-day greeting based on weekday and season — pure flavour. */
@@ -957,6 +1089,8 @@ export class GameState {
       winMessage: this.winMessage,
       masteryWon: this.masteryWon,
       masteryMessage: this.masteryMessage,
+      retired: this.retired,
+      endingOutcome: this.endingOutcome,
       consecutiveBarDays: this.consecutiveBarDays,
       maxConsecutiveBarDays: this.maxConsecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
@@ -968,12 +1102,14 @@ export class GameState {
       perks: [...this.perks],
       achievements: [...this.achievements],
       visitedLocations: [...this.visitedLocations],
+      locationVisitCounts: { ...this.locationVisitCounts },
       nightDays: this.nightDays,
       festivalsSeen: this.festivalsSeen,
       weatherSeed: this.weatherSeed,
       pendingObservance: this.pendingObservance ? { ...this.pendingObservance } : null,
       observancesKept: this.observancesKept,
       affinity: { ...this.affinity },
+      resilience: this.resilience,
     };
   }
 
@@ -1003,6 +1139,8 @@ export class GameState {
     this.masteryWon = Boolean(migrated.masteryWon);
     this.masteryMessage =
       typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
+    this.retired = Boolean(migrated.retired);
+    this.endingOutcome = typeof migrated.endingOutcome === 'string' ? migrated.endingOutcome : '';
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
     this.maxConsecutiveBarDays = num(migrated.maxConsecutiveBarDays, this.consecutiveBarDays);
@@ -1017,6 +1155,13 @@ export class GameState {
     this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
     this.achievements = new Set(arr(migrated.achievements));
     this.visitedLocations = new Set(arr(migrated.visitedLocations));
+    this.locationVisitCounts = {};
+    if (migrated.locationVisitCounts && typeof migrated.locationVisitCounts === 'object') {
+      for (const [id, n] of Object.entries(migrated.locationVisitCounts)) {
+        if (typeof n === 'number' && Number.isFinite(n) && n > 0)
+          this.locationVisitCounts[id] = Math.floor(n);
+      }
+    }
     this.nightDays = num(migrated.nightDays, 0);
     this.festivalsSeen = num(migrated.festivalsSeen, 0);
     this.weatherSeed = num(migrated.weatherSeed, 0);
@@ -1040,6 +1185,7 @@ export class GameState {
         if (typeof n === 'number' && Number.isFinite(n) && n > 0) this.affinity[id] = Math.floor(n);
       }
     }
+    this.resilience = clamp(num(migrated.resilience, 0), 0, COMMUNITY_RESILIENCE_MAX);
 
     this._statsChanged();
     this.emit(
@@ -1106,6 +1252,18 @@ export function migrateSave(data) {
     if (typeof migrated.pendingObservance === 'undefined') migrated.pendingObservance = null;
     if (typeof migrated.observancesKept !== 'number') migrated.observancesKept = 0;
     if (!migrated.affinity || typeof migrated.affinity !== 'object') migrated.affinity = {};
+  }
+
+  // v6 -> v7: endings need visit counts, and the founding community earns
+  // resilience against event losses. Older runs resume with an empty buffer.
+  if (currentVersion <= 6) {
+    if (!migrated.locationVisitCounts || typeof migrated.locationVisitCounts !== 'object') {
+      migrated.locationVisitCounts = {};
+      for (const id of migrated.visitedLocations ?? []) migrated.locationVisitCounts[id] = 1;
+    }
+    if (typeof migrated.resilience !== 'number') migrated.resilience = 0;
+    if (typeof migrated.retired !== 'boolean') migrated.retired = false;
+    if (typeof migrated.endingOutcome !== 'string') migrated.endingOutcome = '';
   }
 
   return migrated;

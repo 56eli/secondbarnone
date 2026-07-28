@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 439 tests, ~99.0% coverage on the shipped code.
+> **Status:** playable, 443 tests, ~99.0% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -67,7 +67,7 @@ docs/js/
   data/
     characters.js    78 profiles, each bound to one location
     locations.js     23 locations, 5 districts, 4 hub slots
-    events.js        235 events, keyed by location
+    events.js        244 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     observances.js    5 repeatable insight spends (the late-game sink)
@@ -327,7 +327,7 @@ history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**235 events.** **222 (94.5%)** belong to side characters.
+**244 events.** **228 (93.4%)** belong to side characters.
 
 The catalogue has one rule, and it is structural:
 
@@ -356,8 +356,10 @@ A test walks every location under four skies and 300 days to prove that every
 single event in the catalogue is actually reachable in play — dead copy fails
 the build.
 
-Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
-the last four events filtered out of the pool to avoid repetition.
+Scheduling is deterministic and faster: 1–3 journey-days apart, with
+the last four events filtered out of the pool to avoid repetition. Events unseen
+in the current run, and especially across previous runs, receive extra weight so
+the larger catalogue broadens rather than repeats.
 
 ### Turn order
 
@@ -534,7 +536,7 @@ asserts every repainted background keeps its master.
 Missing portraits fall back to an initials chip, which is exercised by test.
 
 Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/` is 3.62 MB eager plus 4.36 MB of on-demand portrait sheets (7.98 MB total).
+`docs/` is 3.70 MB eager plus 4.36 MB of on-demand portrait sheets (8.06 MB total; the hi-res tier is on demand).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -542,7 +544,7 @@ one pass.
 
 ## Testing
 
-**371 tests** across twelve files.
+**443 tests** across the suite.
 
 | Area | Scope |
 | ---- | ----- |
