@@ -256,7 +256,7 @@ export function renderHub(gs, handlers) {
     },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      effectChips(total, 'chips choice-eff'));
+      effectChips(total, 'chips choice-eff', weatherEmoji));
   });
 
   const snap = {
@@ -276,7 +276,8 @@ export function renderHub(gs, handlers) {
 
   const otherChoices = selected.map((location, offset) => {
     const slot = HUB_SLOTS[offset];
-    const { total } = computeDayEffects(gs, location.id);
+    const { total, reasons } = computeDayEffects(gs, location.id);
+    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
