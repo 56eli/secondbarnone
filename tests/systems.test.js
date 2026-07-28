@@ -13,12 +13,12 @@ import {
   GameState, saveStore, SAVE_KEY,
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_HARD_CEILING, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS, START_ENERGY, START_REPUTATION,
-  ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, RENT_AMOUNT,
+  ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY, RENT_AMOUNT,
 } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects, scaleEventDeltas } from '../docs/js/core/turn.js';
 import { createRng } from '../docs/js/core/rng.js';
-import { LOCATIONS, getLocation, locationIds } from '../docs/js/data/locations.js';
+import { LOCATIONS, getLocation, locationIds, varianceForDay } from '../docs/js/data/locations.js';
 import { getPerk, perkIds } from '../docs/js/data/perks.js';
 import { buildEventPool } from '../docs/js/data/events.js';
 import { weatherForDay } from '../docs/js/data/weather.js';
@@ -87,7 +87,7 @@ test('exhaustion costs nothing above the threshold and bites below it', () => {
   assert.equal(gs.isExhausted, true);
 
   gs.energy = 0;
-  assert.equal(gs.exhaustionPenalty(), -6, 'empty is the worst it gets');
+  assert.equal(gs.exhaustionPenalty(), -EXHAUSTION_MAX_PENALTY, 'empty is the worst it gets');
 });
 
 test('exhaustion deepens smoothly as energy drains', () => {
@@ -268,9 +268,12 @@ test('weather bends the numbers and says so', () => {
   assert.ok(gs, 'expected some seed to open on a rainy day');
   assert.equal(gs.getFestival(), null);
 
+  // Variance is folded into `total` too, so the weather's contribution is
+  // isolated by subtracting the day's own (deterministic) swing.
+  const swing = varianceForDay('river_walk', gs.journeyDay, gs.weatherSeed);
   const { base, total, reasons } = computeDayEffects(gs, 'river_walk');
-  assert.equal(total.sanity, base.sanity - 3 + 2, 'rain: outdoor −3, quiet +2');
-  assert.equal(total.energy, base.energy - 4);
+  assert.equal(total.sanity - swing.sanity, base.sanity - 3 + 2, 'rain: outdoor −3, quiet +2');
+  assert.equal(total.energy - swing.energy, base.energy - 4);
   assert.ok(reasons.some((r) => /Rain/.test(r)));
 });
 

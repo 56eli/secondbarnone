@@ -14,49 +14,30 @@ import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
-
-/** Cap for gauge stats (sanity / energy / reputation). Money is uncapped. */
-export const MAX_STAT = 100.0;
-export const START_SANITY = 50.0;
-export const START_MONEY = 50.0;
+import {
+  MAX_STAT, START_SANITY, START_MONEY, MONEY_HARD_CEILING,
+  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
+  MAX_ENERGY, START_ENERGY, ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
+  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
+} from './balance.js';
 
 /**
- * Money is a wallet, not a gauge. It has no ceiling — you can earn past 100 —
- * but still bottoms out at 0 and ends the run. `MONEY_SOFT_CAP` is only used by
- * the HUD bar so a full track still means "comfortable", not "maxed".
+ * Every tuning number lives in `core/balance.js` and is re-exported here so
+ * that `import { MAX_STAT } from './game-state.js'` keeps working for the
+ * whole codebase while there is still exactly one definition of each value.
+ * `data/` modules import balance.js directly, which avoids an import cycle.
  */
-export const MONEY_SOFT_CAP = 100.0;
-/** Practical upper bound so a corrupted save cannot overflow display maths. */
-export const MONEY_HARD_CEILING = 99999.0;
-
-export const SANITY_GAIN = 15.0;
-export const SANITY_LOSS = 12.0;
-export const MONEY_GAIN = 12.0;
-export const MONEY_LOSS = 10.0;
-
-/** Third resource: spent by every action, restored by rest. */
-export const MAX_ENERGY = 100.0;
-export const START_ENERGY = 100.0;
-/** Energy recovered automatically at the start of each new day. */
-export const ENERGY_RECOVERY = 16.0;
-/** Below this, actions bite harder (see `exhaustionPenalty`). */
-export const EXHAUSTION_THRESHOLD = 25.0;
-
-/** Fourth resource: standing in the neighbourhood. Gates places. */
-export const MAX_REPUTATION = 100.0;
-export const START_REPUTATION = 10.0;
-
-/** Currency of the perk tree. Uncapped, spent not lost. */
-export const START_INSIGHT = 0;
-
-/** Soft win: hold the community this many journey days without breaking. */
-export const ENDURANCE_GOAL_DAYS = 100;
-
-/** Offset so journey day 1 maps to Thursday (Jan 1, 2026). Mon=0 … Sun=6. */
-export const START_WEEKDAY_OFFSET = 3;
-
-/** Rent deducted every Sunday. */
-export const RENT_AMOUNT = 18.0;
+export {
+  MAX_STAT, START_SANITY, START_MONEY,
+  MONEY_SOFT_CAP, MONEY_HARD_CEILING,
+  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
+  MAX_ENERGY, START_ENERGY, ENERGY_FULL_RECOVERY_DAYS, ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
+  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
+} from './balance.js';
 
 export const WEEKDAY_NAMES = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
@@ -278,7 +259,14 @@ export class GameState {
 
   /**
    * Extra sanity cost when running on empty. Zero above the threshold,
-   * scaling to −6 at zero energy, reduced by Second Wind.
+   * scaling to −EXHAUSTION_MAX_PENALTY at zero energy, reduced by Second Wind.
+   *
+   * The curve is quadratic rather than linear on purpose. A shallow dip below
+   * the threshold costs almost nothing, so a single hard day is survivable
+   * and does not need punishing; the cost then climbs steeply as the tank
+   * empties, so *ignoring* energy for a week is what actually kills you. That
+   * is the shape that makes topping up a live consideration on the way down
+   * rather than a panic at the bottom.
    */
   exhaustionPenalty() {
     const resist = this.getPerkEffects().exhaustionResist;
@@ -287,7 +275,7 @@ export class GameState {
     const depth = (threshold - this.energy) / threshold;
     // Ceil, not round: being below the threshold at all must cost at least 1,
     // otherwise `isExhausted` can be true while the penalty is silently zero.
-    return -Math.max(1, Math.ceil(depth * 6));
+    return -Math.max(1, Math.ceil(depth * depth * EXHAUSTION_MAX_PENALTY));
   }
 
   get isExhausted() {
@@ -385,7 +373,7 @@ export class GameState {
     if (this.won || this.gameOver) return false;
     if (this.journeyDay < ENDURANCE_GOAL_DAYS) return false;
     this.won = true;
-    this.winMessage = 'One hundred days. The community still stands, the bar still opens, and you are still here. That is enough.';
+    this.winMessage = `${ENDURANCE_GOAL_DAYS} days. The community still stands, the bar still opens, and you are still here. That is enough.`;
     this.emit('win_triggered', this.winMessage);
     return true;
   }

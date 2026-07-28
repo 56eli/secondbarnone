@@ -7,6 +7,8 @@
  * testable.
  */
 
+import { ENDURANCE_GOAL_DAYS } from '../core/balance.js';
+
 const a = (id, name, emoji, desc, test) => Object.freeze({ id, name, emoji, desc, test });
 
 export const ACHIEVEMENTS = [
@@ -16,9 +18,6 @@ export const ACHIEVEMENTS = [
   a('first_month', 'A Whole Month', '🗓️',
     'Survive thirty journey days.',
     (s) => s.journeyDay >= 30),
-  a('the_year', 'Turned the Year', '🎆',
-    'Survive to journey day 200.',
-    (s) => s.journeyDay >= 200),
   a('wanderer', 'Wanderer', '🧭',
     'Spend a day in eight different locations.',
     (s) => s.visitedLocations.size >= 8),
@@ -37,9 +36,9 @@ export const ACHIEVEMENTS = [
   a('in_balance', 'In Balance', '⚖️',
     'Hold sanity above 70 and money above 70 at once.',
     (s) => s.sanity > 70 && s.money > 70),
-  a('hundred_days', 'One Hundred Days', '🏅',
-    'Hold the community for a hundred journey days.',
-    (s) => s.journeyDay >= 100),
+  a('endurance', 'The Long Hold', '🏅',
+    `Hold the community for ${ENDURANCE_GOAL_DAYS} journey days — the endurance goal.`,
+    (s) => s.journeyDay >= ENDURANCE_GOAL_DAYS),
   a('well_known', 'Well Known', '📣',
     'Reach 60 reputation.',
     (s) => s.reputation >= 60),

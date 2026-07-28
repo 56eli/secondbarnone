@@ -7,12 +7,13 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 275 tests, ~99% coverage on the shipped code.
+> **Status:** playable, 360 tests, ~99.7% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
-> with small talk; 51 of 64 events belong to side characters. Léon stays prominent
-> in the HUD. Weather stays calm and useful. Soft win at day 100.
+> with small talk; every character is bound to one location and owns at least
+> three events there. Léon stays prominent in the HUD. Weather stays calm and
+> useful. Soft win at day 60.
 
 ---
 
@@ -33,8 +34,8 @@ As plain ES modules the source *is* the build:
 |---|---|---|
 | Deploy payload | 39.5 MB | **~2.9 MB** to play |
 | Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **275** |
-| Coverage | — | **~99%** |
+| Automated tests | 0 | **360** |
+| Coverage | — | **~99.7%** |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -52,14 +53,15 @@ docs/js/
   main.js            entry point — calls initGame() and nothing else
   app.js             wiring: HUD, screens, modal, toasts, autosave, game over
   core/
+    balance.js       every tuning number, with the reasoning attached
     game-state.js    stats, calendar, practices, save/load
     event-manager.js event scheduling and weighted selection
     turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
-    characters.js    78 character profiles
-    locations.js     22 locations across 5 districts
-    events.js        64 event definitions
+    characters.js    78 profiles, each bound to one location
+    locations.js     22 locations, 5 districts, 4 hub slots
+    events.js        235 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     festivals.js      9 fixed calendar events
@@ -71,6 +73,21 @@ docs/js/
 
 Every module under `data/` is pure data plus pure helpers, which is why the
 test suite can assert over the whole catalogue rather than sampling it.
+
+### Why `core/balance.js` is separate from `core/game-state.js`
+
+Every number that decides how the game *feels* — the energy recovery rate, the
+exhaustion ceiling, the endurance goal — lives in one small module with its
+reasoning written next to it. Retuning is then one file rather than a hunt
+through five, and the balance suite has a single source of truth to assert
+against.
+
+It also breaks a genuine import cycle. `game-state.js` imports the whole of
+`data/`, so a `data/` module that wanted a tuning constant could not import it
+back from `game-state.js`. `achievements.js` needs `ENDURANCE_GOAL_DAYS` in
+order to describe itself; it reads it from `balance.js` instead.
+`game-state.js` re-exports the lot, so every existing importer is unaffected
+and there is still exactly one definition of each value.
 
 ### Why `app.js` is separate from `main.js`
 
@@ -107,7 +124,7 @@ list, so a handler may safely unsubscribe mid-dispatch.
 |---|---|---|---|
 | **Sanity** | 50 | 100 | Reaching 0 ends the run |
 | **Money** | 50 | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100 |
-| **Energy** | 100 | 100 | Recovers overnight; running low costs sanity |
+| **Energy** | 100 | 100 | Recovers ~14/night — a week from empty to full; running low costs sanity |
 | **Reputation** | 10 | 100 | Gates locations |
 | **Insight** | 0 | — | A currency, not a gauge. Spent on perks |
 
@@ -115,23 +132,97 @@ The two founding locations keep their original numbers exactly — Spiritual
 Community is still +15/−10 and the Bar is still +12/−12 — so the opening of a
 run plays as it always did. Everything else is layered on top.
 
-**Exhaustion.** Below 25 energy every action costs extra sanity, scaling to −6
-at empty. `Second Wind` widens the threshold and softens the fall.
+#### Energy
+
+Energy is the resource the run is actually tuned around, so its numbers are
+derived from one readable rule rather than picked individually:
+
+> **A full week of rest takes you from empty to full.**
+
+`ENERGY_RECOVERY` is literally `MAX_ENERGY / ENERGY_FULL_RECOVERY_DAYS`, which
+is ~14.3 a night. Every location's energy cost is then priced *against* that
+figure, and most working days cost more than a night returns — a bar shift is
+−24, the retreat is −32, and only the rest locations pay energy back. That is
+the whole pressure: you cannot simply keep working, and the game will not stop
+you from trying.
+
+**Exhaustion.** Below 25 energy every action costs extra sanity, on a
+**quadratic** curve rather than a linear one: −1 a day just under the
+threshold, −10 a day at empty. The shape is the point. A single hard day is
+nearly free, so pushing through once is a legitimate move and does not need
+punishing; the cost then climbs steeply, so *ignoring* energy drains a full
+sanity bar in ten days. Forgivable once, fatal as a habit.
+
+`Second Wind` widens the threshold — you get warned sooner — and softens the
+fall, but empty still hurts.
+
+The balance suite asserts this as behaviour rather than arithmetic: the same
+reference strategy wins 15 runs out of 20 when it watches its energy bar and 0
+out of 20 when it does not, which is the strongest statement available that
+energy is a real consideration and not decoration.
+
+#### Variance
+
+A location's printed numbers are what it offers **on average**, not what it
+pays out. Each carries a `variance` bundle — the maximum swing per resource —
+and the day you actually get lands somewhere inside it.
+
+The swing is **derived, never rolled**. `varianceForDay(location, day, seed)`
+is a pure FNV-1a hash, exactly like the weather, and that matters twice over:
+the hub preview and the turn resolution call the same function so the numbers
+on the card are the numbers you get, and reloading a save shows the same day
+rather than re-rolling it in the player's favour.
+
+Two invariants keep it from becoming noise. Variance never flips the **sign**
+of a resource a location is built around — the bar always pays, the retreat
+always costs — because a place whose contract can invert is a place you cannot
+plan around. And it must move both the gains *and* the costs, or a location
+becomes either a free lottery ticket or a tax.
 
 ### Locations
 
 **22 locations across 5 districts.** Each carries tags (`quiet`, `night`,
 `market`, `pilgrimage`, …) which are the join key for the whole game: weather
-modifies by tag, perks bonus by tag, and events gate by tag.
+modifies by tag and perks bonus by tag.
+
+#### Hub slots
+
+The hub shows six cards. Slots **1 and 2** are the founding pair and never
+move. Slots **3-6** rotate — but every non-founding location is permanently
+assigned to exactly one of them by `slot`, and each day the hub picks one open
+location *per slot*. Places therefore rotate **through** a position and never
+**between** positions.
+
+The slots have a character, which is the reason the rule buys anything:
+
+| Slot | Reads as | Examples |
+|---|---|---|
+| 3 | somewhere quiet | loft, bathhouse, library, pawnbroker, memorial garden |
+| 4 | outdoors, spirit and service | canal, rooftop, clinic, soup kitchen, ruins, chapel |
+| 5 | markets and the stage | garden, Saturday market, flea market, open mic, Vermillion |
+| 6 | night work and errands | night market, radio, letting office, Sato's, the retreat |
+
+Five or six locations per slot, so no position is a near-constant and none is
+a free-for-all. The previous behaviour was a straight shuffle across all four
+cards, which meant the place under your thumb was different every morning and
+the board had to be re-read from scratch daily.
+
+The choice inside a slot is deterministic in `(slot, day, seed)`, so the hub
+can rerender on any stat change without the board moving under the player's
+hand. `dailySlotLineup()` lives in `data/locations.js` rather than the
+renderer, so it is testable headlessly — and the rendered cards carry a
+`data-slot` attribute so the DOM tests can assert the same rule the data tests
+assert.
 
 Locations unlock on journey day, reputation, weekday, or a required perk/item.
 A fresh run can reach three places; a long, well-regarded one can reach all 22.
 
 **The day-one welcome.** Journey day 1 is the single exception. Brian keeps a
 place for Léon at the **House of Middleway**, so the chapel is offered on the
-first morning regardless of its own gate (day 6, 15 reputation) and is pinned
-to the fourth hub card — row 2, column 1 of the 3-wide grid — where the player
-cannot miss it. From day 2 the ordinary gate applies again and it rejoins the
+first morning regardless of its own gate (day 6, 15 reputation) and takes slot
+4 — the fourth hub card, row 2 column 1 — outright rather than competing for
+it. The chapel *lives* in slot 4, so from day two it simply rejoins that
+slot's rotation instead of moving somewhere else. From day 2 the ordinary gate applies again and it rejoins the
 rotation like anywhere else, so the early economy is untouched.
 
 The exception lives in `evaluateUnlock()` rather than in the hub renderer,
@@ -142,7 +233,8 @@ Brian the same as for anyone, because the alternative is a location whose
 "closed by the weather" contract has a hole in it.
 
 Every location costs something — money, energy or sanity. That invariant is
-enforced by test, because a free location would collapse the decision.
+enforced by test against the *luckiest possible* day rather than the average
+one, because a free location would collapse the decision.
 
 ### Weather
 
@@ -164,8 +256,10 @@ Rent Amnesty Day.
 
 - **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
   acyclic and declared in a buyable order.
-- **9 festivals** on fixed calendar dates, and **21 achievements** expressed as
-  pure predicates over a state snapshot.
+- **9 festivals** on fixed calendar dates, and **20 achievements** expressed as
+  pure predicates over a state snapshot. The old "survive to day 200" milestone
+  was retired along with the 100-day goal: an achievement three times longer
+  than the win condition is a number, not a reward.
 
 The former task-contract system and long-form journal were deliberately retired
 so the run remains about one readable daily choice. The hub retains five concise
@@ -173,12 +267,34 @@ history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**64 events.** **51 (79.7%)** belong to side characters, exceeding the
-50% catalogue floor enforced by test. Events are gated by location id, by
-location tag, by weather, or by a minimum day — so no event can fire anywhere
-at any time.
-Kaden finally has his own arc: four events that escalate the rent pressure
-from refiled paperwork to a buyout offer on very good paper.
+**235 events.** **222 (94.5%)** belong to side characters.
+
+The catalogue has one rule, and it is structural:
+
+> **Every character is bound to exactly one location, and has at least three
+> events, all of which fire only at that location.**
+
+`data/events.js` is therefore declared as a **map of location id → events**
+rather than as a flat list. `requiredLocation` is stamped on by
+`buildEventPool()` from the declaring key, so an event physically cannot drift
+away from the person it belongs to — the gate is not a field somebody has to
+remember to fill in. Character bindings live in `characters.js` as
+`locationId`, and the human-readable place name shown on the People screen is
+*derived* from it, so the two can never disagree.
+
+The three-event floor is what turns a location from a slot machine with
+scenery into somewhere specific people are. Each place has nine to thirteen
+events drawn only from its own residents, so visiting the night market means
+running into Cheezl, Fraghis or The Hand — never a stranger from across town.
+
+Extra gates (`requiredWeather`, `minimumDay`, the burnout counter) stack *on
+top of* the location rather than replacing it. Kaden keeps his four-beat arc
+escalating the rent pressure from refiled paperwork to a buyout offer on very
+good paper, and Sato and Alex keep theirs.
+
+A test walks every location under four skies and 300 days to prove that every
+single event in the catalogue is actually reachable in play — dead copy fails
+the build.
 
 Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
 the last four events filtered out of the pool to avoid repetition.
@@ -187,7 +303,7 @@ the last four events filtered out of the pool to avoid repetition.
 
 `resolveTurn()` in `core/turn.js` applies, in this exact order:
 
-1. the day's effects — location, weather, festival, perks, items
+1. the day's effects — location, its daily variance, weather, festival, perks
 2. the exhaustion penalty
 3. Sunday rent
 4. the scheduled random event, scaled by perks
@@ -223,6 +339,30 @@ over. Each has a full profile in the same shape as everyone else.
 
 The character screen groups by role (antagonists first) and filters on name,
 role, location or biography text. A flat list of 78 was unusable.
+
+### Everyone lives somewhere
+
+Every character carries a `locationId` naming exactly one place in the
+catalogue, and the cast is spread deliberately evenly: **three or four people
+per location**, never fewer than three and never more than four. A location
+with nobody in it is scenery; one with fifteen is a crowd you cannot tell
+apart, and either way "who is here" stops being readable.
+
+Placement is by fit rather than by filling gaps — Renata soaks at the
+bathhouse, Kaj reads at the library, Crveni organises in the letting office
+waiting room, Kopung keeps the mountain retreat. Every location's **host** is
+one of its own residents, which is enforced by test: a host bound elsewhere is
+the most visible possible version of the bug, since their face is on the card.
+
+### Seth, "The Hand"
+
+Nobody at the night market calls him Seth. He is **The Hand**, and has been for
+long enough that stallholders who have known him a decade will ask whether The
+Hand has a first name. The stories about where it came from disagree with each
+other and he has never confirmed any of them; he answers to it without
+hesitation and signs his delivery notes with a small drawing of one. His
+profile, his relationship with Léon and two of his three events all use the
+name people actually use, and a test asserts it stays that way.
 
 ### Ids and unicode
 
@@ -323,11 +463,14 @@ one pass.
 
 ## Testing
 
-**275 tests** across eight files.
+**360 tests** across eleven files.
 
 | File | Tests | Scope |
 |---|---|---|
-| Eight test files | **275** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
+| `balance.test.js` | 34 | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
+| `cast.test.js` | 28 | Character↔location binding, the three-events-each floor, and event reachability |
+| `slots.test.js` | 22 | Hub slot assignment and rotation, in data and in the rendered DOM |
+| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
