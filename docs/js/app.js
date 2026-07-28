@@ -41,6 +41,10 @@ export function initGame(opts = {}) {
   const hud = document.getElementById('hud');
   const toastHost = document.getElementById('toasts');
 
+  if (!content || !hud) {
+    throw new Error('Required DOM nodes (content, hud) are missing from index.html');
+  }
+
   const dom = {
     date: document.getElementById('hud-date'),
     day: document.getElementById('hud-day'),
