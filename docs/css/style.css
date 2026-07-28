@@ -330,6 +330,16 @@ h2.screen-title {
   max-width: 62ch;
 }
 
+/* English gloss of a non-English location name (roadmap 2.6) — sits directly
+   under the title, quieter than the description it introduces. */
+.location-gloss {
+  margin: -6px 0 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
 /* ---------------- hub ---------------- */
 
 .hub {
@@ -382,6 +392,17 @@ h2.screen-title {
   font-weight: 600;
   font-size: 15px;
   margin-bottom: 4px;
+}
+
+/* English gloss of a non-English location name (roadmap 2.6): the name stays
+   the Parisian one, the reading of it does not require French. Kept smaller
+   and dimmer than the action line so it is a translation, not a second title. */
+.choice-gloss {
+  display: block;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+  margin: -2px 0 4px;
 }
 .choice-eff {
   display: block;

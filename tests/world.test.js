@@ -746,4 +746,48 @@ test('Sato and Alex each have multi-beat arcs', () => {
   assert.ok(alex.length >= 3, `alex events: ${alex.length}`);
 });
 
+test('non-English location names ship an English gloss (roadmap 2.6)', () => {
+  // The glossed set is pinned rather than detected: whether a name "needs"
+  // translating is an authoring decision, and this test failing is how a new
+  // French-named location learns to make it on purpose.
+  const GLOSSED = new Map([
+    ['spiritual_community', 'The Calm House'],
+    ['bar', 'The Last Glass'],
+    ['soup_kitchen', 'The Solidarity Canteen'],
+    ['flea_market', 'The Saint-Ouen Flea Market'],
+    ['public_library', 'The Forney Library'],
+    ['pawn_shop', 'Verrier, Antiques Dealer'],
+    ['open_mic', 'The Poets’ Vault'],
+    ['landlord_office', 'The Neighbourhood Agency'],
+    ['gypsum_mines', 'The Butte Gypsum Mines'],
+    ['clos_montmartre', 'The Volunteer Vineyard'],
+  ]);
+  for (const l of LOCATIONS) {
+    assert.equal(typeof l.gloss, 'string', `${l.id} gloss must be a string`);
+    if (GLOSSED.has(l.id)) {
+      assert.ok(l.gloss.length > 0, `${l.id} (${l.name}) needs its English gloss`);
+      assert.notEqual(l.gloss, l.name, `${l.id} gloss must translate, not repeat`);
+    } else {
+      assert.equal(
+        l.gloss,
+        '',
+        `${l.id} gained a gloss the test does not know — decide whether ` +
+          `${l.name} reads as English and update the pinned set`,
+      );
+    }
+    assert.equal(
+      GLOSSED.has(l.id),
+      l.gloss !== '',
+      `${l.id} gloss drifted from the pinned set`,
+    );
+  }
+  // The pinned set must not silently rot away from the catalogue.
+  assert.deepEqual(
+    [...GLOSSED.keys()].sort(),
+    LOCATIONS.filter((l) => l.gloss !== '')
+      .map((l) => l.id)
+      .sort(),
+  );
+});
+
 // Removed obsolete inventory test.

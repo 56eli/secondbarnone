@@ -195,6 +195,13 @@ function loc(cfg) {
     bg: '',
     /** Side character who "keeps" this place — shown on the location card. */
     host: '',
+    /**
+     * English gloss for a non-English name (roadmap 2.6). Rendered under the
+     * name on the hub card and the location screen, so reading the city does
+     * not require French. Proper place names (Père Lachaise, Fontainebleau)
+     * stay unglossed — you read them the way you read "Paris".
+     */
+    gloss: '',
     /** Offered unconditionally on journey day one (see WELCOME_DAY). */
     dayOneWelcome: false,
     /** Fixed hub slot, 3-6. Founding locations use `null`. */
@@ -222,6 +229,7 @@ export const LOCATIONS = [
     id: 'spiritual_community',
     host: 'geo',
     name: 'La Maison Calme',
+    gloss: 'The Calm House',
     emoji: '🧘',
     district: District.RIVERSIDE,
     desc: 'A former locksmith’s atelier near Canal Saint-Martin, softened by candles, floor cushions and rain ticking at the tall windows. Here, connection feels possible without becoming a performance.',
@@ -238,6 +246,7 @@ export const LOCATIONS = [
     id: 'bar',
     host: 'barret',
     name: 'Le Dernier Verre',
+    gloss: 'The Last Glass',
     emoji: '🍻',
     district: District.OLD_TOWN,
     desc: 'A narrow Belleville bar with a zinc counter, amber lamps and wet pavement beyond the door. Glasses clink beneath the low, forgiving murmur of the neighbourhood.',
@@ -310,6 +319,7 @@ export const LOCATIONS = [
     id: 'soup_kitchen',
     host: 'siekamcebule',
     name: 'La Cantine Solidaire',
+    gloss: 'The Solidarity Canteen',
     emoji: '🍲',
     district: District.HOME,
     desc: 'Basement of the old union hall. Two hundred covers a night, industrial pots, and a radio nobody is allowed to change.',
@@ -430,6 +440,7 @@ export const LOCATIONS = [
     id: 'flea_market',
     host: 'baris',
     name: 'Puces de Saint-Ouen',
+    gloss: 'The Saint-Ouen Flea Market',
     emoji: '🧺',
     district: District.OLD_TOWN,
     desc: 'Sunday tarpaulins over other people\u2019s history. Everything is negotiable and nothing is guaranteed to work.',
@@ -448,6 +459,7 @@ export const LOCATIONS = [
     id: 'public_library',
     host: 'lou',
     name: 'Bibliothèque Forney',
+    gloss: 'The Forney Library',
     emoji: '📚',
     district: District.OLD_TOWN,
     desc: 'Third floor, east window, the reference section nobody has needed since 1997. The radiators tick. Nothing is asked of you.',
@@ -466,6 +478,7 @@ export const LOCATIONS = [
     id: 'pawn_shop',
     host: 'stephen',
     name: 'Verrier, Antiquaire',
+    gloss: 'Verrier, Antiques Dealer',
     emoji: '💍',
     district: District.OLD_TOWN,
     desc: 'A grille, a scale, and a man who has heard every story twice. He is not unkind. He simply knows what things are worth.',
@@ -502,6 +515,7 @@ export const LOCATIONS = [
     id: 'open_mic',
     host: 'klaudia',
     name: 'Caveau des Poètes',
+    gloss: 'The Poets’ Vault',
     emoji: '🎤',
     district: District.OLD_TOWN,
     desc: 'Back room of the Ferryman, Friday and Saturday only. Three poets, a mediocre guitarist, and a crowd that is generous on purpose.',
@@ -522,6 +536,7 @@ export const LOCATIONS = [
     id: 'landlord_office',
     host: 'kaden',
     name: 'Agence du Quartier',
+    gloss: 'The Neighbourhood Agency',
     emoji: '📄',
     district: District.UPTOWN,
     desc: 'Grey carpet tiles, a ticket machine, and a laminated notice about respecting staff. Somewhere behind it all, Kaden\u2019s paperwork.',
@@ -655,6 +670,7 @@ export const LOCATIONS = [
     id: 'gypsum_mines',
     host: 'lakshay',
     name: 'Les Mines de la Butte',
+    gloss: 'The Butte Gypsum Mines',
     emoji: '⛏️',
     district: District.UPTOWN,
     desc: 'Under the hill run the gypsum tunnels the city dug for two centuries and half forgot. Lakshay keeps the legal gallery: forty-one lamps, a marked walking circuit, and the community’s taped archive humming at cave temperature. Nobody performs down here. The standing you earn is for keeping the lamps lit, a round at a time.',
@@ -682,6 +698,7 @@ export const LOCATIONS = [
     id: 'clos_montmartre',
     host: 'blokely',
     name: 'Le Clos Bénévole',
+    gloss: 'The Volunteer Vineyard',
     emoji: '🍇',
     district: District.UPTOWN,
     desc: 'A walled working vineyard on Montmartre’s north slope, one of the last in Paris, kept alive by a volunteer rota Crveni wrote on a crate label. blokely taps the dry-stone terraces with one knuckle before he lets you lean on them; the remedy rows between the vines are Hanans’ and drying twice.',

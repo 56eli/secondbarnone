@@ -294,6 +294,7 @@ export function renderHub(gs, handlers) {
         'data-slot': String(indexToSlot(offset)),
       },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+      location.gloss ? el('span', { class: 'choice-gloss', text: location.gloss }) : null,
       el('span', { class: 'choice-action', text: location.actionLabel }),
       effectChips(total, 'chips choice-eff', weatherEmoji),
     );
@@ -337,6 +338,7 @@ export function renderHub(gs, handlers) {
           'data-welcome': isWelcome ? 'true' : false,
         },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+        location.gloss ? el('span', { class: 'choice-gloss', text: location.gloss }) : null,
         el('span', { class: 'choice-action', text: location.actionLabel }),
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
@@ -353,6 +355,7 @@ export function renderHub(gs, handlers) {
           'data-slot': String(slot),
         },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
+        location.gloss ? el('span', { class: 'choice-gloss', text: location.gloss }) : null,
         el('span', { class: 'choice-action', text: `Locked: ${reason}` }),
       );
     }
@@ -475,6 +478,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
     },
     particles,
     el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
+    location.gloss ? el('p', { class: 'location-gloss', text: location.gloss }) : null,
     el('p', { class: 'screen-sub', text: location.desc }),
     hostBanner,
 

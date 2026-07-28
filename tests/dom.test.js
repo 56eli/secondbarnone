@@ -137,6 +137,24 @@ maybe('visiting the bar renders the location screen', async () => {
   }
 });
 
+maybe('a French location name carries its English gloss on card and screen', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const barBtn = [...doc.querySelectorAll('.choice')].find((b) =>
+      b.textContent.includes('Le Dernier Verre'),
+    );
+    const cardGloss = barBtn.querySelector('.choice-gloss');
+    assert.ok(cardGloss, 'the hub card shows the gloss under the name');
+    assert.match(cardGloss.textContent, /The Last Glass/);
+    barBtn.click();
+    await settle();
+    assert.match(doc.querySelector('.location-gloss').textContent, /The Last Glass/);
+  } finally {
+    cleanup(window);
+  }
+});
+
 maybe('performing an action opens the result modal and updates stats', async () => {
   const window = await boot();
   try {
