@@ -17,7 +17,20 @@
  */
 
 import { RENT_AMOUNT } from './game-state.js';
-import { getLocation, Tag, varianceForDay } from '../data/locations.js';
+import { getLocation, Tag, varianceForDay, LOCATIONS } from '../data/locations.js';
+
+/**
+ * Legacy copy for tests that still reference LOCATION_COPY.
+ * The real copy lives on each location definition (actionDesc, historyLabel).
+ * Kept as a shim so old tests don't break after the data restructure.
+ */
+export const LOCATION_COPY = Object.fromEntries(
+  LOCATIONS.filter((l) => ['spiritual_community', 'bar'].includes(l.id)).map((l) => [
+    l.id,
+    { name: l.name, actionDesc: l.actionDesc, historyLabel: l.historyLabel },
+  ]),
+);
+
 
 const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
 
