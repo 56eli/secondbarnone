@@ -15,13 +15,29 @@ import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
-  MAX_STAT, START_SANITY, START_MONEY, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 /**
@@ -31,30 +47,63 @@ import {
  * `data/` modules import balance.js directly, which avoids an import cycle.
  */
 export {
-  MAX_STAT, START_SANITY, START_MONEY,
-  MONEY_SOFT_CAP, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_FULL_RECOVERY_DAYS, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_SOFT_CAP,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_FULL_RECOVERY_DAYS,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 export const WEEKDAY_NAMES = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 
 export const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** localStorage key for the save slot. */
-export const SAVE_KEY = 'secondbarnone.save.v4';
-const LEGACY_SAVE_KEY = 'secondbarnone.save.v3';
+export const SAVE_KEY = 'secondbarnone.save.v5';
+const LEGACY_SAVE_KEYS = ['secondbarnone.save.v4', 'secondbarnone.save.v3'];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -83,6 +132,8 @@ export class GameState {
     /** Set when the player reaches the endurance goal without dying. */
     this.won = false;
     this.winMessage = '';
+    this.masteryWon = false;
+    this.masteryMessage = '';
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
@@ -133,7 +184,14 @@ export class GameState {
   resetGame() {
     this._initStats();
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
   }
 
   // ---------------- calendar ----------------
@@ -159,7 +217,14 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     this._statsChanged();
   }
 
@@ -178,7 +243,7 @@ export class GameState {
   }
 
   _isLeapYear(y) {
-    return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
   }
 
   // ---------------- weather & festivals ----------------
@@ -241,7 +306,13 @@ export class GameState {
   }
 
   /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(sanityDelta, moneyDelta, energyDelta = 0, reputationDelta = 0, insightDelta = 0) {
+  applyEventDeltas(
+    sanityDelta,
+    moneyDelta,
+    energyDelta = 0,
+    reputationDelta = 0,
+    insightDelta = 0,
+  ) {
     this.applyDeltas({
       sanity: sanityDelta,
       money: moneyDelta,
@@ -375,14 +446,16 @@ export class GameState {
 
   /** Second mastery layer: survive 100 days with reputation, exploration and stability. */
   checkSecondWin() {
-    if (this.gameOver || this.journeyDay < 100) return false;
+    if (this.masteryWon || this.gameOver || this.journeyDay < 100) return false;
     if (this.reputation < 80) return false;
     if (this.money < 200) return false;
     if (this.visitedLocations.size < 18) return false;
     // No more than 5 consecutive bar days in this run
     if (this.consecutiveBarDays > 5) return false;
-    this.winMessage = 'A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone\'s.';
-    this.emit('win_triggered', this.winMessage);
+    this.masteryWon = true;
+    this.masteryMessage =
+      "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
+    this.emit('mastery_won', this.masteryMessage);
     return true;
   }
 
@@ -404,11 +477,16 @@ export class GameState {
   getGreeting() {
     const day = this.getWeekdayName();
     const season = this.getSeason();
-    if (day === 'Sunday') return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
-    if (day === 'Monday') return 'Monday. The week opens its hands and asks what you will put in them.';
-    if (day === 'Friday') return 'Friday evening light. People are kinder to themselves, and to you.';
-    if (day === 'Saturday') return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
-    if (season === 'Winter') return `${day}. Cold enough that the kettle feels like a small kindness.`;
+    if (day === 'Sunday')
+      return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
+    if (day === 'Monday')
+      return 'Monday. The week opens its hands and asks what you will put in them.';
+    if (day === 'Friday')
+      return 'Friday evening light. People are kinder to themselves, and to you.';
+    if (day === 'Saturday')
+      return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
+    if (season === 'Winter')
+      return `${day}. Cold enough that the kettle feels like a small kindness.`;
     if (season === 'Spring') return `${day}. Something is beginning, whether you are ready or not.`;
     if (season === 'Summer') return `${day}. The light lasts longer than your patience, some days.`;
     return `${day}. Autumn air, and the sense that the year is keeping score.`;
@@ -416,8 +494,14 @@ export class GameState {
 
   /** Léon himself — always available for the HUD portrait. */
   getProtagonist() {
-    return this.characterProfiles.find((p) => p.id === 'leon')
-      ?? { id: 'leon', name: 'Léon', portrait: 'assets/portraits/leon.webp', role: 'protagonist' };
+    return (
+      this.characterProfiles.find((p) => p.id === 'leon') ?? {
+        id: 'leon',
+        name: 'Léon',
+        portrait: 'assets/portraits/leon.webp',
+        role: 'protagonist',
+      }
+    );
   }
 
   // ---------------- achievements ----------------
@@ -462,7 +546,6 @@ export class GameState {
     this.emit('history_updated', entry);
   }
 
-
   getSeason() {
     const m = this.monthIndex;
     if (m === 11 || m === 0 || m === 1) return 'Winter';
@@ -472,40 +555,68 @@ export class GameState {
     return 'Unknown';
   }
 
-
   /**
    * A gentle, informational focus cue for the hub. It never chooses for the
    * player; it just makes a looming need easier to notice at a glance.
    */
   getDailyNudge() {
     if (this.sanity < 25 && this.money < 25) {
-      return { emoji: '🫶', label: 'Take it gently', text: 'Both your head and wallet are under pressure. One careful day is enough.' };
+      return {
+        emoji: '🫶',
+        label: 'Take it gently',
+        text: 'Both your head and wallet are under pressure. One careful day is enough.',
+      };
     }
     if (this.sanity < 25) {
-      return { emoji: '🫧', label: 'A little room', text: 'Your sanity is low. A quieter plan may help you come back to yourself.' };
+      return {
+        emoji: '🫧',
+        label: 'A little room',
+        text: 'Your sanity is low. A quieter plan may help you come back to yourself.',
+      };
     }
     if (this.energy < EXHAUSTION_THRESHOLD) {
-      const predictive = this.consecutiveBarDays >= 2 ? 'A bar night will put you near empty quickly. Consider rest tomorrow.' : 'Your energy is running thin. Small, restorative plans still count.';
+      const predictive =
+        this.consecutiveBarDays >= 2
+          ? 'A bar night will put you near empty quickly. Consider rest tomorrow.'
+          : 'Your energy is running thin. Small, restorative plans still count.';
       return { emoji: '🫖', label: 'Pace yourself', text: predictive };
     }
     if (this.isRentDue()) {
-      return { emoji: '🧾', label: 'Sunday rent', text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.` };
+      return {
+        emoji: '🧾',
+        label: 'Sunday rent',
+        text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.`,
+      };
     }
     if (this.money < 25) {
-      return { emoji: '🪙', label: 'Keep an eye on the wallet', text: 'Money is low. A paid day can make the next choice less urgent.' };
+      return {
+        emoji: '🪙',
+        label: 'Keep an eye on the wallet',
+        text: 'Money is low. A paid day can make the next choice less urgent.',
+      };
     }
     const daysToSunday = (6 - this.getWeekdayIndex() + 7) % 7;
-    if (daysToSunday > 0 && daysToSunday <= 2 && this.rentPrepaidUntilDay < this.journeyDay + daysToSunday) {
-      return { emoji: '📅', label: 'Looking ahead', text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.` };
+    if (
+      daysToSunday > 0 &&
+      daysToSunday <= 2 &&
+      this.rentPrepaidUntilDay < this.journeyDay + daysToSunday
+    ) {
+      return {
+        emoji: '📅',
+        label: 'Looking ahead',
+        text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.`,
+      };
     }
-    return { emoji: '🏠', label: 'No rush', text: 'Nothing is on fire. Choose the kind of day you can return from.' };
+    return {
+      emoji: '🏠',
+      label: 'No rush',
+      text: 'Nothing is on fire. Choose the kind of day you can return from.',
+    };
   }
 
   /** Friend-event name pool — everyone except the protagonist. */
   getCharacterNames() {
-    return this.characterProfiles
-      .filter((p) => p.id !== 'leon')
-      .map((p) => p.name);
+    return this.characterProfiles.filter((p) => p.id !== 'leon').map((p) => p.name);
   }
 
   getAllCharacters() {
@@ -517,7 +628,7 @@ export class GameState {
   /** Plain JSON-safe snapshot of the whole run. */
   toJSON() {
     return {
-      v: 4,
+      v: 5,
       sanity: this.sanity,
       money: this.money,
       energy: this.energy,
@@ -531,6 +642,8 @@ export class GameState {
       gameOverMessage: this.gameOverMessage,
       won: this.won,
       winMessage: this.winMessage,
+      masteryWon: this.masteryWon,
+      masteryMessage: this.masteryMessage,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       lastRentDayOfMonth: this._lastRentDayOfMonth,
@@ -550,7 +663,7 @@ export class GameState {
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
     const migrated = migrateSave(data);
-    if (!migrated || typeof migrated !== 'object' || ![3, 4].includes(migrated.v)) return false;
+    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5].includes(migrated.v)) return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
@@ -565,12 +678,17 @@ export class GameState {
     this.monthIndex = clamp(num(migrated.monthIndex, 0), 0, 11);
     this.year = num(migrated.year, 2026);
     this.gameOver = Boolean(migrated.gameOver);
-    this.gameOverMessage = typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
+    this.gameOverMessage =
+      typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
     this.won = Boolean(migrated.won);
     this.winMessage = typeof migrated.winMessage === 'string' ? migrated.winMessage : '';
+    this.masteryWon = Boolean(migrated.masteryWon);
+    this.masteryMessage =
+      typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
-    this.lastLocationVisited = typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
+    this.lastLocationVisited =
+      typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
     this._lastRentDayOfMonth = num(migrated.lastRentDayOfMonth, -1);
     this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
     this.rentPrepaidUntilDay = num(migrated.rentPrepaidUntilDay, 0);
@@ -586,23 +704,30 @@ export class GameState {
     this.pendingAchievements = [];
 
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     return true;
   }
 }
 
 // ------------------------------------------------------------- persistence
 
-/** Migrate a save from older schema versions to current v4. */
+/** Migrate a save from older schema versions to current v5. */
 export function migrateSave(data) {
   if (!data || typeof data !== 'object') return null;
   const currentVersion = data.v ?? 3;
-  if (currentVersion >= 4) return data;
+  if (currentVersion >= 5) return data;
 
-  const migrated = { ...data, v: 4 };
+  const migrated = { ...data, v: 5 };
 
-  // v3 -> v4: add missing fields with safe defaults
-  if (currentVersion === 3) {
+  // v3/v4 -> v5: add missing fields with safe defaults
+  if (currentVersion === 3 || currentVersion === 4) {
     if (typeof migrated.reputation !== 'number') migrated.reputation = 10;
     if (typeof migrated.energy !== 'number') migrated.energy = 100;
     if (typeof migrated.insight !== 'number') migrated.insight = 0;
@@ -611,7 +736,10 @@ export function migrateSave(data) {
     if (typeof migrated.achievements === 'undefined') migrated.achievements = [];
     if (typeof migrated.nightDays !== 'number') migrated.nightDays = 0;
     if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
-    if (typeof migrated.weatherSeed !== 'number') migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+    if (typeof migrated.weatherSeed !== 'number')
+      migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+    if (typeof migrated.masteryWon !== 'boolean') migrated.masteryWon = false;
+    if (typeof migrated.masteryMessage !== 'string') migrated.masteryMessage = '';
   }
 
   return migrated;
@@ -626,23 +754,32 @@ export const saveStore = {
   available(storage = globalThis.localStorage) {
     return Boolean(storage);
   },
-  save(gs, storage = globalThis.localStorage) {
+  save(gs, storage = globalThis.localStorage, eventManager = null) {
     if (!storage) return false;
     try {
-      storage.setItem(SAVE_KEY, JSON.stringify(gs.toJSON()));
+      const gameState = gs.toJSON();
+      const snapshot = eventManager
+        ? { v: 5, gameState, eventManager: eventManager.toJSON() }
+        : gameState;
+      storage.setItem(SAVE_KEY, JSON.stringify(snapshot));
       return true;
     } catch {
       return false;
     }
   },
-  load(gs, storage = globalThis.localStorage) {
+  load(gs, storage = globalThis.localStorage, eventManager = null) {
     if (!storage) return false;
     try {
       // Keep v3 runs playable; task and journal fields are intentionally ignored
-      // as part of the calmer v4 state shape.
-      const raw = storage.getItem(SAVE_KEY) ?? storage.getItem(LEGACY_SAVE_KEY);
+      // as part of the calmer v5 state shape.
+      const raw = [SAVE_KEY, ...LEGACY_SAVE_KEYS].map((key) => storage.getItem(key)).find(Boolean);
       if (!raw) return false;
-      return gs.loadFrom(JSON.parse(raw));
+      const snapshot = JSON.parse(raw);
+      const state = snapshot?.gameState ?? snapshot;
+      const loaded = gs.loadFrom(state);
+      if (loaded && eventManager && snapshot?.eventManager)
+        eventManager.loadFrom(snapshot.eventManager);
+      return loaded;
     } catch {
       return false;
     }
@@ -651,7 +788,7 @@ export const saveStore = {
     if (!storage) return false;
     try {
       storage.removeItem(SAVE_KEY);
-      storage.removeItem(LEGACY_SAVE_KEY);
+      for (const key of LEGACY_SAVE_KEYS) storage.removeItem(key);
       return true;
     } catch {
       return false;
@@ -660,7 +797,7 @@ export const saveStore = {
   has(storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
-      return storage.getItem(SAVE_KEY) !== null || storage.getItem(LEGACY_SAVE_KEY) !== null;
+      return [SAVE_KEY, ...LEGACY_SAVE_KEYS].some((key) => storage.getItem(key) !== null);
     } catch {
       return false;
     }

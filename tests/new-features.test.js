@@ -5,10 +5,10 @@ import { GameState, migrateSave } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 
 describe('new gameplay loop improvements', () => {
-  it('migrates v3 saves to v4', () => {
+  it('migrates v3 saves to v5', () => {
     const v3 = { v: 3, sanity: 50, money: 50, journeyDay: 5 };
     const migrated = migrateSave(v3);
-    assert.strictEqual(migrated.v, 4);
+    assert.strictEqual(migrated.v, 5);
     assert.strictEqual(migrated.reputation, 10);
     assert.strictEqual(migrated.energy, 100);
   });

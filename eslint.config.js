@@ -8,6 +8,7 @@ export default [
       sourceType: 'module',
       globals: {
         document: 'readonly',
+        HTMLElement: 'readonly',
         window: 'readonly',
         globalThis: 'readonly',
         console: 'readonly',

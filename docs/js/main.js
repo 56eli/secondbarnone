@@ -9,4 +9,6 @@ import { initGame } from './app.js';
 
 // Expose for debugging and for the DOM test-suite. Autoloads the previous run
 // from localStorage if there is one.
-window.__game = initGame();
+/** @type {{ __game: ReturnType<typeof initGame> }} */
+const gameWindow = /** @type {any} */ (window);
+gameWindow.__game = initGame();

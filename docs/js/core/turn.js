@@ -31,7 +31,6 @@ export const LOCATION_COPY = Object.fromEntries(
   ]),
 );
 
-
 const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
 
 const zero = () => ({ sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
@@ -126,7 +125,6 @@ export function computeDayEffects(gs, locationId) {
     reasons.push('Perks');
   }
 
-
   return { base, total, reasons: [...new Set(reasons)] };
 }
 
@@ -147,8 +145,8 @@ export function scaleEventDeltas(event, perks) {
 /**
  * Resolve one day.
  *
- * @returns {{actionDesc:string, event:object|null, rentCharged:number,
- *            gameOver:boolean, deltas:object, reasons:string[],
+ * @returns {{actionDesc:string, event:object|null, rentCharged:number, rentAmount:number,
+ *            gameOver:boolean, justWon:boolean, winMessage:string, masteryWon:boolean, masteryMessage:string, deltas:object, reasons:string[],
  *            achievements:object[],
  *            exhaustion:number,
  *            sanityDelta:number, moneyDelta:number,
@@ -157,8 +155,11 @@ export function scaleEventDeltas(event, perks) {
  */
 export function resolveTurn(gs, eventManager, locationId) {
   const prev = {
-    sanity: gs.sanity, money: gs.money, energy: gs.energy,
-    reputation: gs.reputation, insight: gs.insight,
+    sanity: gs.sanity,
+    money: gs.money,
+    energy: gs.energy,
+    reputation: gs.reputation,
+    insight: gs.insight,
   };
   const location = getLocation(locationId);
   const weather = gs.getWeather();
@@ -229,7 +230,7 @@ export function resolveTurn(gs, eventManager, locationId) {
     gameOver,
     justWon,
     masteryWon,
-    masteryMessage: masteryWon ? gs.winMessage : '',
+    masteryMessage: masteryWon ? gs.masteryMessage : '',
     winMessage: justWon ? gs.winMessage : '',
     deltas,
     reasons,

@@ -6,12 +6,12 @@ scan a dashboard of secondary systems.
 
 ## Feature triage
 
-| Feature assessed | Decision | Why |
-| --- | --- | --- |
+| Feature assessed                           | Decision    | Why                                                                                                                                                                                                                                              |
+| ------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Commitments** (multi-day task contracts) | **Removed** | They asked players to track deadlines, progress bars, rewards and failure penalties on top of the core balance game. The planning pressure took a disproportionate amount of hub and location space without strengthening the day-to-day choice. |
-| **Journal** (long-form run log / notes) | **Removed** | It repeated the recent-history information already available at the hub, while adding another destination and an ever-growing reading surface. The hub keeps five concise recent-day lines instead. |
-| **Hub mood sentence** | **Removed** | It repeated information already communicated by four resource gauges and competed with the greeting and focus cue. Its useful role is now handled by one state-specific, actionable-but-non-prescriptive cue. |
-| Weather and forecast | **Kept** | Weather is legible, predictable, atmospheric and directly useful. It remains visible as a small current-sky badge, with the four-day forecast available in the Almanac rather than pushed into every decision. |
+| **Journal** (long-form run log / notes)    | **Removed** | It repeated the recent-history information already available at the hub, while adding another destination and an ever-growing reading surface. The hub keeps five concise recent-day lines instead.                                              |
+| **Hub mood sentence**                      | **Removed** | It repeated information already communicated by four resource gauges and competed with the greeting and focus cue. Its useful role is now handled by one state-specific, actionable-but-non-prescriptive cue.                                    |
+| Weather and forecast                       | **Kept**    | Weather is legible, predictable, atmospheric and directly useful. It remains visible as a small current-sky badge, with the four-day forecast available in the Almanac rather than pushed into every decision.                                   |
 
 Exactly **three** secondary features were removed in this pass; no additional
 feature was cut merely to make the interface sparse.
@@ -44,7 +44,7 @@ feature was cut merely to make the interface sparse.
 
 - The deleted systems have been removed from state, turn resolution, UI,
   serialization and data imports; `v3` saves migrate their shared run data into
-  the calmer `v4` shape while retired task/log fields are safely ignored.
+  the calmer `v5` shape while retired task/log fields are safely ignored.
 - The coherence pass found that two item rewards had only been available via
   retired tasks. They now arrive through ordinary, character-led events, with a
   test preventing those rewards from becoming stranded again.
@@ -58,5 +58,5 @@ feature was cut merely to make the interface sparse.
 The city still feels inhabited: hosts meet Léon with their own voice, the
 recent-history drawer preserves a small sense of accumulated days, and the
 weather remains a gentle part of the place rather than a warning dashboard.
-The UI now lets the player first see *where to spend today*, then open deeper
+The UI now lets the player first see _where to spend today_, then open deeper
 systems only when wanted.

@@ -6,12 +6,13 @@
  * prerequisite chain so the tree has some shape to it.
  */
 
-const perk = (cfg) => Object.freeze({
-  cost: 5,
-  requires: [],
-  effects: {},
-  ...cfg,
-});
+const perk = (cfg) =>
+  Object.freeze({
+    cost: 5,
+    requires: [],
+    effects: {},
+    ...cfg,
+  });
 
 export const PERKS = [
   perk({

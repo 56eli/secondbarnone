@@ -7,12 +7,13 @@
  * whether you show up or not.
  */
 
-const f = (cfg) => Object.freeze({
-  effects: {},
-  tagEffects: {},
-  waivesRent: false,
-  ...cfg,
-});
+const f = (cfg) =>
+  Object.freeze({
+    effects: {},
+    tagEffects: {},
+    waivesRent: false,
+    ...cfg,
+  });
 
 /** monthIndex is 0-based, matching GameState.monthIndex. */
 export const FESTIVALS = [
@@ -113,9 +114,9 @@ export function festivalOn(monthIndex, dayOfMonth) {
 
 /** Festivals still to come this calendar year, soonest first. */
 export function upcomingFestivals(monthIndex, dayOfMonth, count = 2) {
-  const after = FESTIVALS
-    .filter((x) => x.monthIndex > monthIndex
-      || (x.monthIndex === monthIndex && x.dayOfMonth > dayOfMonth));
+  const after = FESTIVALS.filter(
+    (x) => x.monthIndex > monthIndex || (x.monthIndex === monthIndex && x.dayOfMonth > dayOfMonth),
+  );
   const wrapped = [...after, ...FESTIVALS];
   return wrapped.slice(0, count);
 }

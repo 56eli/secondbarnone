@@ -729,6 +729,33 @@ maybe('toasts appear and clear themselves', async () => {
 
 // ================================================================== saving
 
+maybe('committed turn, perks, and rent prepayment persist immediately', async () => {
+  const storage = fakeStorage();
+  const window = await boot({ storage });
+  try {
+    const { gs } = window.__game;
+    const doc = window.document;
+    click(doc, '.choice', 'Le Dernier Verre');
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    let saved = JSON.parse(storage.getItem(SAVE_KEY));
+    assert.equal(saved.gameState.journeyDay, 1, 'the resolved turn is safe before Continue');
+
+    gs.insight = 10;
+    window.__game.api.goto.perks();
+    doc.querySelector('.perk-row:not(.blocked) .btn-small').click();
+    saved = JSON.parse(storage.getItem(SAVE_KEY));
+    assert.ok(saved.gameState.perks.length > 0, 'a purchased perk is saved immediately');
+
+    gs.money = 100;
+    window.__game.api.goto.location('landlord_office');
+    doc.querySelector('.special .btn-small').click();
+    saved = JSON.parse(storage.getItem(SAVE_KEY));
+    assert.ok(saved.gameState.rentPrepaidUntilDay > 0, 'prepaid rent is saved immediately');
+  } finally { cleanup(window); }
+});
+
+
 maybe('a completed day is written to storage', async () => {
   const storage = fakeStorage();
   const window = await boot({ storage });
@@ -741,8 +768,8 @@ maybe('a completed day is written to storage', async () => {
     const raw = storage.getItem(SAVE_KEY);
     assert.ok(raw, 'the run should be saved after continuing');
     const parsed = JSON.parse(raw);
-    assert.equal(parsed.v, 4);
-    assert.equal(parsed.journeyDay, 2);
+    assert.equal(parsed.v, 5);
+    assert.equal(parsed.gameState.journeyDay, 2);
   } finally { cleanup(window); }
 });
 
