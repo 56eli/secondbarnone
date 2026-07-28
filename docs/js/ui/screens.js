@@ -7,7 +7,6 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
-import { createRng } from '../core/rng.js';
 import {
   MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP,
   ENDURANCE_GOAL_DAYS,
@@ -15,7 +14,8 @@ import {
 import { computeDayEffects } from '../core/turn.js';
 import {
   LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
-  isWelcomeDay, WELCOME_LOCATION_ID, WELCOME_SLOT_INDEX, HUB_FIXED_CHOICES,
+  isWelcomeDay,
+  HUB_SLOTS, dailySlotLineup, indexToSlot,
 } from '../data/locations.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
@@ -243,16 +243,20 @@ export function renderHub(gs, handlers) {
     : el('p', { class: 'empty', text: 'Nothing yet — your journey begins today.' });
 
   // The two founding places are the primary choices.
-  const quick = ['spiritual_community', 'bar'].map((id) => {
+  const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
     const { total } = computeDayEffects(gs, id);
-    return el('button', { class: 'choice choice-primary', onclick: () => onVisit(id) },
+    return el('button', {
+      class: 'choice choice-primary',
+      onclick: () => onVisit(id),
+      'data-location': id,
+      'data-slot': String(indexToSlot(offset)),
+    },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
       effectChips(total, 'chips choice-eff'));
   });
 
-  // Calculate other locations on a deterministic randomly rotating basis.
   const snap = {
     journeyDay: gs.journeyDay,
     reputation: gs.reputation,
@@ -261,51 +265,15 @@ export function renderHub(gs, handlers) {
     closedTags: typeof gs.getClosedTags === 'function' ? gs.getClosedTags() : [],
   };
 
-  const otherLocations = LOCATIONS.filter((l) => l.id !== 'spiritual_community' && l.id !== 'bar');
-  const unlockedOther = otherLocations.filter((l) => evaluateUnlock(l, snap).unlocked);
-  const lockedOther = otherLocations.filter((l) => !evaluateUnlock(l, snap).unlocked);
+  // Cards 3-6 rotate *within* their slot, never between slots: every
+  // location is permanently assigned to one of the four, so the third card
+  // is always somewhere quiet and the sixth is always a night or an errand.
+  // The choice inside a slot is deterministic in (slot, day, seed), so the
+  // board is stable across rerenders and across a reload of the same save.
+  const selected = dailySlotLineup(snap, gs.weatherSeed || 0).filter(Boolean);
 
-  const dailySeed = (gs.weatherSeed || 12345) + gs.journeyDay;
-  const rng = createRng(dailySeed);
-
-  // Select exactly 4 other locations
-  let selected = [];
-  if (unlockedOther.length >= 4) {
-    const shuffled = [...unlockedOther];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = rng.randInt(0, i);
-      const temp = shuffled[i];
-      shuffled[i] = shuffled[j];
-      shuffled[j] = temp;
-    }
-    selected = shuffled.slice(0, 4);
-  } else {
-    selected = [...unlockedOther];
-    const needed = 4 - selected.length;
-    const shuffledLocked = [...lockedOther];
-    for (let i = shuffledLocked.length - 1; i > 0; i--) {
-      const j = rng.randInt(0, i);
-      const temp = shuffledLocked[i];
-      shuffledLocked[i] = shuffledLocked[j];
-      shuffledLocked[j] = temp;
-    }
-    selected.push(...shuffledLocked.slice(0, needed));
-  }
-
-  // Day one is not left to the shuffle. Brian's invitation is pinned to the
-  // fourth card of the six — row 2, column 1 of the 3-wide grid — so a new
-  // run always opens with a friend one click away. `WELCOME_SLOT_INDEX` is
-  // the index across all six choices, so the founding pair is subtracted to
-  // land in this rotating list.
-  const welcome = getLocation(WELCOME_LOCATION_ID);
-  if (welcome && isWelcomeDay(snap.journeyDay) && evaluateUnlock(welcome, snap).unlocked) {
-    const slot = WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES;
-    selected = selected.filter((l) => l.id !== welcome.id);
-    selected.splice(slot, 0, welcome);
-    selected = selected.slice(0, 4);
-  }
-
-  const otherChoices = selected.map((location) => {
+  const otherChoices = selected.map((location, offset) => {
+    const slot = HUB_SLOTS[offset];
     const { total } = computeDayEffects(gs, location.id);
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
@@ -318,6 +286,7 @@ export function renderHub(gs, handlers) {
         class: `choice choice-primary${visited ? ' visited' : ''}${isWelcome ? ' welcome' : ''}`,
         onclick: () => onVisit(location.id),
         'data-location': location.id,
+        'data-slot': String(slot),
         // Explicit string: the el() helper renders a boolean `true` as a bare
         // valueless attribute, which reads back as '' rather than 'true'.
         'data-welcome': isWelcome ? 'true' : false,
@@ -333,7 +302,8 @@ export function renderHub(gs, handlers) {
       return el('button', {
         class: 'choice locked',
         disabled: true,
-        'data-location': location.id
+        'data-location': location.id,
+        'data-slot': String(slot),
       },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
         el('span', { class: 'choice-action', text: `Locked: ${reason}` })

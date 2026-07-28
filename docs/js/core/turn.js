@@ -17,7 +17,7 @@
  */
 
 import { RENT_AMOUNT } from './game-state.js';
-import { getLocation, Tag } from '../data/locations.js';
+import { getLocation, Tag, varianceForDay } from '../data/locations.js';
 
 /** Legacy copy table, still exported because the old tests and UI read it. */
 export const LOCATION_COPY = {
@@ -60,6 +60,17 @@ export function computeDayEffects(gs, locationId) {
 
   const base = { ...location.effects };
   const total = accumulate(zero(), base);
+
+  // --- variance ---
+  // A location's printed numbers are an average, not a promise. The swing is
+  // derived from (location, day, run seed), so the preview the player reads
+  // and the day they actually get are the same figures — see
+  // `varianceForDay()` for why this is hashed rather than rolled.
+  const variance = varianceForDay(location, gs.journeyDay, gs.weatherSeed ?? 0);
+  if (KEYS.some((k) => variance[k] !== 0)) {
+    accumulate(total, variance);
+    reasons.push('🎲 How the day went');
+  }
 
   // --- weather ---
   const weather = gs.getWeather();
