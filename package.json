@@ -1,7 +1,7 @@
 {
   "name": "secondbarnone",
-  "version": "2.5.0",
-  "description": "A narrative balance game \u2014 L\u00e9on, a spiritual community, a bar, and a city full of people.",
+  "version": "2.7.0",
+  "description": "A narrative balance game — Léon, a spiritual community, a bar, and a city full of people.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -16,9 +16,10 @@
     "check": "npm test && node scripts/check-assets.js && node scripts/validate-content.js",
     "validate:content": "node scripts/validate-content.js",
     "typecheck": "tsc --project tsconfig.json",
-    "test:fast": "node --test tests/balance.test.js tests/cast.test.js tests/coverage.test.js tests/exploits.test.js tests/game.test.js tests/invariants.test.js tests/new-features.test.js tests/presentation.test.js tests/progression.test.js tests/slots.test.js tests/systems.test.js tests/world.test.js",
+    "test:fast": "node --test tests/balance.test.js tests/cast.test.js tests/coverage.test.js tests/exploits.test.js tests/game.test.js tests/invariants.test.js tests/new-features.test.js tests/presentation.test.js tests/progression.test.js tests/pwa.test.js tests/slots.test.js tests/systems.test.js tests/world.test.js",
     "test:ui": "node --test tests/dom.test.js tests/ui.test.js tests/accessibility.test.js tests/portrait-popup.test.js",
-    "test:assets": "node --test tests/portrait-assets.test.js"
+    "test:assets": "node --test tests/portrait-assets.test.js",
+    "test:mutation": "node scripts/mutation-test.js --quiet"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

@@ -31,7 +31,7 @@
  * not fail the run.
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -239,13 +239,19 @@ function* walk(dir) {
 
 {
   // Referenced from data or from code constants (the music loop lives in
-  // app.js as MUSIC_SRC); keep the code-only cases explicit here.
+  // app.js as MUSIC_SRC, the launcher icons in manifest.webmanifest); keep
+  // the code-only cases explicit here.
+  const manifest = JSON.parse(readFileSync(join(DOCS, 'manifest.webmanifest'), 'utf8'));
   const referenced = new Set([
     ...PROFILES.flatMap((p) => [p.portrait, p.portraitHi]),
     ...LOCATIONS.map((l) => l.bg).filter(Boolean),
+    ...(manifest.icons ?? []).map((i) => i.src),
     'assets/backgrounds/hub_background.webp',
     'assets/audio/warm-piano-loop.wav',
     'assets/audio/README.md',
+    // Linked from index.html rather than the manifest; iOS fetches it for
+    // home-screen bookmarks.
+    'assets/icons/apple-touch-icon.png',
   ]);
   for (const file of walk(join(DOCS, 'assets'))) {
     const rel = relative(DOCS, file);
@@ -305,18 +311,22 @@ section('Budget projection');
 
 {
   const HI_DIR = join('assets', 'portraits', 'hi');
+  // Install tier, same definition as scripts/check-assets.js: PWA launcher
+  // icons are fetched by the browser's install machinery, not while playing,
+  // so they sit outside the eager figure like the lightbox sheets do.
+  const INSTALL_DIR = join('assets', 'icons');
   let eager = 0;
   let hi = 0;
   for (const file of walk(DOCS)) {
     const rel = relative(DOCS, file);
     const { size } = statSync(file);
-    if (rel.startsWith(HI_DIR)) hi += size;
+    if (rel.startsWith(HI_DIR) || rel.startsWith(INSTALL_DIR)) hi += size;
     else eager += size;
   }
   const EAGER_LIMIT = 4 * 1024 * 1024;
   const headroom = EAGER_LIMIT - eager;
   const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
-  console.log(`  eager payload ${mb(eager)} of ${mb(EAGER_LIMIT)} (${(headroom / 1024).toFixed(0)} KB free), lightbox tier ${mb(hi)} on demand`);
+  console.log(`  eager payload ${mb(eager)} of ${mb(EAGER_LIMIT)} (${(headroom / 1024).toFixed(0)} KB free), lightbox+install tiers ${mb(hi)} on demand`);
   // Cost model matches scripts/check-assets.js: three characters (thumbnails)
   // plus one background per location.
   const PER_CHARACTER = 15 * 1024;

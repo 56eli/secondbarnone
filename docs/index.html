@@ -18,6 +18,8 @@
     <meta property="og:type" content="website" />
 
     <link rel="icon" href="assets/portraits/leon.webp" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
@@ -138,6 +140,19 @@
     <div id="toasts" aria-live="polite"></div>
     <div id="fade"></div>
 
+    <!--
+      PWA registration (roadmap 3.5). Guarded twice: unsupported browsers
+      simply never install, and file:// previews must not throw — the game
+      itself has no hard dependency on the worker. Registration failure is
+      likewise non-fatal by design, so the catch is deliberately empty.
+    -->
+    <script>
+      if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+      }
+    </script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

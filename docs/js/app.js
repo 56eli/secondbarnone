@@ -714,10 +714,13 @@ export function initGame(opts = {}) {
 
   function transitionTo(buildScreen) {
     fade.classList.add('on');
-    setTimeout(() => {
-      showScreen(buildScreen());
-      fade.classList.remove('on');
-    }, opts.instantTransitions ? 0 : FADE_MS);
+    setTimeout(
+      () => {
+        showScreen(buildScreen());
+        fade.classList.remove('on');
+      },
+      opts.instantTransitions ? 0 : FADE_MS,
+    );
   }
 
   function showScreen(node) {

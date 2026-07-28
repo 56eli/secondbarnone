@@ -21,6 +21,8 @@ const DOCS = join(ROOT, 'docs');
 const STATIC_REFS = [
   'assets/backgrounds/hub_background.webp',
   'index.html',
+  'manifest.webmanifest',
+  'sw.js',
   'css/style.css',
   'js/main.js',
   'assets/audio/warm-piano-loop.wav',
@@ -75,6 +77,16 @@ const MAX_HI_FILE_BYTES = 160 * 1024;
 const HI_TIER_ADVISORY_BYTES = 6 * 1024 * 1024;
 const HI_DIR = join('assets', 'portraits', 'hi');
 
+/**
+ * Install tier: the launcher icons in assets/icons/ are fetched by the
+ * browser's PWA install machinery (install prompt, add-to-home-screen), not
+ * while playing. They are budgeted like the hi tier — present and size-capped
+ * per file, but outside the eager figure that every player pays to boot.
+ * sw.js and manifest.webmanifest stay in the eager tier: they are single-digit
+ * KB and are requested during normal page loads.
+ */
+const INSTALL_DIR = join('assets', 'icons');
+
 let failures = 0;
 const fail = (msg) => {
   console.error(`  ✗ ${msg}`);
@@ -120,12 +132,15 @@ async function* walk(dir) {
 
 let total = 0;
 let eager = 0;
+let install = 0;
 for await (const file of walk(DOCS)) {
   const { size } = await stat(file);
   const rel = relative(DOCS, file);
   total += size;
   const isHi = rel.startsWith(HI_DIR);
-  if (!isHi) eager += size;
+  const isInstall = rel.startsWith(INSTALL_DIR);
+  if (isInstall) install += size;
+  else if (!isHi) eager += size;
 
   // Per-file limits differ by tier: an eager asset is paid for by everyone,
   // a hi sheet only by the player who tapped that one portrait.
@@ -135,12 +150,13 @@ for await (const file of walk(DOCS)) {
   }
 }
 const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
-const hi = total - eager;
+const hi = total - eager - install;
 const headroom = MAX_EAGER_BYTES - eager;
 console.log(
   `  eager payload: ${mb(eager)} (limit ${mb(MAX_EAGER_BYTES)}, ${(headroom / 1024).toFixed(0)} KB free)`,
 );
 console.log(`  lightbox tier: ${mb(hi)} (on demand, advisory limit ${mb(HI_TIER_ADVISORY_BYTES)})`);
+console.log(`  install tier: ${(install / 1024).toFixed(0)} KB (PWA icons, fetched by the OS at install)`);
 console.log(`  total on disk: ${mb(total)}`);
 
 // The eager tier is the gate: it is what a player actually downloads.
