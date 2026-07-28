@@ -44,7 +44,8 @@ async function boot(opts = {}) {
   global.window = window;
   global.document = window.document;
   global.HTMLElement = window.HTMLElement;
-  global.requestAnimationFrame = window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 0));
+  global.requestAnimationFrame =
+    window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 0));
 
   // jsdom has no media-query engine, so stub it. `reducedMotion` lets a test
   // assert the accessibility path that disables particles and transitions.
@@ -68,7 +69,11 @@ async function boot(opts = {}) {
  * process alive and the test run hangs instead of exiting.
  */
 function cleanup(window) {
-  try { window?.close(); } catch { /* already closed */ }
+  try {
+    window?.close();
+  } catch {
+    /* already closed */
+  }
   delete global.window;
   delete global.document;
   delete global.HTMLElement;
@@ -85,8 +90,14 @@ maybe('game boots and renders the hub', async () => {
     assert.ok(doc.querySelector('.hub'), 'hub screen should render');
     assert.match(doc.getElementById('hud-date').textContent, /Thursday, January 1, 2026/);
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
-    assert.equal(doc.querySelectorAll('.choice').length, 6, 'two core locations plus 4 rotating locations');
-  } finally { cleanup(window); }
+    assert.equal(
+      doc.querySelectorAll('.choice').length,
+      6,
+      'two core locations plus 4 rotating locations',
+    );
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('HUD reflects the starting stats', async () => {
@@ -96,31 +107,42 @@ maybe('HUD reflects the starting stats', async () => {
     assert.match(doc.getElementById('sanity-num').textContent, /50%/);
     assert.match(doc.getElementById('money-num').textContent, /^50$/);
     assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
-    assert.equal(doc.querySelector('.hud-title'), null, 'no product label appears below Léon’s name');
+    assert.equal(
+      doc.querySelector('.hud-title'),
+      null,
+      'no product label appears below Léon’s name',
+    );
     assert.equal(doc.getElementById('sanity-bar').style.width, '50%');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('visiting the bar renders the location screen', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    const barBtn = [...doc.querySelectorAll('.choice')]
-      .find((b) => b.textContent.includes('Le Dernier Verre'));
+    const barBtn = [...doc.querySelectorAll('.choice')].find((b) =>
+      b.textContent.includes('Le Dernier Verre'),
+    );
     barBtn.click();
     await settle();
 
     assert.ok(doc.querySelector('.location'), 'location screen should render');
     assert.match(doc.querySelector('.screen-title').textContent, /Le Dernier Verre/);
     assert.ok(doc.querySelector('.btn-primary'), 'action button present');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('performing an action opens the result modal and updates stats', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
 
     doc.querySelector('.btn-primary').click();
@@ -133,8 +155,13 @@ maybe('performing an action opens the result modal and updates stats', async () 
     // Bar shift: money 50 → 62, sanity 50 → 38 (before any event).
     const { gs } = window.__game;
     assert.ok(gs.money !== 50 || gs.sanity !== 50, 'stats should have moved');
-    assert.match(doc.getElementById('money-num').textContent, new RegExp(`^${Math.round(gs.money)}$`));
-  } finally { cleanup(window); }
+    assert.match(
+      doc.getElementById('money-num').textContent,
+      new RegExp(`^${Math.round(gs.money)}$`),
+    );
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('continuing from the modal advances the day and returns to the hub', async () => {
@@ -146,8 +173,9 @@ maybe('continuing from the modal advances the day and returns to the hub', async
     doc.querySelector('.btn-primary').click();
     await settle();
 
-    const continueBtn = [...doc.querySelectorAll('.modal button')]
-      .find((b) => b.textContent.includes('Continue'));
+    const continueBtn = [...doc.querySelectorAll('.modal button')].find((b) =>
+      b.textContent.includes('Continue'),
+    );
     continueBtn.click();
     await settle();
 
@@ -155,14 +183,18 @@ maybe('continuing from the modal advances the day and returns to the hub', async
     assert.ok(doc.querySelector('.hub'), 'should be back on the hub');
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 2/);
     assert.match(doc.getElementById('hud-date').textContent, /Friday, January 2, 2026/);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the characters screen lists the whole cast and shows detail on click', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
@@ -174,14 +206,18 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
     assert.match(detail.textContent, /Léon/);
     assert.match(detail.textContent, /Protagonist/);
     assert.match(detail.textContent, /Relationship to Léon/);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('characters are grouped with antagonists near the top', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     const groups = [...doc.querySelectorAll('.char-group')].map((g) => g.textContent);
@@ -189,14 +225,18 @@ maybe('characters are grouped with antagonists near the top', async () => {
 
     assert.ok(doc.querySelector('.char-row.role-arch_nemesis'), 'nemesis row is tagged');
     assert.equal(doc.querySelectorAll('.char-row.role-rival').length, 2);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('searching filters the character list', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     const search = doc.querySelector('.char-search');
@@ -217,14 +257,18 @@ maybe('searching filters the character list', async () => {
     search.value = '';
     search.dispatchEvent(new window.Event('input'));
     assert.equal(visible(), 78);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the arch nemesis and rivals have full profiles', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     doc.querySelector('.char-row.role-arch_nemesis').click();
@@ -232,26 +276,34 @@ maybe('the arch nemesis and rivals have full profiles', async () => {
     assert.match(detail.textContent, /Kaden/);
     assert.match(detail.textContent, /Arch Nemesis/);
     assert.ok(detail.textContent.length > 300, 'nemesis should have a substantial profile');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('back from characters returns to the hub', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
     assert.ok(doc.querySelector('.hub'), 'should be back on the hub');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('portrait images point at files that exist', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     const { existsSync } = await import('node:fs');
@@ -261,14 +313,18 @@ maybe('portrait images point at files that exist', async () => {
       const src = img.getAttribute('src');
       assert.ok(existsSync(join(DOCS, src)), `missing portrait file: ${src}`);
     }
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the action button cannot be double-fired', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
 
     const btn = doc.querySelector('.btn-primary');
@@ -278,10 +334,12 @@ maybe('the action button cannot be double-fired', async () => {
 
     const { gs } = window.__game;
     const money = gs.money;
-    btn.click();                       // second click must be a no-op
+    btn.click(); // second click must be a no-op
     await settle();
     assert.equal(gs.money, money, 'stats must not change on a repeat click');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('game over renders and restart resets the run', async () => {
@@ -292,9 +350,18 @@ maybe('game over renders and restart resets the run', async () => {
 
     // Force a losing position, then take one more shift.
     gs.sanity = 1;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
     doc.querySelector('.btn-primary').click();
+    await settle();
+
+    // A fatal day still reports itself before the tombstone: the player has
+    // to be able to see what killed them. Dismiss the report, then assert.
+    const fatalReport = doc.querySelector('.modal-fatal');
+    assert.ok(fatalReport, 'the fatal day should be reported before game over');
+    doc.querySelector('.modal-actions .btn-primary').click();
     await settle();
 
     assert.ok(doc.querySelector('.gameover'), 'game over screen should render');
@@ -307,7 +374,9 @@ maybe('game over renders and restart resets the run', async () => {
     assert.equal(doc.getElementById('hud').hidden, false, 'HUD returns');
     assert.match(doc.getElementById('hud-day').textContent, /Journey Day 1/);
     assert.equal(window.__game.gs.sanity, 50);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('leaving a location without acting returns to the hub unchanged', async () => {
@@ -317,7 +386,9 @@ maybe('leaving a location without acting returns to the hub unchanged', async ()
     const { gs } = window.__game;
     const before = { s: gs.sanity, m: gs.money, d: gs.journeyDay };
 
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
     [...doc.querySelectorAll('.btn')].find((b) => b.textContent.includes('Back')).click();
     await settle();
@@ -326,7 +397,9 @@ maybe('leaving a location without acting returns to the hub unchanged', async ()
     assert.equal(gs.sanity, before.s);
     assert.equal(gs.money, before.m);
     assert.equal(gs.journeyDay, before.d, 'backing out must not consume a day');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the hub shows history after a completed turn', async () => {
@@ -338,20 +411,25 @@ maybe('the hub shows history after a completed turn', async () => {
     doc.querySelector('.btn-primary').click();
     await settle();
     [...doc.querySelectorAll('.modal button')]
-      .find((b) => b.textContent.includes('Continue')).click();
+      .find((b) => b.textContent.includes('Continue'))
+      .click();
     await settle();
 
     const history = doc.querySelector('.history');
     assert.ok(history, 'history block should render');
     assert.match(history.textContent, /Visited La Maison Calme/);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('clicking the modal backdrop dismisses it like Continue', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -363,14 +441,18 @@ maybe('clicking the modal backdrop dismisses it like Continue', async () => {
 
     assert.equal(doc.querySelector('.modal-backdrop'), null, 'modal should close');
     assert.ok(doc.querySelector('.hub'), 'should land back on the hub');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('stat deltas are shown in the HUD after a turn', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
     doc.querySelector('.btn-primary').click();
     await settle();
@@ -382,7 +464,9 @@ maybe('stat deltas are shown in the HUD after a turn', async () => {
     assert.match(moneyDelta.textContent, /^\+\d+$/, 'money delta should be positive');
     assert.ok(sanityDelta.classList.contains('neg'));
     assert.ok(moneyDelta.classList.contains('pos'));
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the HUD flags low stats', async () => {
@@ -400,7 +484,9 @@ maybe('the HUD flags low stats', async () => {
     assert.match(doc.getElementById('money-label').textContent, /low/i);
     assert.ok(doc.getElementById('sanity-bar').classList.contains('low'));
     assert.ok(doc.getElementById('money-bar').classList.contains('low'));
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('running out of money ends the run', async () => {
@@ -416,17 +502,25 @@ maybe('running out of money ends the run', async () => {
     doc.querySelector('.btn-primary').click();
     await settle();
 
+    assert.ok(doc.querySelector('.modal-fatal'), 'the fatal day is reported first');
+    doc.querySelector('.modal-actions .btn-primary').click();
+    await settle();
+
     const over = doc.querySelector('.gameover');
     assert.ok(over, 'game over screen should render');
     assert.match(over.textContent, /broke/i, 'should use the money-specific message');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('a missing portrait falls back to an initials chip', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.hub-tools button')].find((b) => b.textContent.includes('People')).click();
+    [...doc.querySelectorAll('.hub-tools button')]
+      .find((b) => b.textContent.includes('People'))
+      .click();
     await settle();
 
     const img = doc.querySelector('.char-row img');
@@ -437,33 +531,43 @@ maybe('a missing portrait falls back to an initials chip', async () => {
     const chip = doc.querySelector('.char-row div.avatar');
     assert.ok(chip, 'a fallback chip should replace the broken image');
     assert.ok(chip.textContent.length > 0, 'chip should show initials');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('particles are suppressed when reduced motion is preferred', async () => {
   const window = await boot({ reducedMotion: true });
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
 
     const container = doc.querySelector('.particles');
     assert.ok(container, 'the container still exists');
     assert.equal(container.children.length, 0, 'but no motes should spawn');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('particles spawn when motion is allowed', async () => {
   const window = await boot();
   try {
     const doc = window.document;
-    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
+    [...doc.querySelectorAll('.choice')]
+      .find((b) => b.textContent.includes('Le Dernier Verre'))
+      .click();
     await settle();
     await new Promise((r) => setTimeout(r, 900));
 
     const container = doc.querySelector('.particles');
     assert.ok(container.children.length > 0, 'motes should appear over time');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('a ten-turn playthrough never throws', async () => {
@@ -473,8 +577,9 @@ maybe('a ten-turn playthrough never throws', async () => {
     for (let i = 0; i < 10; i++) {
       if (doc.querySelector('.gameover')) break;
 
-      const choice = [...doc.querySelectorAll('.choice')]
-        .find((b) => b.textContent.includes(i % 2 ? 'Le Dernier Verre' : 'La Maison'));
+      const choice = [...doc.querySelectorAll('.choice')].find((b) =>
+        b.textContent.includes(i % 2 ? 'Le Dernier Verre' : 'La Maison'),
+      );
       if (!choice) break;
       choice.click();
       await settle();
@@ -482,11 +587,17 @@ maybe('a ten-turn playthrough never throws', async () => {
       doc.querySelector('.btn-primary')?.click();
       await settle();
 
-      const cont = [...doc.querySelectorAll('.modal button')]
-        .find((b) => b.textContent.includes('Continue'));
-      if (cont) { cont.click(); await settle(); }
+      const cont = [...doc.querySelectorAll('.modal button')].find((b) =>
+        b.textContent.includes('Continue'),
+      );
+      if (cont) {
+        cont.click();
+        await settle();
+      }
     }
     // Reaching here without an exception is the assertion.
     assert.ok(true);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });

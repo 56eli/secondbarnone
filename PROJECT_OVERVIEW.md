@@ -7,13 +7,19 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 371 tests, ~99.7% coverage on the shipped code.
+> **Status:** playable, 439 tests, ~99.0% coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
 > with small talk; every character is bound to one location and owns at least
 > three events there. Léon stays prominent in the HUD. Weather stays calm and
-> useful. Soft win at day 60.
+> useful. Soft win at day 60, optional mastery at day 100.
+>
+> **Read [docs/DESIGN_PRINCIPLES.md](docs/DESIGN_PRINCIPLES.md) before changing
+> anything** — it records how decisions get made here and why, and every rule
+> in it is the generalisation of a bug that shipped.
+> [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) is the ordered list of what
+> is still owed.
 
 ---
 
@@ -64,6 +70,7 @@ docs/js/
     events.js        235 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
+    observances.js    5 repeatable insight spends (the late-game sink)
     festivals.js      9 fixed calendar events
     achievements.js  20 predicates over a state snapshot
   ui/
@@ -246,11 +253,64 @@ Weather modifies effects by tag and can close tags outright — a storm shuts
 every outdoor location unless you are carrying the rain shell. Snow is
 winter-only, heatwaves are summer-only, blossom wind is spring-only.
 
-### Rent
+### Rent — the pressure curve
 
-Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk,
-skippable by paying ahead at the letting office, and waived entirely on
-Rent Amnesty Day.
+Charged on Sundays, once each. Reduced by the `Tenants' Union Card` perk and by
+reputation, skippable by paying ahead at the letting office, and waived
+entirely on Rent Amnesty Day.
+
+**Rent escalates.** It opens at 18 and steps up by 2 every fortnight from
+journey day 15, to a ceiling of 34. Before this, rent was flat for a 300-day
+run *and fell* with reputation and perks — the only economic pressure in the
+game got cheaper the longer you survived, and a four-branch `if/else` held the
+city for 300 days at 99 sanity and 1,765 money.
+
+Relief still applies on top of the risen figure, so investment keeps paying: it
+buys back a rising cost instead of discounting a static one. The balance suite
+asserts the perk tree is now worth at least three runs in twelve, which is the
+justification for the escalation existing at all.
+
+The almanac shows the current rent and the day of the next rise, because a
+pressure the player cannot see coming is an ambush rather than a difficulty
+curve.
+
+**Paying ahead is never a discount.** `prepayCost()` prices each week at the
+rent due on the Sunday it actually covers. Two separate exploits came from
+getting this wrong — an inclusive bound that made one week cover two Sundays
+(a 44% permanent discount), and then bulk-buying at the cheap early rate to
+dodge escalation entirely (20%). Convenience mechanics buy certainty, never a
+better price.
+
+### Observances — the repeatable insight sink
+
+The perk tree costs 66 insight in total and is fully bought by roughly day 20.
+After that, insight accumulated for the rest of a long run with **nothing to
+buy** — a currency the game kept awarding that had stopped meaning anything.
+
+**Observances** (`data/observances.js`) are the other half of the economy: five
+repeatable spends that affect the next few days rather than the whole run.
+Perks are who Léon has become; observances are what he is doing about tomorrow.
+
+The rules that keep them from becoming a second perk tree:
+
+- **Repeatable, never permanent.** Everything expires.
+- **One at a time.** Starting another sets the current one down, without a
+  refund. Choosing is the gameplay.
+- **Never a get-out-of-jail card.** Nothing restores a resource directly; they
+  change the *shape* of a day — steadying its variance, softening rent, pushing
+  the exhaustion threshold out. The worst case is that one did nothing, not
+  that it saved a run which should have ended.
+
+### Relationships
+
+Every character carries an `affinity` count on the run, incremented when one of
+their events fires. The People screen reads it, so the roster shows who this
+run has actually met rather than handing over an encyclopaedia at turn one.
+
+This is deliberately a plain counter rather than a tier system: the tiers should
+be defined by the content that gates on them, and that content does not exist
+yet. See roadmap item 1.4 — the engine work is done, the fourth-and-later events
+are not written.
 
 ### Practice and milestones
 
@@ -310,9 +370,28 @@ the last four events filtered out of the pool to avoid repetition.
 5. achievements
 6. the game-over check
 7. one concise history line
+8. **the calendar advances**
 
 Order still matters: rent lands before the event, so an event can pull a player
 back from the brink that rent pushed them toward.
+
+**Step 8 is the important one.** Advancing the day used to live in the UI —
+`resolveTurn()` applied the effects and the result modal's Continue handler
+called `advanceDay()`. Because the autosave fired between those two points,
+refreshing the page while the modal was open reloaded a save with the day's
+gains banked and the calendar still on the day just played. Ten refreshes at
+the loft took a run from 30 sanity / 20 energy to 100/100 without consuming a
+single day, bypassing rent, the endurance goal and every day-gated unlock.
+
+The fix is structural rather than a save flag: **resolving a day and advancing
+past it are one operation**, so there is no persistable state in which a day
+has been paid for but not consumed. The result modal is now a report on a day
+that is already over — which is also what it always read as. A fatal day is the
+one exception and does not advance, so the game-over screen names the right
+date.
+
+`tests/exploits.test.js` reproduces the original sequence and asserts it no
+longer pays.
 
 Step 1 is factored out as `computeDayEffects()`, which is also what the UI
 calls to show the exact numbers a location is offering _before_ the player

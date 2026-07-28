@@ -96,8 +96,66 @@ export const START_INSIGHT = 0;
  */
 export const ENDURANCE_GOAL_DAYS = 60;
 
-/** Rent deducted every Sunday. */
+/**
+ * ## The mastery layer
+ *
+ * A second, optional acknowledgement for a player who keeps going past the
+ * endurance goal — a hundred days, well-known, well-travelled, and held
+ * without leaning on the bar.
+ *
+ * `MASTERY_MONEY` is the number that was wrong. At 200 the layer was
+ * unreachable: a run broad enough to see eighteen locations and disciplined
+ * enough to keep bar streaks under six banks roughly 90-110 by day 100, and
+ * a simulation over 25 seeds of a competent explorer cleared every other
+ * condition and failed on money every single time. 140 sits above what a
+ * careless run holds and below what the rest of the condition forbids you
+ * from earning.
+ *
+ * The bar-streak ceiling is the interesting constraint and is unchanged:
+ * mastery means holding the city *without* grinding the thing that pays.
+ */
+export const MASTERY_GOAL_DAYS = 100;
+export const MASTERY_REPUTATION = 80;
+export const MASTERY_MONEY = 140;
+export const MASTERY_LOCATIONS = 18;
+export const MASTERY_MAX_BAR_STREAK = 5;
+
+/** Rent deducted every Sunday, at the start of a run. */
 export const RENT_AMOUNT = 18.0;
+
+/**
+ * ## Rent escalation — the run's pressure curve
+ *
+ * Rent used to be a flat 18 from day 1 to day 300, and *fell* as the run went
+ * on: reputation discounts and the Tenants' Union card together take 9 off it.
+ * The only economic pressure in the game therefore got cheaper the longer you
+ * survived, which is why a four-branch strategy could hold the city
+ * indefinitely — nothing the game did after the last unlock (day 20) could
+ * threaten a competent player.
+ *
+ * Rent now steps up every `RENT_ESCALATION_PERIOD_DAYS`, by
+ * `RENT_ESCALATION_STEP` each time, to a ceiling of `RENT_MAX_AMOUNT`.
+ *
+ * The shape is deliberate:
+ *
+ *   - it is a *step*, not a curve, so the player can see it coming and name
+ *     it ("the rent went up again") rather than feeling a slow squeeze;
+ *   - the first step lands on day 15, after the early unlocks have opened the
+ *     city, so the opening of a run is untouched;
+ *   - by the day-60 endurance goal rent is 26 — noticeably heavier than the
+ *     opening 18, still payable by one good market day;
+ *   - the ceiling exists so a 300-day run does not become arithmetic. Past
+ *     the cap the game is asking you to sustain a hard equilibrium, not to
+ *     lose to a number that grows forever.
+ *
+ * Perk and reputation relief still apply *on top*, so the counterplay the
+ * player has invested in keeps working — it now buys back a rising cost
+ * instead of discounting a static one.
+ */
+export const RENT_ESCALATION_PERIOD_DAYS = 14;
+export const RENT_ESCALATION_STEP = 2.0;
+export const RENT_ESCALATION_FIRST_DAY = 15;
+export const RENT_MAX_AMOUNT = 34.0;
 
 /** Reputation-based rent discount thresholds. */
 export const RENT_DISCOUNT_REP_THRESHOLD = 50;

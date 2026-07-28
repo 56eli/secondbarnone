@@ -10,10 +10,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, saveStore, SAVE_KEY,
-  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_HARD_CEILING, MONEY_SOFT_CAP,
-  ENDURANCE_GOAL_DAYS, START_ENERGY, START_REPUTATION,
-  ENERGY_RECOVERY, EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY, RENT_AMOUNT,
+  GameState,
+  saveStore,
+  SAVE_KEY,
+  MAX_STAT,
+  MAX_ENERGY,
+  MAX_REPUTATION,
+  MONEY_HARD_CEILING,
+  MONEY_SOFT_CAP,
+  ENDURANCE_GOAL_DAYS,
+  START_ENERGY,
+  START_REPUTATION,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  RENT_AMOUNT,
+  CURRENT_SAVE_VERSION,
 } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects, scaleEventDeltas } from '../docs/js/core/turn.js';
@@ -41,9 +53,15 @@ function fakeStorage() {
   const map = new Map();
   return {
     getItem: (k) => (map.has(k) ? map.get(k) : null),
-    setItem: (k, v) => { map.set(k, String(v)); },
-    removeItem: (k) => { map.delete(k); },
-    get size() { return map.size; },
+    setItem: (k, v) => {
+      map.set(k, String(v));
+    },
+    removeItem: (k) => {
+      map.delete(k);
+    },
+    get size() {
+      return map.size;
+    },
   };
 }
 
@@ -163,7 +181,9 @@ test('the legacy applyEventDeltas signature still works', () => {
 test('stats_changed reports all four gauges', () => {
   const gs = fresh();
   let seen = null;
-  gs.on('stats_changed', (...args) => { seen = args; });
+  gs.on('stats_changed', (...args) => {
+    seen = args;
+  });
   gs.applyDeltas({ sanity: 1 });
   assert.equal(seen.length, 4);
   assert.deepEqual(seen, [gs.sanity, gs.money, gs.energy, gs.reputation]);
@@ -184,7 +204,6 @@ test('stats_changed reports all four gauges', () => {
 // Removed obsolete inventory test.
 
 // Removed obsolete inventory test.
-
 
 // Removed obsolete inventory test.
 
@@ -220,7 +239,9 @@ test('buying an unknown perk is a safe no-op', () => {
 test('perks_changed fires only on a real purchase', () => {
   const gs = fresh();
   let count = 0;
-  gs.on('perks_changed', () => { count += 1; });
+  gs.on('perks_changed', () => {
+    count += 1;
+  });
   gs.insight = 100;
   gs.buyPerk('steady_breath');
   gs.buyPerk('steady_breath');
@@ -251,8 +272,14 @@ test('computeDayEffects starts from the location and returns all five keys', () 
 test('computeDayEffects on an unknown location yields a flat zero bundle', () => {
   const gs = fresh();
   const { base, total, reasons } = computeDayEffects(gs, 'atlantis');
-  assert.equal(Object.values(base).reduce((a, b) => a + b, 0), 0);
-  assert.equal(Object.values(total).reduce((a, b) => a + b, 0), 0);
+  assert.equal(
+    Object.values(base).reduce((a, b) => a + b, 0),
+    0,
+  );
+  assert.equal(
+    Object.values(total).reduce((a, b) => a + b, 0),
+    0,
+  );
   assert.deepEqual(reasons, []);
 });
 
@@ -263,7 +290,10 @@ test('weather bends the numbers and says so', () => {
   for (let seed = 0; seed < 500; seed++) {
     const candidate = new GameState({ seed });
     candidate.dayOfMonth = 6;
-    if (candidate.getWeather().id === 'rain') { gs = candidate; break; }
+    if (candidate.getWeather().id === 'rain') {
+      gs = candidate;
+      break;
+    }
   }
   assert.ok(gs, 'expected some seed to open on a rainy day');
   assert.equal(gs.getFestival(), null);
@@ -283,7 +313,6 @@ test('weather bends the numbers and says so', () => {
 
 // Removed obsolete inventory test.
 
-
 // ======================================================= persistence v5
 
 test('event manager snapshots preserve schedule, memory, and seeded RNG state', () => {
@@ -302,7 +331,7 @@ test('event manager snapshots preserve schedule, memory, and seeded RNG state', 
   assert.equal(restored.rng.random(), original.rng.random(), 'future event rolls resume exactly');
 });
 
-test('v5 application saves restore both game and event state', () => {
+test('application saves restore both game and event state', () => {
   const storage = fakeStorage();
   const gs = fresh(77);
   const original = new EventManager(createRng(88));
@@ -313,7 +342,11 @@ test('v5 application saves restore both game and event state', () => {
 
   assert.equal(saveStore.save(gs, storage, original), true);
   const raw = JSON.parse(storage.getItem(SAVE_KEY));
-  assert.equal(raw.v, 5);
+  // Assert against the constant, not a literal: this test is about the
+  // envelope carrying both halves of a run, not about which schema version
+  // happens to be current. Hard-coding the number made every schema bump
+  // look like a regression here.
+  assert.equal(raw.v, CURRENT_SAVE_VERSION);
   assert.equal(raw.gameState.journeyDay, 2);
   assert.equal(raw.eventManager.nextEventDay, 15);
 

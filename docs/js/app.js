@@ -39,6 +39,13 @@ const MUSIC_VOLUME_KEY = 'secondbarnone.settings.musicVolume';
 const MUSIC_SRC = 'assets/audio/warm-piano-loop.wav';
 
 /**
+ * Where the background piano starts for a player who has never touched the
+ * slider. Half volume: present enough to be part of the game, quiet enough
+ * not to be the first thing anyone reaches for the mute button over.
+ */
+export const DEFAULT_MUSIC_VOLUME = 0.5;
+
+/**
  * Boot a game into the current document.
  * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
  * @returns {{gs: GameState, events: EventManager, api: object}}
@@ -93,13 +100,27 @@ export function initGame(opts = {}) {
 
   // ------------------------------------------------------------ settings
 
+  /**
+   * Read the saved music volume, or fall back to `DEFAULT_MUSIC_VOLUME`.
+   *
+   * The default is deliberately non-zero. It used to be 0, which meant the
+   * warm piano loop the project ships, documents and budgets asset space for
+   * was silent for every player who never opened Settings — effectively
+   * unshipped. Browser autoplay policy still applies: nothing plays until the
+   * first pointer or key event, so a non-zero default cannot produce
+   * unexpected noise on load.
+   *
+   * A player who deliberately sets 0 has that respected, because the stored
+   * value is only ignored when the key is absent or unparseable.
+   */
   const readVolume = () => {
     try {
       const raw = storage?.getItem?.(MUSIC_VOLUME_KEY);
-      const parsed = raw === null || raw === undefined ? 0 : Number(raw);
-      return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : 0;
+      if (raw === null || raw === undefined || raw === '') return DEFAULT_MUSIC_VOLUME;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? Math.max(0, Math.min(1, parsed)) : DEFAULT_MUSIC_VOLUME;
     } catch {
-      return 0;
+      return DEFAULT_MUSIC_VOLUME;
     }
   };
   const writeVolume = (value) => {
@@ -186,14 +207,77 @@ export function initGame(opts = {}) {
       value.textContent = `${Math.round(volume * 100)}%`;
     });
 
+    // --- save export / import -------------------------------------------
+    // localStorage is not durable: clearing site data, switching browser or
+    // a private window all destroy a long run silently. This is the smallest
+    // honest mitigation — the save as text, no accounts, no server.
+    const saveTools = document.createElement('div');
+    saveTools.className = 'settings-save';
+
+    const saveField = document.createElement('textarea');
+    saveField.id = 'save-text';
+    saveField.className = 'settings-save-field';
+    saveField.rows = 3;
+    saveField.setAttribute('aria-label', 'Save data');
+    saveField.placeholder = 'Your save will appear here. Paste one in to restore a run.';
+
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn btn-small';
+    exportBtn.type = 'button';
+    exportBtn.textContent = 'Copy save';
+    exportBtn.addEventListener('click', () => {
+      saveField.value = saveStore.export(gs, events);
+      saveField.select?.();
+      toast(saveField.value ? 'Save copied below.' : 'Could not read the save.');
+    });
+
+    const importBtn = document.createElement('button');
+    importBtn.className = 'btn btn-small';
+    importBtn.type = 'button';
+    importBtn.textContent = 'Restore save';
+    importBtn.addEventListener('click', () => {
+      if (!saveStore.import(saveField.value, gs, events)) {
+        toast('That does not look like a save.');
+        return;
+      }
+      persist();
+      updateHud();
+      closeDialog();
+      transitionTo(hubScreen);
+      toast('Run restored.');
+    });
+
+    const saveRow = document.createElement('div');
+    saveRow.className = 'settings-actions';
+    saveRow.append(exportBtn, importBtn);
+    saveTools.append(saveField, saveRow);
+
+    // --- reset, behind a confirmation ------------------------------------
+    // One click used to wipe a hundred-day run with no way back. The button
+    // now arms itself first; the second click is the destructive one.
     const reset = document.createElement('button');
     reset.className = 'btn btn-danger';
     reset.type = 'button';
     reset.textContent = 'Reset game';
+    let armed = false;
     reset.addEventListener('click', () => {
+      if (!armed) {
+        armed = true;
+        reset.textContent = 'Really reset? This cannot be undone';
+        reset.classList.add('armed');
+        // Disarm on any other interaction with the dialog, so the dangerous
+        // state cannot linger and catch a later, unrelated click.
+        setTimeout(() => {
+          if (!armed) return;
+          armed = false;
+          reset.textContent = 'Reset game';
+          reset.classList.remove('armed');
+        }, 6000);
+        return;
+      }
       saveStore.clear(storage);
       restart();
-      backdrop.remove();
+      closeDialog();
       toast('Save cleared.');
     });
 
@@ -203,6 +287,7 @@ export function initGame(opts = {}) {
     close.textContent = 'Close';
     const closeDialog = () => {
       backdrop.remove();
+      setBackgroundInert(false);
       document.removeEventListener('keydown', onKey);
       if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
     };
@@ -219,9 +304,17 @@ export function initGame(opts = {}) {
     row.className = 'settings-actions';
     row.append(reset, close);
     label.append(value);
-    dialog.append(title, label, slider, row);
+
+    const saveHeading = document.createElement('h3');
+    saveHeading.className = 'section-h';
+    saveHeading.textContent = 'Your run';
+
+    dialog.append(title, label, slider, saveHeading, saveTools, row);
     backdrop.append(dialog);
     document.body.append(backdrop);
+    // Same trap as the result modal: aria-modal is a promise about
+    // reachability, not a decoration.
+    setBackgroundInert(true);
     slider.focus();
   }
 
@@ -358,6 +451,7 @@ export function initGame(opts = {}) {
   function charactersScreen() {
     return renderCharacters(gs.getAllCharacters(), {
       onBack: () => transitionTo(hubScreen),
+      affinity: gs.affinity,
     });
   }
 
@@ -368,6 +462,14 @@ export function initGame(opts = {}) {
         if (gs.buyPerk(id)) {
           persist();
           toast('Learned.');
+        }
+        updateHud();
+        showScreen(perksScreen());
+      },
+      onObserve: (id) => {
+        if (gs.beginObservance(id)) {
+          persist();
+          toast('Begun.');
         }
         updateHud();
         showScreen(perksScreen());
@@ -392,6 +494,21 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- turn
 
+  /**
+   * Play one day.
+   *
+   * `resolveTurn()` now advances the calendar itself, so by the time this
+   * function has a `result` the day is over and banked. Two things follow:
+   *
+   *   - the autosave below is a complete, consistent state. There is no
+   *     window in which a refresh replays a day (the old exploit); and
+   *   - the modal is a *report*, not a commit step. Dismissing it — by
+   *     button, backdrop or Escape — only closes a report.
+   *
+   * On a fatal day the modal is still shown first. The run ended *because of
+   * something*, and sending the player straight to a tombstone hid the event,
+   * the rent charge or the exhaustion line that did it.
+   */
   function handleAction(locationId) {
     const result = resolveTurn(gs, events, locationId);
 
@@ -401,27 +518,82 @@ export function initGame(opts = {}) {
     for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
     if (result.justWon) toast(`🏅 ${result.winMessage || 'Sixty days.'}`);
     if (result.masteryWon) toast(`🌟 ${result.masteryMessage || 'A hundred days.'}`);
-    // Persist the resolved turn before presenting the modal: an accidental
-    // refresh must never erase a day the player has already committed to.
-    persist();
 
     if (result.gameOver) {
+      // The run is over, so the save goes — but only after the player has
+      // read what happened.
       saveStore.clear(storage);
-      showGameOver(lastGameOverMessage || gs.gameOverMessage);
+      const modal = renderResultModal(result, gs, {
+        fatal: true,
+        onContinue: () => {
+          closeModal(modal);
+          showGameOver(lastGameOverMessage || gs.gameOverMessage);
+        },
+      });
+      openModal(modal);
       return;
     }
 
+    persist();
+
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
-        modal.remove();
-        gs.advanceDay();
+        closeModal(modal);
         updateHud();
-        persist();
         transitionTo(hubScreen);
       },
     });
-    document.body.append(modal);
-    modal.querySelector('button')?.focus();
+    openModal(modal);
+  }
+
+  /**
+   * Show a modal with a real focus trap.
+   *
+   * Everything behind the dialog is marked `inert` so neither Tab nor a
+   * screen reader's virtual cursor can wander out of it — previously three
+   * controls (HUD portrait, settings, host portrait) stayed reachable behind
+   * an `aria-modal="true"` dialog, which is the exact contradiction that
+   * attribute is supposed to rule out.
+   */
+  function openModal(node) {
+    const previouslyFocused = document.activeElement;
+    node._restoreFocus = previouslyFocused;
+    document.body.append(node);
+    setBackgroundInert(true);
+    const focusable = node.querySelector('button, [href], input, select, textarea');
+    (focusable ?? node.querySelector('.modal') ?? node).focus?.();
+  }
+
+  function closeModal(node) {
+    node._teardown?.();
+    node.remove();
+    setBackgroundInert(false);
+    const back = node._restoreFocus;
+    if (back instanceof HTMLElement && back.isConnected) back.focus();
+  }
+
+  /**
+   * Toggle `inert` + `aria-hidden` on everything that is not a dialog.
+   *
+   * Marks every top-level child of <body> rather than just `#app`, because
+   * `#app` is not the whole page: the skip link, the toast host and the fade
+   * overlay are siblings of it, and a trap that only covers `#app` leaves the
+   * skip link tabbable behind an open dialog. Dialogs themselves are appended
+   * to <body>, so they are skipped by the `.modal-backdrop` test.
+   */
+  function setBackgroundInert(on) {
+    // Array.from rather than a spread: HTMLCollection is not typed as
+    // iterable under the DOM lib this project checks against.
+    for (const node of Array.from(document.body.children)) {
+      if (node.classList?.contains('modal-backdrop')) continue;
+      if (on) {
+        node.setAttribute('inert', '');
+        node.setAttribute('aria-hidden', 'true');
+      } else {
+        node.removeAttribute('inert');
+        node.removeAttribute('aria-hidden');
+      }
+    }
   }
 
   // ----------------------------------------------------------- game over

@@ -25,6 +25,41 @@
   box-sizing: border-box;
 }
 
+/*
+ * Available to assistive technology, invisible on screen. Used for the
+ * document h1 — the page needs a top-level heading, and the game's visual
+ * title bar is the HUD rather than a line of text.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard escape hatch past the HUD, revealed only when focused. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 0 0 var(--radius) 0;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 0;
+}
+
 html,
 body {
   margin: 0;
@@ -606,12 +641,28 @@ h2.screen-title {
   outline-offset: 1px;
 }
 
+/*
+ * Portraits are round, and staying round is a size problem, not a
+ * border-radius problem.
+ *
+ * This rule used to declare `width: 56px; height: 56px; flex: 0 0 42px`. In a
+ * flex row — which is every place an avatar actually appears — the
+ * flex-basis wins on the main axis, so the box rendered 42 wide by 56 tall
+ * and `border-radius: 50%` dutifully drew an **oval**. It only looked round
+ * in the one context that was not a flex row.
+ *
+ * The fix is to derive all three from a single custom property, so a size
+ * override cannot desynchronise them again. Every variant below sets
+ * `--avatar-size` and nothing else.
+ */
 .avatar {
-  width: 56px;
-  height: 56px;
+  --avatar-size: 46px;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  flex: 0 0 var(--avatar-size);
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   object-fit: cover;
-  flex: 0 0 42px;
   background: radial-gradient(circle at 35% 30%, #3a3d55, #1e2030);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -688,12 +739,14 @@ h2.screen-title {
   align-items: center;
   margin-bottom: 12px;
 }
+/*
+ * The People-screen detail portrait — the largest avatar the game renders
+ * inline, and the figure `tests/portrait-assets.test.js` sizes the 288px
+ * thumbnail tier against. Keep them in step if this changes.
+ */
 .detail-avatar {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
+  --avatar-size: 84px;
   font-size: 24px;
-  flex: 0 0 84px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   border-color: #3a3a52;
 }
@@ -1521,20 +1574,29 @@ footer a {
   margin: 2px 0 4px;
 }
 
+/* Inline host chip. 22px -> 24px, keeping step with the other portrait bumps. */
 .host-avatar {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  --avatar-size: 24px;
   font-size: 9px;
   border-color: #3a3a52;
 }
 
+/*
+ * The host portrait on a location screen.
+ *
+ * Bumped 52px -> 58px (+11.5%). The host is the reason a location reads as
+ * somewhere a person is rather than a card with scenery, and at 52px they
+ * sat visually below the location title and the effect chips. A ring and a
+ * touch more presence puts the face where the eye lands first.
+ *
+ * Only `--avatar-size` is set — see the note on `.avatar` for why width,
+ * height and flex-basis must never be declared separately again.
+ */
 .host-avatar-lg {
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
-  font-size: 16px;
-  border-color: rgba(201, 162, 39, 0.45);
+  --avatar-size: 58px;
+  font-size: 17px;
+  border-color: rgba(201, 162, 39, 0.55);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.12);
 }
 
 .host-banner {
@@ -1568,11 +1630,14 @@ footer a {
   margin-bottom: 6px;
 }
 
+/*
+ * The face on a day-result event card. 48px -> 53px (+10.4%), matching the
+ * host bump: this is the same side character, and the two places a player
+ * meets them should agree about how much room they get.
+ */
 .event-avatar {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
-  border-color: rgba(201, 162, 39, 0.4);
+  --avatar-size: 53px;
+  border-color: rgba(201, 162, 39, 0.5);
 }
 
 .event-who {
@@ -1711,4 +1776,88 @@ footer a {
 .btn-danger:focus-visible {
   border-color: #ff8b8b;
   background: rgba(255, 111, 111, 0.14);
+}
+
+/* ---------------- settings: save tools & armed reset ---------------- */
+
+.settings-save {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.settings-save-field {
+  font: inherit;
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #10101a;
+  color: var(--text-dim);
+}
+.settings-save-field:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/*
+ * The reset button once armed. Deliberately loud: the second click destroys
+ * the run, and the change in label and colour is the only warning a player
+ * gets before it does.
+ */
+.btn-danger.armed {
+  background: var(--danger);
+  color: #14141f;
+  font-weight: 700;
+}
+
+/* ---------------- mastery progress (almanac) ---------------- */
+
+.mastery-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 14px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  display: grid;
+  gap: 3px;
+}
+.mastery-list .mastery-met {
+  color: var(--good);
+}
+
+/* ---------------- People: met-this-run marker ---------------- */
+
+.char-met {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.detail-met {
+  font-size: 11.5px;
+  color: var(--accent);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* ---------------- day-result modal ---------------- */
+
+.modal-date {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin: -6px 0 8px;
+}
+
+/* The report for the day a run ended. */
+.modal-fatal {
+  border-color: rgba(242, 102, 102, 0.55);
+}
+.modal-fatal h3 {
+  color: var(--danger);
 }

@@ -20,16 +20,28 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, MAX_ENERGY, START_ENERGY, ENERGY_RECOVERY,
-  ENERGY_FULL_RECOVERY_DAYS, EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  ENDURANCE_GOAL_DAYS, MAX_STAT, RENT_AMOUNT,
+  GameState,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_RECOVERY,
+  ENERGY_FULL_RECOVERY_DAYS,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  ENDURANCE_GOAL_DAYS,
+  MAX_STAT,
+  RENT_AMOUNT,
 } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
 import { createRng } from '../docs/js/core/rng.js';
 import {
-  LOCATIONS, getLocation, varianceForDay, VARIANCE_KEYS, availableLocations,
+  LOCATIONS,
+  getLocation,
+  varianceForDay,
+  VARIANCE_KEYS,
+  availableLocations,
 } from '../docs/js/data/locations.js';
+import { PERKS } from '../docs/js/data/perks.js';
 
 const REST_LOCATIONS = ['home_loft', 'bathhouse'];
 
@@ -98,8 +110,10 @@ test('the city offers real ways to buy energy back', () => {
   const restoring = LOCATIONS.filter((l) => l.effects.energy > 0);
   assert.ok(restoring.length >= 3, `only ${restoring.length} locations return energy`);
   for (const id of REST_LOCATIONS) {
-    assert.ok(getLocation(id).effects.energy > ENERGY_RECOVERY,
-      `${id} should beat a night's sleep or nobody would spend a day on it`);
+    assert.ok(
+      getLocation(id).effects.energy > ENERGY_RECOVERY,
+      `${id} should beat a night's sleep or nobody would spend a day on it`,
+    );
   }
 });
 
@@ -107,8 +121,7 @@ test('every energy-restoring location charges for it somewhere else', () => {
   // A place that hands out energy for free would collapse the decision.
   for (const l of LOCATIONS.filter((x) => x.effects.energy > 0)) {
     const { sanity, money } = l.effects;
-    assert.ok(sanity < 0 || money < 0,
-      `${l.id} restores energy and costs nothing`);
+    assert.ok(sanity < 0 || money < 0, `${l.id} restores energy and costs nothing`);
   }
 });
 
@@ -148,8 +161,10 @@ test('exhaustion is shallow at the threshold and severe at the bottom', () => {
 
   gs.energy = 0;
   assert.equal(Math.abs(gs.exhaustionPenalty()), EXHAUSTION_MAX_PENALTY);
-  assert.ok(EXHAUSTION_MAX_PENALTY >= shallow * 5,
-    'the curve must actually steepen, or low energy is just a tax');
+  assert.ok(
+    EXHAUSTION_MAX_PENALTY >= shallow * 5,
+    'the curve must actually steepen, or low energy is just a tax',
+  );
 });
 
 test('the exhaustion curve is monotonic — deeper is never cheaper', () => {
@@ -244,12 +259,16 @@ test('every location varies both what it gains and what it costs', () => {
     const gains = VARIANCE_KEYS.filter((k) => (l.effects[k] ?? 0) > 0);
     const costs = VARIANCE_KEYS.filter((k) => (l.effects[k] ?? 0) < 0);
     if (gains.length > 0) {
-      assert.ok(gains.some((k) => (l.variance[k] ?? 0) > 0),
-        `${l.id} never varies what it gives`);
+      assert.ok(
+        gains.some((k) => (l.variance[k] ?? 0) > 0),
+        `${l.id} never varies what it gives`,
+      );
     }
     if (costs.length > 0) {
-      assert.ok(costs.some((k) => (l.variance[k] ?? 0) > 0),
-        `${l.id} never varies what it takes`);
+      assert.ok(
+        costs.some((k) => (l.variance[k] ?? 0) > 0),
+        `${l.id} never varies what it takes`,
+      );
     }
   }
 });
@@ -268,8 +287,13 @@ test('variance is deterministic in location, day and seed', () => {
 });
 
 test('an unknown location has a flat zero swing rather than throwing', () => {
-  assert.deepEqual(varianceForDay('atlantis', 3, 9),
-    { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
+  assert.deepEqual(varianceForDay('atlantis', 3, 9), {
+    sanity: 0,
+    money: 0,
+    energy: 0,
+    reputation: 0,
+    insight: 0,
+  });
 });
 
 test('variance stays inside the declared span', () => {
@@ -279,8 +303,10 @@ test('variance stays inside the declared span', () => {
         const swing = varianceForDay(l, day, seed);
         for (const key of VARIANCE_KEYS) {
           const span = l.variance[key] ?? 0;
-          assert.ok(Math.abs(swing[key]) <= Math.max(span, Math.abs(l.effects[key] ?? 0)),
-            `${l.id}.${key} swung ${swing[key]} against a span of ${span}`);
+          assert.ok(
+            Math.abs(swing[key]) <= Math.max(span, Math.abs(l.effects[key] ?? 0)),
+            `${l.id}.${key} swung ${swing[key]} against a span of ${span}`,
+          );
         }
       }
     }
@@ -315,8 +341,10 @@ test('variance averages out to roughly nothing over a long run', () => {
     for (const key of VARIANCE_KEYS) {
       const mean = totals[key] / days;
       const span = l.variance[key] ?? 0;
-      assert.ok(Math.abs(mean) <= Math.max(0.6, span * 0.35),
-        `${l.id}.${key} drifts by ${mean.toFixed(2)} per day`);
+      assert.ok(
+        Math.abs(mean) <= Math.max(0.6, span * 0.35),
+        `${l.id}.${key} drifts by ${mean.toFixed(2)} per day`,
+      );
     }
   }
 });
@@ -353,7 +381,6 @@ test('the preview and the resolution agree, variance included', () => {
       assert.deepEqual(preview, again, 'preview must be stable across rerenders');
       resolveTurn(gs, em, 'farmers_market');
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
   }
 });
@@ -381,14 +408,21 @@ test('the endurance goal is a couple of months, not a couple of hundred days', (
 test('the whole city and the whole perk tree open before the goal', () => {
   // A win condition you reach before seeing the content is a shrug.
   const openAtGoal = availableLocations({
-    journeyDay: ENDURANCE_GOAL_DAYS, reputation: 100, weekday: 4,
+    journeyDay: ENDURANCE_GOAL_DAYS,
+    reputation: 100,
+    weekday: 4,
   });
-  assert.equal(openAtGoal.length, LOCATIONS.length,
-    'every location should be reachable within a winning run');
+  assert.equal(
+    openAtGoal.length,
+    LOCATIONS.length,
+    'every location should be reachable within a winning run',
+  );
 
   const latest = Math.max(...LOCATIONS.map((l) => l.unlock.minDay));
-  assert.ok(latest < ENDURANCE_GOAL_DAYS * 0.6,
-    `the last location opens on day ${latest}, leaving no time to enjoy it`);
+  assert.ok(
+    latest < ENDURANCE_GOAL_DAYS * 0.6,
+    `the last location opens on day ${latest}, leaving no time to enjoy it`,
+  );
 });
 
 test('a careless player does not survive to the goal', () => {
@@ -399,7 +433,6 @@ test('a careless player does not survive to the goal', () => {
     while (!gs.gameOver && gs.journeyDay < ENDURANCE_GOAL_DAYS) {
       resolveTurn(gs, em, 'bar');
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
     if (!gs.gameOver) survivors += 1;
   }
@@ -407,24 +440,51 @@ test('a careless player does not survive to the goal', () => {
 });
 
 test('a competent player reaches the goal most of the time', () => {
-  // The reference strategy: mind the three bars, take the obvious answer.
+  // The reference strategy: mind the three bars, take the obvious answer,
+  // and spend insight as it arrives.
   let wins = 0;
   const runs = 12;
   for (let seed = 0; seed < runs; seed += 1) {
     const { gs, em } = newRun(seed);
     while (!gs.gameOver && gs.journeyDay < ENDURANCE_GOAL_DAYS) {
+      spendInsight(gs);
       resolveTurn(gs, em, chooseSensibly(gs));
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
     if (!gs.gameOver && gs.journeyDay >= ENDURANCE_GOAL_DAYS) wins += 1;
   }
-  // Threshold was 0.75 in earlier iterations; after the July 2026 energy
-  // retune (bar -20→-24, spiritual -12→-18) the heuristic wins 8/12 rather
-  // than 9/12 on the fixed 12-seed set. 8/12 is still a clear majority and
-  // preserves the intent — "most of the time" — without forcing a revert of
-  // the energy pressure that the retune was meant to introduce.
-  assert.ok(wins >= runs * 0.65, `only ${wins}/${runs} sensible runs reached the goal`);
+  assert.ok(wins >= runs * 0.75, `only ${wins}/${runs} sensible runs reached the goal`);
+});
+
+test('the perk tree is the counterplay to rising rent, not decoration', () => {
+  // This is the test that justifies rent escalation existing.
+  //
+  // Before rent rose over a run, spending insight was optional flavour: the
+  // same heuristic reached day 60 with or without it, so the whole practice
+  // tree could be ignored at no cost. With escalation the two diverge
+  // sharply — which is exactly what a progression system is *for*. It is
+  // asserted as a gap rather than as two absolute numbers so that retuning
+  // either side keeps the test meaningful.
+  const runs = 12;
+  const play = (spend) => {
+    let wins = 0;
+    for (let seed = 0; seed < runs; seed += 1) {
+      const { gs, em } = newRun(seed);
+      while (!gs.gameOver && gs.journeyDay < ENDURANCE_GOAL_DAYS) {
+        if (spend) spendInsight(gs);
+        resolveTurn(gs, em, chooseSensibly(gs));
+        if (gs.gameOver) break;
+      }
+      if (!gs.gameOver && gs.journeyDay >= ENDURANCE_GOAL_DAYS) wins += 1;
+    }
+    return wins;
+  };
+  const withPerks = play(true);
+  const without = play(false);
+  assert.ok(
+    withPerks - without >= 3,
+    `perks should be worth at least 3 runs in 12; got ${withPerks} vs ${without}`,
+  );
 });
 
 test('a competent player still has to think about energy on the way', () => {
@@ -439,12 +499,13 @@ test('a competent player still has to think about energy on the way', () => {
       resolveTurn(gs, em, chooseSensibly(gs));
       if (gs.energy < EXHAUSTION_THRESHOLD * 1.6) felt = true;
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
     if (felt) runsThatFeltIt += 1;
   }
-  assert.ok(runsThatFeltIt >= runs * 0.6,
-    `energy only got tight in ${runsThatFeltIt}/${runs} runs`);
+  assert.ok(
+    runsThatFeltIt >= runs * 0.6,
+    `energy only got tight in ${runsThatFeltIt}/${runs} runs`,
+  );
 });
 
 test('a player who ignores energy entirely loses to it', () => {
@@ -459,12 +520,13 @@ test('a player who ignores energy entirely loses to it', () => {
       resolveTurn(gs, em, day % 2 === 0 ? 'bar' : 'spiritual_community');
       day += 1;
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
     if (gs.gameOver) deaths += 1;
   }
-  assert.ok(deaths >= runs * 0.8,
-    `${runs - deaths}/${runs} energy-blind runs survived — energy is not biting`);
+  assert.ok(
+    deaths >= runs * 0.8,
+    `${runs - deaths}/${runs} energy-blind runs survived — energy is not biting`,
+  );
 });
 
 /**
@@ -473,16 +535,41 @@ test('a player who ignores energy entirely loses to it', () => {
  * knowledge of the event pool. If this cannot win, the game is too hard; if
  * the careless strategies above *can*, it is too easy.
  */
+/**
+ * Buy the first affordable perk, cheapest-first through the tree.
+ *
+ * A reference "competent player" that never spends its insight is not
+ * competent — it is a player who ignored a whole screen. This matters more
+ * since rent began escalating: the practice tree is the counterplay to a
+ * rising cost, and a strategy that skips it should, correctly, do worse.
+ */
+function spendInsight(gs) {
+  for (const p of PERKS) {
+    if (!gs.hasPerk(p.id) && gs.canBuy(p.id).ok) {
+      gs.buyPerk(p.id);
+      return true;
+    }
+  }
+  return false;
+}
+
 function chooseSensibly(gs) {
   const open = availableLocations(snapshot(gs)).map((l) => l.id);
   const pick = (...ids) => ids.find((id) => open.includes(id));
 
   const rentSoon = gs.isRentDue() || gs.getWeekdayIndex() === 5;
+  // Rent rises over a run (see RENT_ESCALATION_* in core/balance.js), so the
+  // reference player budgets against *this week's* rent rather than the
+  // opening figure. Reading the current number is exactly what the almanac
+  // and the daily nudge exist to tell the player, so a strategy that ignores
+  // it is not modelling a competent player — it is modelling a player who
+  // stopped paying attention on day 14.
+  const rentNow = gs.rentDue();
   if (gs.energy < EXHAUSTION_THRESHOLD + 12) {
     const rested = pick('bathhouse', 'home_loft', 'river_walk');
     if (rested) return rested;
   }
-  if (gs.money < RENT_AMOUNT + 12 || (rentSoon && gs.money < RENT_AMOUNT * 2)) {
+  if (gs.money < rentNow + 12 || (rentSoon && gs.money < rentNow * 2)) {
     const paid = pick('bar', 'flea_market', 'night_market', 'farmers_market');
     if (paid) return paid;
   }
@@ -533,7 +620,6 @@ test('a long seeded playthrough never produces an invalid state', () => {
       assert.ok(Number.isFinite(gs.reputation) && gs.reputation >= 0);
       assert.ok(Number.isFinite(gs.insight) && gs.insight >= 0);
       if (gs.gameOver) break;
-      gs.advanceDay();
     }
   }
 });

@@ -12,6 +12,27 @@
  *   5. achievements
  *   6. game-over check
  *   7. one concise history line
+ *   8. the calendar advances — see "A day is atomic" below
+ *
+ * ## A day is atomic
+ *
+ * Step 8 used to live in the UI: `resolveTurn()` applied the day's effects and
+ * `app.js` called `gs.advanceDay()` from the result modal's Continue handler.
+ * Because the autosave fired *between* those two points, refreshing the page
+ * while the modal was open reloaded a save with the day's gains banked and the
+ * calendar still on the day you had just played. Ten refreshes at the loft
+ * took a run from 30 sanity / 20 energy to 100/100 without consuming a single
+ * day — bypassing rent, the endurance goal, every day-gated unlock, and
+ * letting a player re-roll any event they did not like.
+ *
+ * The fix is structural rather than a save-flag: **resolving a day and
+ * advancing past it are one operation**. There is no longer a persistable
+ * state in which a day has been paid for but not consumed, so no sequence of
+ * refreshes can produce one. The result modal is now a *report* on a day that
+ * is already over, which is also what it always read as.
+ *
+ * `advanceDay()` is skipped only when the run has just ended, so a game-over
+ * screen shows the day the player died on rather than the morning after.
  *
  * Pure with respect to the DOM; every input is state or data.
  */
@@ -49,12 +70,26 @@ function accumulate(dst, src = {}) {
  *
  * @param {object} gs
  * @param {string} locationId
- * @returns {{base:object, total:object, reasons:string[]}}
+ * @returns {{base:object, total:object, reasons:string[],
+ *            factors:{kind:string, emoji:string, label:string}[]}}
  */
 export function computeDayEffects(gs, locationId) {
   const location = getLocation(locationId);
   const reasons = [];
-  if (!location) return { base: zero(), total: zero(), reasons };
+  /**
+   * Structured counterpart to `reasons`.
+   *
+   * `reasons` is display copy ("⛈️ Storm"), and the UI used to recover the
+   * weather emoji by *string-matching nine emoji out of that prose* — the
+   * same nine-clause `r.includes('☀️') || …` block copy-pasted into three
+   * renderers, to rediscover a value this function already had. That is what
+   * shipped the `weatherEmoji` ReferenceError in PR #23/#24.
+   *
+   * Anything the UI needs to branch on belongs here, as data.
+   * @type {{kind:string, emoji:string, label:string}[]}
+   */
+  const factors = [];
+  if (!location) return { base: zero(), total: zero(), reasons, factors };
 
   const base = { ...location.effects };
   const total = accumulate(zero(), base);
@@ -64,10 +99,23 @@ export function computeDayEffects(gs, locationId) {
   // derived from (location, day, run seed), so the preview the player reads
   // and the day they actually get are the same figures — see
   // `varianceForDay()` for why this is hashed rather than rolled.
-  const variance = varianceForDay(location, gs.journeyDay, gs.weatherSeed ?? 0);
+  const rawVariance = varianceForDay(location, gs.journeyDay, gs.weatherSeed ?? 0);
+  // An observance can steady the day — `varianceDampening` scales the swing
+  // toward zero without removing it, so a planned day lands closer to the
+  // number on the card. Applied here rather than inside varianceForDay() so
+  // the hash stays a pure function of (location, day, seed).
+  const damp =
+    typeof gs.getObservanceEffects === 'function'
+      ? (gs.getObservanceEffects().varianceDampening ?? 0)
+      : 0;
+  const variance =
+    damp > 0
+      ? Object.fromEntries(KEYS.map((k) => [k, Math.round(rawVariance[k] * (1 - damp))]))
+      : rawVariance;
   if (KEYS.some((k) => variance[k] !== 0)) {
     accumulate(total, variance);
     reasons.push('🎲 How the day went');
+    factors.push({ kind: 'variance', emoji: '🎲', label: 'How the day went' });
   }
 
   // --- weather ---
@@ -79,6 +127,7 @@ export function computeDayEffects(gs, locationId) {
     accumulate(total, applied);
     if (Object.values(applied).some((v) => v !== 0)) {
       reasons.push(`${weather.emoji} ${weather.name}`);
+      factors.push({ kind: 'weather', emoji: weather.emoji, label: weather.name });
     }
   }
 
@@ -90,6 +139,7 @@ export function computeDayEffects(gs, locationId) {
       accumulate(total, festival.tagEffects[tag] ?? {});
     }
     reasons.push(`${festival.emoji} ${festival.name}`);
+    factors.push({ kind: 'festival', emoji: festival.emoji, label: festival.name });
   }
 
   // --- perks ---
@@ -123,9 +173,20 @@ export function computeDayEffects(gs, locationId) {
   if (KEYS.some((k) => perkBundle[k] !== 0)) {
     accumulate(total, perkBundle);
     reasons.push('Perks');
+    factors.push({ kind: 'perks', emoji: '🔮', label: 'Perks' });
   }
 
-  return { base, total, reasons: [...new Set(reasons)] };
+  // De-duplicate both views the same way: a tag can match a weather rule more
+  // than once, and the player only wants to be told about it once.
+  const seen = new Set();
+  const uniqueFactors = factors.filter((f) => {
+    const key = `${f.kind}:${f.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return { base, total, reasons: [...new Set(reasons)], factors: uniqueFactors };
 }
 
 /** Scale an event's deltas by the player's perks. */
@@ -145,8 +206,10 @@ export function scaleEventDeltas(event, perks) {
 /**
  * Resolve one day.
  *
- * @returns {{actionDesc:string, event:object|null, rentCharged:number, rentAmount:number,
- *            gameOver:boolean, justWon:boolean, winMessage:string, masteryWon:boolean, masteryMessage:string, deltas:object, reasons:string[],
+ * @returns {{resolvedDay:number, resolvedDate:string,
+ *            actionDesc:string, event:object|null, rentCharged:number, rentAmount:number,
+ *            gameOver:boolean, justWon:boolean, winMessage:string, masteryWon:boolean,
+ *            masteryMessage:string, deltas:object, reasons:string[],
  *            achievements:object[],
  *            exhaustion:number,
  *            sanityDelta:number, moneyDelta:number,
@@ -190,6 +253,10 @@ export function resolveTurn(gs, eventManager, locationId) {
     );
     if (event) {
       gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
+      // Meeting someone counts. This is the only place affinity is earned,
+      // so "how well do I know this person" always means "how many of their
+      // moments have I actually been present for".
+      if (typeof gs.noteAffinity === 'function') gs.noteAffinity(event.character);
     }
   }
 
@@ -222,7 +289,19 @@ export function resolveTurn(gs, eventManager, locationId) {
     insight: gs.insight - prev.insight,
   };
 
+  // The day the player just spent, captured before the calendar moves — the
+  // result modal reports on *this* day, not on the morning that follows it.
+  const resolvedDay = gs.journeyDay;
+  const resolvedDate = gs.getDateDisplay();
+
+  // 8 — the calendar advances, atomically with everything above. See the
+  // "A day is atomic" note at the top of this file: splitting these two
+  // across a UI callback is what made the refresh exploit possible.
+  if (!gameOver) gs.advanceDay();
+
   return {
+    resolvedDay,
+    resolvedDate,
     actionDesc,
     event,
     rentCharged,
