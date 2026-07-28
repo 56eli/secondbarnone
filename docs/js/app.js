@@ -53,7 +53,12 @@ export const DEFAULT_MUSIC_VOLUME = 0.5;
 
 /**
  * Boot a game into the current document.
- * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
+ * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean,
+ *          instantTransitions?: boolean}} [opts]
+ *          instantTransitions drops the 350ms screen fade to a task tick —
+ *          test-only; the fade is decoration, not game logic, so suites can
+ *          run dozens of transitions per second instead of ~3. Nothing else
+ *          changes: the swap stays asynchronous, in the same order.
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
@@ -712,7 +717,7 @@ export function initGame(opts = {}) {
     setTimeout(() => {
       showScreen(buildScreen());
       fade.classList.remove('on');
-    }, FADE_MS);
+    }, opts.instantTransitions ? 0 : FADE_MS);
   }
 
   function showScreen(node) {

@@ -3,11 +3,12 @@
 The canonical "what art is missing or wants redoing" list for **secondbarnone**.
 Update it whenever art is added, replaced or found wanting.
 
-**Status as of the July 2026 image pass: nothing is missing.**
-All **78 characters** have painted WebP portraits and all **23 locations** have
+**Status as of the July 2026 content passes (v2.6/v2.7): nothing is missing.**
+All **78 characters** have painted WebP portraits and all **25 locations** have
 painted WebP backgrounds. There are no procedural SVG placeholders left in the
-deployed payload, and `tests/portrait-assets.test.js` fails the build if one
-reappears.
+deployed payload (the final 57 unreferenced SVGs under `assets/` were deleted
+in the v2.7 repo-weight pass), and `tests/portrait-assets.test.js` fails the
+build if one reappears.
 
 ---
 
@@ -38,6 +39,22 @@ it off.
 | Total cast | **78** |
 | Painted WebP portraits | **78** (100%) |
 | Procedural SVG placeholders | **0** |
+
+### Source-master inventory — 16 characters still on the 512px WebP batch
+
+An earlier note (in a July 2026 roadmap draft) claimed sixteen launch
+characters had *no committed source art, only the deployed WebP*. Verification
+found that claim wrong: their original **512×512 WebP masters are committed**
+in `assets/portraits/` and drive the tier build today. Nothing was lost, and
+no reconstruction was performed — copying the derived lightbox file back over
+its own master would have been silent degradation.
+
+What is genuinely true: these sixteen predate the 1024px PNG batch, so their
+tap-to-enlarge caps at 512px (the hi tier never upscales). A repaint is an
+art commission — add a row to the wanted table if one is scheduled:
+
+`ethan`, `matt`, `artem`, `klaudia`, `kaden`, `sato`, `alex`, `hawkinstv`,
+`ricolewis`, `yun`, `marlies`, `mateo`, `luca`, `cheezl`, `kate`, `emily`
 
 ### Painted this pass — the last 10 placeholders
 
@@ -89,7 +106,14 @@ third-party stock overlay into the deployed payload. It is gone.
 
 ## 🗺️ Location backgrounds
 
-All 23 locations have a deployed 1000px WebP background.
+All 25 locations have a deployed 1000px WebP background.
+
+### Added — v2.6/v2.7 content passes
+
+| Location | Reads as |
+|---|---|
+| `gypsum_mines` | The lamplight galleries under the butte: cream gypsum, a marked walking circuit, Lakshay's server racks under a dust sheet with the brass singing bowl on top. The one documented non-daylight scene (see `docs/ART_DIRECTION.md`) |
+| `clos_montmartre` | The walled vineyard on Montmartre's north slope, dry-stone terraces in the sun |
 
 ### Repainted — House of Middleway, sunny pass
 

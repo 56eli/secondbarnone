@@ -76,6 +76,8 @@ async function boot(opts = {}) {
     seed: opts.seed ?? 12345,
     storage: 'storage' in opts ? opts.storage : fakeStorage(),
     autoload: opts.autoload,
+    // The 350ms fade is decoration; skipping it shrinks every settle below.
+    instantTransitions: true,
   });
   return window;
 }
@@ -92,8 +94,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a transition tick and any queued microtasks, plus slack. */
+const settle = () => new Promise((r) => setTimeout(r, 80));
 
 /** Click a compact hub-tool button by its visible text. */
 function nav(doc, label) {

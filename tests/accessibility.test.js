@@ -63,7 +63,13 @@ async function boot(opts = {}) {
   });
 
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame({ seed: 5, autoload: false, storage: opts.storage ?? fakeStorage() });
+  window.__game = initGame({
+    seed: 5,
+    autoload: false,
+    storage: opts.storage ?? fakeStorage(),
+    // The 350ms fade is decoration, not logic — skipped in tests.
+    instantTransitions: true,
+  });
   return window;
 }
 
@@ -74,7 +80,8 @@ function cleanup(window) {
   delete global.HTMLElement;
 }
 
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a transition tick and any queued microtasks, plus slack. */
+const settle = () => new Promise((r) => setTimeout(r, 80));
 
 /**
  * Everything a keyboard user can currently reach.

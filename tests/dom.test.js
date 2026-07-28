@@ -60,7 +60,8 @@ async function boot(opts = {}) {
   // cache-busting query instead would give each boot its own module instance,
   // which fragments coverage reporting and leaks state between tests.
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame();
+  // instantTransitions: the fade is decoration, not logic — see initGame's JSDoc.
+  window.__game = initGame({ instantTransitions: true });
   return window;
 }
 
@@ -80,8 +81,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a transition tick and any queued microtasks, plus slack. */
+const settle = () => new Promise((r) => setTimeout(r, 80));
 
 maybe('game boots and renders the hub', async () => {
   const window = await boot();

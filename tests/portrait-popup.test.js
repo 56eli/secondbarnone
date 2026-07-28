@@ -50,7 +50,8 @@ async function boot(opts = {}) {
   });
 
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame(opts);
+  // instantTransitions: the fade is decoration, not logic.
+  window.__game = initGame({ ...opts, instantTransitions: true });
   return window;
 }
 
@@ -62,7 +63,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a transition tick and any queued microtasks, plus slack. */
+const settle = () => new Promise((r) => setTimeout(r, 80));
 
 maybe('clicking the HUD portrait enlarges the picture and nothing else', async () => {
   const window = await boot();
