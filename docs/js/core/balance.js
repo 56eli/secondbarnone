@@ -32,12 +32,6 @@ export const MONEY_SOFT_CAP = 100.0;
 /** Practical upper bound so a corrupted save cannot overflow display maths. */
 export const MONEY_HARD_CEILING = 99999.0;
 
-/** Legacy two-stat constants, kept because the parity tests read them. */
-export const SANITY_GAIN = 15.0;
-export const SANITY_LOSS = 12.0;
-export const MONEY_GAIN = 12.0;
-export const MONEY_LOSS = 10.0;
-
 // ---------------------------------------------------------------- energy
 
 export const MAX_ENERGY = 100.0;

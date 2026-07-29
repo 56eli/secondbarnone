@@ -34,17 +34,20 @@ import {
   renderToast,
   openCharacterPopup,
 } from './ui/screens.js';
+import { PreferencesService } from './ui/preferences-service.js';
+import { ModalController } from './ui/modal-controller.js';
 
-const FADE_MS = 350;
-const TOAST_MS = 2600;
-const MUSIC_URL = 'assets/music/warm_piano.wav';
+export const FADE_MS = 350;
+export const TOAST_MS = 2600;
 
 /**
  * Boot a game into the current document.
- * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
+ * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean, fadeMs?: number, toastMs?: number}} [opts]
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
+  const fadeMs = opts.fadeMs ?? FADE_MS;
+  const toastMs = opts.toastMs ?? TOAST_MS;
   const gs = new GameState({ seed: opts.seed });
   const rng = opts.rng ?? createRng();
   const events = new EventManager(rng);
@@ -87,81 +90,12 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
-  let musicEl = null;
-  let preferences = { highContrast: false, reducedMotion: false, sound: false, volume: 0.35 };
-  try {
-    preferences = {
-      ...preferences,
-      ...JSON.parse(storage?.getItem('secondbarnone.settings.v1') ?? '{}'),
-    };
-    // Older saves stored sound state under musicOn / muted. Be tolerant.
-    if (typeof preferences.sound !== 'boolean') {
-      preferences.sound =
-        preferences.musicOn === true || preferences.muted === false ? true : false;
-    }
-    if (typeof preferences.volume !== 'number') preferences.volume = 0.35;
-  } catch {
-    /* storage is optional */
-  }
-  const applyPreferences = () => {
-    document.documentElement.classList.toggle('high-contrast', Boolean(preferences.highContrast));
-    document.documentElement.classList.toggle('reduce-motion', Boolean(preferences.reducedMotion));
-    applySound();
-    try {
-      storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
-    } catch {
-      /* best effort */
-    }
-  };
+  const prefsService = new PreferencesService(storage, document);
+  const modals = new ModalController(document);
+  const preferences = prefsService.preferences;
+  const applyPreferences = () => prefsService.applyPreferences();
 
   // ---------------------------------------------------------------- audio
-
-  /** Lazily create the music <audio> element — never preloaded, never
-   *  auto-played without user interaction (browsers block that anyway). */
-  function ensureMusic() {
-    if (musicEl) return musicEl;
-    const el = document.createElement('audio');
-    el.id = 'bgm';
-    el.src = MUSIC_URL;
-    el.loop = true;
-    el.preload = 'none';
-    el.setAttribute('aria-hidden', 'true');
-    el.volume = preferences.volume;
-    document.body.append(el);
-    musicEl = el;
-    return el;
-  }
-
-  function applySound() {
-    if (!musicEl) {
-      if (preferences.sound) ensureMusic();
-      else return;
-    }
-    musicEl.volume = preferences.volume;
-    if (preferences.sound) {
-      // play() returns a promise; autoplay policies may reject it, in which
-      // case we stay muted rather than throw. The user can toggle again from
-      // Settings after interacting with the page.
-      const p = musicEl.play();
-      if (p && typeof p.catch === 'function')
-        p.catch(() => {
-          preferences.sound = false;
-          try {
-            storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
-          } catch {
-            /* noop */
-          }
-        });
-    } else {
-      musicEl.pause();
-    }
-  }
-
-  function toggleSound() {
-    preferences.sound = !preferences.sound;
-    if (preferences.sound) ensureMusic();
-    applyPreferences();
-  }
 
   function setVolume(v) {
     preferences.volume = Math.max(0, Math.min(1, Number(v) || 0));
@@ -250,7 +184,7 @@ export function initGame(opts = {}) {
     if (!toastHost) return null;
     const node = renderToast(text);
     toastHost.append(node);
-    setTimeout(() => node.remove(), TOAST_MS);
+    setTimeout(() => node.remove(), toastMs);
     return node;
   }
 
@@ -261,7 +195,7 @@ export function initGame(opts = {}) {
     setTimeout(() => {
       showScreen(buildScreen());
       fade.classList.remove('on');
-    }, FADE_MS);
+    }, fadeMs);
   }
 
   function showScreen(node) {
@@ -289,12 +223,18 @@ export function initGame(opts = {}) {
       onAction: handleAction,
       onBack: () => transitionTo(hubScreen),
       onSpecial: (kind, arg) => handleSpecial(kind, arg, locationId),
+      onBuyRenovation: (id) => {
+        if (gs.buyRenovation(id)) toast('Sanctuary restored.');
+        updateHud();
+        showScreen(locationScreen(locationId));
+      },
     });
   }
 
   function charactersScreen() {
     return renderCharacters(gs.getAllCharacters(), {
       onBack: () => transitionTo(hubScreen),
+      gs,
     });
   }
 
@@ -317,17 +257,15 @@ export function initGame(opts = {}) {
     return renderSettings(preferences, {
       onBack: () => transitionTo(hubScreen),
       onToggleContrast: () => {
-        preferences.highContrast = !preferences.highContrast;
-        applyPreferences();
+        prefsService.toggleContrast();
         showScreen(settingsScreen());
       },
       onToggleMotion: () => {
-        preferences.reducedMotion = !preferences.reducedMotion;
-        applyPreferences();
+        prefsService.toggleMotion();
         showScreen(settingsScreen());
       },
       onToggleSound: () => {
-        toggleSound();
+        prefsService.toggleSound();
         showScreen(settingsScreen());
       },
       onChangeVolume: (v) => {
@@ -374,8 +312,7 @@ export function initGame(opts = {}) {
 
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
-        modal._cleanup?.();
-        modal.remove();
+        modals.dismissActive();
         if (!result.longTrip) gs.advanceDay();
         else {
           gs.emit(
@@ -393,14 +330,13 @@ export function initGame(opts = {}) {
         transitionTo(hubScreen);
       },
     });
-    document.body.append(modal);
-    modal.querySelector('button')?.focus();
+    modals.showModal(modal);
   }
 
   // ----------------------------------------------------------- game over
 
   function showGameOver(message) {
-    document.querySelector('.modal-backdrop')?.remove();
+    modals.dismissActive();
     hud.hidden = true;
     showScreen(renderGameOver(gs, message, { onRestart: restart }));
   }

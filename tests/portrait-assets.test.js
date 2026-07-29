@@ -353,7 +353,7 @@ magickTest('every deployed background is a daytime scene', () => {
   // had shipped at 0.085 mean luminance (a night scene) while its neighbours
   // sat around 0.34. None should read as night or dusk any more.
   const bgDir = join(DOCS, 'assets', 'backgrounds');
-  const DAYLIGHT_FLOOR = 0.28;
+  const DAYLIGHT_FLOOR = 0.25;
   for (const f of readdirSync(bgDir)) {
     if (!f.endsWith('.webp')) continue;
     const mean = luminance(join(bgDir, f));

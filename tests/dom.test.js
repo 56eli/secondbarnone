@@ -59,7 +59,7 @@ async function boot(opts = {}) {
   // cache-busting query instead would give each boot its own module instance,
   // which fragments coverage reporting and leaks state between tests.
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame();
+  window.__game = initGame({ fadeMs: 0, toastMs: 50 });
   return window;
 }
 
@@ -75,8 +75,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a fade transition (0ms in test) plus microtask slack. */
+const settle = () => new Promise((r) => setTimeout(r, 10));
 
 maybe('game boots and renders the hub', async () => {
   const window = await boot();
@@ -466,7 +466,7 @@ maybe('particles spawn when motion is allowed', async () => {
     const doc = window.document;
     [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
-    await new Promise((r) => setTimeout(r, 900));
+    await new Promise((r) => setTimeout(r, 50));
 
     const container = doc.querySelector('.particles');
     assert.ok(container.children.length > 0, 'motes should appear over time');

@@ -53,3 +53,11 @@ merely because they already have art or use a legacy decorative composition.
    inspect both at actual UI sizes.
 5. Run `npm test`, `npm run typecheck`, and `node scripts/check-assets.js`.
 6. Update this record with reviewer, reason and exact affected IDs.
+
+---
+
+### Update — 30 July 2026 (Frame-less Square Standard Pass)
+- **Reviewer:** Senior Game Developer (Arena Agent Mode)
+- **Affected IDs:** `brock_lee`, `kaschem`, `carl_bot` (turtle robot), `sir_cruds`, `baris`, `aril_stellar`, `alvigunilla`, `mrone`, `stephen`.
+- **Reason:** Replaced circular-framed legacy art with clean, square, frame-less painted masters in accordance with v2.0 art policy and verified character sex/identity templates. Rebuilt 288px thumbnail and 896px hi-res WebP tiers.
+- **Verification:** All tests, `npm run typecheck`, and `node scripts/check-assets.js` passed.

@@ -75,6 +75,8 @@ async function boot(opts = {}) {
     seed: opts.seed ?? 12345,
     storage: 'storage' in opts ? opts.storage : fakeStorage(),
     autoload: opts.autoload,
+    fadeMs: opts.fadeMs ?? 0,
+    toastMs: opts.toastMs ?? 50,
   });
   return window;
 }
@@ -91,8 +93,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a fade transition (0ms in test) plus a little microtask slack. */
+const settle = () => new Promise((r) => setTimeout(r, 10));
 
 /** Click a compact hub-tool button by its visible text. */
 function nav(doc, label) {
@@ -876,7 +878,7 @@ maybe('toasts appear and clear themselves', async () => {
     assert.equal(doc.querySelectorAll('#toasts .toast').length, 1);
     assert.match(doc.querySelector('.toast').textContent, /hello/);
 
-    await new Promise((r) => setTimeout(r, 2800));
+    await new Promise((r) => setTimeout(r, 70));
     assert.equal(doc.querySelectorAll('#toasts .toast').length, 0);
   } finally {
     cleanup(window);
@@ -1060,7 +1062,7 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
   try {
     const doc = window.document;
     window.__game.api.goto.location('home_loft');
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 50));
     const container = doc.querySelector('.particles');
     assert.ok(container);
     assert.equal(container.children.length, 0);

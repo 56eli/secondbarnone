@@ -60,11 +60,6 @@ for name in $wanted; do
   printf '  %-22s %s\n' "$name" "$(du -h "docs/assets/backgrounds/${name}.webp" | cut -f1)"
 done
 
-echo "Regenerating procedural avatars…"
-# No-op while every character has painted art; still here so a newly added
-# character gets a stand-in face before their portrait is commissioned.
-node scripts/generate-avatars.js
-
 echo "Copying SVG backgrounds verbatim…"
 cp -f assets/backgrounds/*.svg docs/assets/backgrounds/ 2>/dev/null || true
 
