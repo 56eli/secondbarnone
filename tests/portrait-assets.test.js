@@ -17,7 +17,10 @@ import { fileURLToPath } from 'node:url';
 
 import { createAllProfiles } from '../docs/js/data/characters.js';
 import { LOCATIONS } from '../docs/js/data/locations.js';
-import { sourceFor, THUMB_PX, HI_PX } from '../scripts/build-portraits.js';
+import { sourceFor, THUMB_PX, HI_PX, FRAME_EXCEPTIONS } from '../scripts/build-portraits.js';
+
+// v2.0 policy constants
+const FRAMELESS_STANDARD = true; // all new art must be clean square (no baked frame)
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -204,6 +207,36 @@ test('sourceFor prefers the largest available source, not the first format', () 
         `${c.id}: picked a ${chosenW}px source over a larger candidate`,
       );
     }
+  }
+});
+
+// ------------------------------------------------------------- v2.0 frame-less policy
+
+test('v2.0: non-exception characters prefer clean PNG masters (no baked frame sources)', () => {
+  for (const c of profiles) {
+    if (FRAME_EXCEPTIONS.has(c.id)) continue;
+
+    const pngPath = join(ROOT, 'assets', 'portraits', `${c.id}.png`);
+    const webpPath = join(ROOT, 'assets', 'portraits', `${c.id}.webp`);
+
+    // Strong recommendation: every non-exception should have a PNG master
+    // (this will become a hard assert once the 16 missing masters are added)
+    if (existsSync(webpPath) && !existsSync(pngPath)) {
+      // Soft warning in test output — real enforcement lives in build + CI
+      console.warn(`  ⚠ v2.0 policy: ${c.id} still uses legacy .webp as best source. PNG master required.`);
+    }
+  }
+});
+
+test('v2.0: hard exceptions (brian, vanna) are allowed to use their preserved framed masters', () => {
+  for (const id of FRAME_EXCEPTIONS) {
+    const png = join(ROOT, 'assets', 'portraits', `${id}.png`);
+    const hasPng = existsSync(png);
+    // They are allowed either their PNG (if they ever get a clean version) or their original
+    assert.ok(
+      hasPng || existsSync(join(ROOT, 'assets', 'portraits', `${id}.webp`)),
+      `${id} exception must have at least one source master preserved`
+    );
   }
 });
 

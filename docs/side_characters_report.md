@@ -39,12 +39,16 @@ it off.
 | Painted WebP portraits | **78** (100%) |
 | Procedural SVG placeholders | **0** |
 
-### Painted this pass — the last 10 placeholders
+### Painted this pass — the last 10 placeholders (pre-v2.0)
 
-The ten characters below were the entire remaining backlog. Each is a warm
-semi-realistic digital painting in the house style: chest-up, circular
-vignette, distressed cream-painted border, a background detail that signals
-who they are.
+The ten characters below were the entire remaining backlog at the time.
+**Note:** As of the v2.0 standardization (2026-07-29), the house style changed:
+new and regenerated portraits are **clean square** (no baked frame).
+Previews are round via CSS only. The lightbox shows clean square art.
+
+The descriptions below reflect the style at the time they were added. All
+future generations follow the frame-less square standard (see
+`ART_STANDARDIZATION_SPEC.md` and `PORTRAIT_REFERENCE.md`).
 
 | Id | Character | Portrait reads as |
 |---|---|---|

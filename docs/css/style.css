@@ -626,13 +626,16 @@ h2.screen-title {
 
 .portrait-full {
   display: block;
-  /* Fit the viewport on any screen while never upscaling past the 896px
-     source. min() of both axes keeps tall phones and wide desktops honest. */
+  /* v2.0 presentation model:
+     - All in-game previews (HUD, lists, hosts, events) are ROUND (CSS border-radius 50%).
+     - Lightbox shows the clean SQUARE standardized art (no baked frame).
+     - Brian and Vanna are the only permanent exceptions (their framed masters are frozen).
+  */
   width: min(560px, 92vw, 78vh);
   height: auto;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 6px;           /* clean, almost-square presentation */
   border: 1px solid rgba(201, 162, 39, 0.35);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.65);
   background: #12121c;
