@@ -15,13 +15,32 @@ import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
-  MAX_STAT, START_SANITY, START_MONEY, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  RENT_ESCALATION,
+  RENT_ESCALATION_PERIOD_DAYS,
+  RENT_MAX,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 /**
@@ -31,23 +50,59 @@ import {
  * `data/` modules import balance.js directly, which avoids an import cycle.
  */
 export {
-  MAX_STAT, START_SANITY, START_MONEY,
-  MONEY_SOFT_CAP, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_FULL_RECOVERY_DAYS, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_SOFT_CAP,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_FULL_RECOVERY_DAYS,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  RENT_ESCALATION,
+  RENT_ESCALATION_PERIOD_DAYS,
+  RENT_MAX,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 export const WEEKDAY_NAMES = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 
 export const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -86,7 +141,7 @@ export class GameState {
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
-    this._lastRentDayOfMonth = -1;
+    this._turnResolvedOnDay = -1;
     this._lastRentJourneyDay = -1;
     this.rentPrepaidUntilDay = 0;
     this.rentPaidCount = 0;
@@ -133,7 +188,14 @@ export class GameState {
   resetGame() {
     this._initStats();
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
   }
 
   // ---------------- calendar ----------------
@@ -159,7 +221,14 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     this._statsChanged();
   }
 
@@ -178,7 +247,7 @@ export class GameState {
   }
 
   _isLeapYear(y) {
-    return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
   }
 
   // ---------------- weather & festivals ----------------
@@ -241,7 +310,13 @@ export class GameState {
   }
 
   /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(sanityDelta, moneyDelta, energyDelta = 0, reputationDelta = 0, insightDelta = 0) {
+  applyEventDeltas(
+    sanityDelta,
+    moneyDelta,
+    energyDelta = 0,
+    reputationDelta = 0,
+    insightDelta = 0,
+  ) {
     this.applyDeltas({
       sanity: sanityDelta,
       money: moneyDelta,
@@ -293,22 +368,24 @@ export class GameState {
     return true;
   }
 
+  /** Base rent rises through a long run, then stops at a playable ceiling. */
+  baseRentForToday() {
+    const steps = Math.floor((this.journeyDay - 1) / RENT_ESCALATION_PERIOD_DAYS);
+    return Math.min(RENT_AMOUNT + steps * RENT_ESCALATION, RENT_MAX);
+  }
+
   /** What rent actually costs after perks and reputation discounts. */
   rentDue() {
     const perkRelief = this.getPerkEffects().rentRelief;
     let repDiscount = 0;
-    if (this.reputation >= RENT_DISCOUNT_REP_HIGH) {
-      repDiscount = RENT_DISCOUNT_REP_HIGH_BONUS;
-    } else if (this.reputation >= RENT_DISCOUNT_REP_THRESHOLD) {
-      repDiscount = RENT_DISCOUNT_REP_BONUS;
-    }
-    return Math.max(RENT_AMOUNT - perkRelief - repDiscount, 0);
+    if (this.reputation >= RENT_DISCOUNT_REP_HIGH) repDiscount = RENT_DISCOUNT_REP_HIGH_BONUS;
+    else if (this.reputation >= RENT_DISCOUNT_REP_THRESHOLD) repDiscount = RENT_DISCOUNT_REP_BONUS;
+    return Math.max(this.baseRentForToday() - perkRelief - repDiscount, 0);
   }
 
   /** Charge rent once per Sunday. Returns the amount charged (0 if none). */
   applyRentIfSunday() {
     if (!this.isRentDue()) return 0;
-    this._lastRentDayOfMonth = this.dayOfMonth;
     this._lastRentJourneyDay = this.journeyDay;
     const amount = this.rentDue();
     this.money = Math.max(this.money - amount, 0);
@@ -322,9 +399,18 @@ export class GameState {
     const cost = this.rentDue() * weeks;
     if (this.money < cost) return false;
     this.money -= cost;
-    this.rentPrepaidUntilDay = Math.max(this.rentPrepaidUntilDay, this.journeyDay) + weeks * 7;
+    this.rentPrepaidUntilDay = Math.max(this.rentPrepaidUntilDay, this.journeyDay - 1) + weeks * 7;
     this._statsChanged();
     return true;
+  }
+
+  /** Has the current journey day already received its action? */
+  get isTurnResolved() {
+    return this._turnResolvedOnDay === this.journeyDay;
+  }
+
+  markTurnResolved() {
+    this._turnResolvedOnDay = this.journeyDay;
   }
 
   /** Legacy two-location action, retained so old callers keep working. */
@@ -381,7 +467,8 @@ export class GameState {
     if (this.visitedLocations.size < 18) return false;
     // No more than 5 consecutive bar days in this run
     if (this.consecutiveBarDays > 5) return false;
-    this.winMessage = 'A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone\'s.';
+    this.winMessage =
+      "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
     this.emit('win_triggered', this.winMessage);
     return true;
   }
@@ -404,11 +491,16 @@ export class GameState {
   getGreeting() {
     const day = this.getWeekdayName();
     const season = this.getSeason();
-    if (day === 'Sunday') return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
-    if (day === 'Monday') return 'Monday. The week opens its hands and asks what you will put in them.';
-    if (day === 'Friday') return 'Friday evening light. People are kinder to themselves, and to you.';
-    if (day === 'Saturday') return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
-    if (season === 'Winter') return `${day}. Cold enough that the kettle feels like a small kindness.`;
+    if (day === 'Sunday')
+      return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
+    if (day === 'Monday')
+      return 'Monday. The week opens its hands and asks what you will put in them.';
+    if (day === 'Friday')
+      return 'Friday evening light. People are kinder to themselves, and to you.';
+    if (day === 'Saturday')
+      return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
+    if (season === 'Winter')
+      return `${day}. Cold enough that the kettle feels like a small kindness.`;
     if (season === 'Spring') return `${day}. Something is beginning, whether you are ready or not.`;
     if (season === 'Summer') return `${day}. The light lasts longer than your patience, some days.`;
     return `${day}. Autumn air, and the sense that the year is keeping score.`;
@@ -416,8 +508,14 @@ export class GameState {
 
   /** Léon himself — always available for the HUD portrait. */
   getProtagonist() {
-    return this.characterProfiles.find((p) => p.id === 'leon')
-      ?? { id: 'leon', name: 'Léon', portrait: 'assets/portraits/leon.webp', role: 'protagonist' };
+    return (
+      this.characterProfiles.find((p) => p.id === 'leon') ?? {
+        id: 'leon',
+        name: 'Léon',
+        portrait: 'assets/portraits/leon.webp',
+        role: 'protagonist',
+      }
+    );
   }
 
   // ---------------- achievements ----------------
@@ -462,7 +560,6 @@ export class GameState {
     this.emit('history_updated', entry);
   }
 
-
   getSeason() {
     const m = this.monthIndex;
     if (m === 11 || m === 0 || m === 1) return 'Winter';
@@ -472,40 +569,68 @@ export class GameState {
     return 'Unknown';
   }
 
-
   /**
    * A gentle, informational focus cue for the hub. It never chooses for the
    * player; it just makes a looming need easier to notice at a glance.
    */
   getDailyNudge() {
     if (this.sanity < 25 && this.money < 25) {
-      return { emoji: '🫶', label: 'Take it gently', text: 'Both your head and wallet are under pressure. One careful day is enough.' };
+      return {
+        emoji: '🫶',
+        label: 'Take it gently',
+        text: 'Both your head and wallet are under pressure. One careful day is enough.',
+      };
     }
     if (this.sanity < 25) {
-      return { emoji: '🫧', label: 'A little room', text: 'Your sanity is low. A quieter plan may help you come back to yourself.' };
+      return {
+        emoji: '🫧',
+        label: 'A little room',
+        text: 'Your sanity is low. A quieter plan may help you come back to yourself.',
+      };
     }
     if (this.energy < EXHAUSTION_THRESHOLD) {
-      const predictive = this.consecutiveBarDays >= 2 ? 'A bar night will put you near empty quickly. Consider rest tomorrow.' : 'Your energy is running thin. Small, restorative plans still count.';
+      const predictive =
+        this.consecutiveBarDays >= 2
+          ? 'A bar night will put you near empty quickly. Consider rest tomorrow.'
+          : 'Your energy is running thin. Small, restorative plans still count.';
       return { emoji: '🫖', label: 'Pace yourself', text: predictive };
     }
     if (this.isRentDue()) {
-      return { emoji: '🧾', label: 'Sunday rent', text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.` };
+      return {
+        emoji: '🧾',
+        label: 'Sunday rent',
+        text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.`,
+      };
     }
     if (this.money < 25) {
-      return { emoji: '🪙', label: 'Keep an eye on the wallet', text: 'Money is low. A paid day can make the next choice less urgent.' };
+      return {
+        emoji: '🪙',
+        label: 'Keep an eye on the wallet',
+        text: 'Money is low. A paid day can make the next choice less urgent.',
+      };
     }
     const daysToSunday = (6 - this.getWeekdayIndex() + 7) % 7;
-    if (daysToSunday > 0 && daysToSunday <= 2 && this.rentPrepaidUntilDay < this.journeyDay + daysToSunday) {
-      return { emoji: '📅', label: 'Looking ahead', text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.` };
+    if (
+      daysToSunday > 0 &&
+      daysToSunday <= 2 &&
+      this.rentPrepaidUntilDay < this.journeyDay + daysToSunday
+    ) {
+      return {
+        emoji: '📅',
+        label: 'Looking ahead',
+        text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.`,
+      };
     }
-    return { emoji: '🏠', label: 'No rush', text: 'Nothing is on fire. Choose the kind of day you can return from.' };
+    return {
+      emoji: '🏠',
+      label: 'No rush',
+      text: 'Nothing is on fire. Choose the kind of day you can return from.',
+    };
   }
 
   /** Friend-event name pool — everyone except the protagonist. */
   getCharacterNames() {
-    return this.characterProfiles
-      .filter((p) => p.id !== 'leon')
-      .map((p) => p.name);
+    return this.characterProfiles.filter((p) => p.id !== 'leon').map((p) => p.name);
   }
 
   getAllCharacters() {
@@ -533,7 +658,7 @@ export class GameState {
       winMessage: this.winMessage,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
-      lastRentDayOfMonth: this._lastRentDayOfMonth,
+      turnResolvedOnDay: this._turnResolvedOnDay,
       lastRentJourneyDay: this._lastRentJourneyDay,
       rentPrepaidUntilDay: this.rentPrepaidUntilDay,
       rentPaidCount: this.rentPaidCount,
@@ -565,13 +690,15 @@ export class GameState {
     this.monthIndex = clamp(num(migrated.monthIndex, 0), 0, 11);
     this.year = num(migrated.year, 2026);
     this.gameOver = Boolean(migrated.gameOver);
-    this.gameOverMessage = typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
+    this.gameOverMessage =
+      typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
     this.won = Boolean(migrated.won);
     this.winMessage = typeof migrated.winMessage === 'string' ? migrated.winMessage : '';
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
-    this.lastLocationVisited = typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
-    this._lastRentDayOfMonth = num(migrated.lastRentDayOfMonth, -1);
+    this.lastLocationVisited =
+      typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
+    this._turnResolvedOnDay = num(migrated.turnResolvedOnDay, -1);
     this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
     this.rentPrepaidUntilDay = num(migrated.rentPrepaidUntilDay, 0);
     this.rentPaidCount = num(migrated.rentPaidCount, 0);
@@ -586,7 +713,14 @@ export class GameState {
     this.pendingAchievements = [];
 
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     return true;
   }
 }
@@ -611,7 +745,8 @@ export function migrateSave(data) {
     if (typeof migrated.achievements === 'undefined') migrated.achievements = [];
     if (typeof migrated.nightDays !== 'number') migrated.nightDays = 0;
     if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
-    if (typeof migrated.weatherSeed !== 'number') migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+    if (typeof migrated.weatherSeed !== 'number')
+      migrated.weatherSeed = Math.floor(Math.random() * 1e9);
   }
 
   return migrated;

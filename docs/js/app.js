@@ -12,13 +12,26 @@
 
 import { resourceBarClass } from './core/resource-bar.js';
 import {
-  GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, saveStore,
+  GameState,
+  MAX_STAT,
+  MAX_ENERGY,
+  MAX_REPUTATION,
+  MONEY_SOFT_CAP,
+  saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
 import {
-  renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
+  renderHub,
+  renderLocation,
+  renderCharacters,
+  renderGameOver,
+  renderResultModal,
+  renderPerks,
+  renderAlmanac,
+  renderSettings,
+  renderToast,
+  openCharacterPopup,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
@@ -51,6 +64,7 @@ export function initGame(opts = {}) {
     weather: document.getElementById('hud-weather'),
     portrait: document.getElementById('hud-portrait'),
     portraitBtn: document.getElementById('hud-portrait-btn'),
+    settingsBtn: document.getElementById('settings-button'),
     name: document.getElementById('hud-name'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
@@ -70,10 +84,30 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
+  let preferences = { highContrast: false, reducedMotion: false };
+  try {
+    preferences = {
+      ...preferences,
+      ...JSON.parse(storage?.getItem('secondbarnone.settings.v1') ?? '{}'),
+    };
+  } catch {
+    /* storage is optional */
+  }
+  const applyPreferences = () => {
+    document.documentElement.classList.toggle('high-contrast', Boolean(preferences.highContrast));
+    document.documentElement.classList.toggle('reduce-motion', Boolean(preferences.reducedMotion));
+    try {
+      storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
+    } catch {
+      /* best effort */
+    }
+  };
+  applyPreferences();
 
   dom.portraitBtn?.addEventListener('click', () => {
     if (leonProfile) openCharacterPopup(leonProfile);
   });
+  dom.settingsBtn?.addEventListener('click', () => transitionTo(settingsScreen));
 
   // ---------------------------------------------------------------- HUD
 
@@ -84,7 +118,9 @@ export function initGame(opts = {}) {
     node.classList.remove('bar-critical', 'bar-warning', 'bar-fair', 'bar-full');
     node.classList.add(resourceBarClass(percent, 100));
   };
-  const setText = (node, text) => { if (node) node.textContent = text; };
+  const setText = (node, text) => {
+    if (node) node.textContent = text;
+  };
 
   function updateHud() {
     setText(dom.date, gs.getDateDisplay());
@@ -174,7 +210,10 @@ export function initGame(opts = {}) {
   }
 
   function showScreen(node) {
-    if (stopParticles) { stopParticles(); stopParticles = null; }
+    if (stopParticles) {
+      stopParticles();
+      stopParticles = null;
+    }
     content.replaceChildren(node);
     if (typeof node._startParticles === 'function') stopParticles = node._startParticles();
   }
@@ -184,17 +223,9 @@ export function initGame(opts = {}) {
   function hubScreen() {
     return renderHub(gs, {
       onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onMap: () => transitionTo(mapScreen),
       onCharacters: () => transitionTo(charactersScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
-    });
-  }
-
-  function mapScreen() {
-    return renderMap(gs, {
-      onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onBack: () => transitionTo(hubScreen),
     });
   }
 
@@ -212,7 +243,6 @@ export function initGame(opts = {}) {
     });
   }
 
-
   function perksScreen() {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
@@ -226,6 +256,22 @@ export function initGame(opts = {}) {
 
   function almanacScreen() {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
+  }
+
+  function settingsScreen() {
+    return renderSettings(preferences, {
+      onBack: () => transitionTo(hubScreen),
+      onToggleContrast: () => {
+        preferences.highContrast = !preferences.highContrast;
+        applyPreferences();
+        showScreen(settingsScreen());
+      },
+      onToggleMotion: () => {
+        preferences.reducedMotion = !preferences.reducedMotion;
+        applyPreferences();
+        showScreen(settingsScreen());
+      },
+    });
   }
 
   // -------------------------------------------------------------- extras
@@ -287,7 +333,9 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- boot
 
-  gs.on('game_over_triggered', (msg) => { lastGameOverMessage = msg; });
+  gs.on('game_over_triggered', (msg) => {
+    lastGameOverMessage = msg;
+  });
   gs.on('stats_changed', updateHud);
   gs.on('day_changed', updateHud);
 
@@ -305,10 +353,10 @@ export function initGame(opts = {}) {
     save: () => saveStore.save(gs, storage),
     goto: {
       hub: () => showScreen(hubScreen()),
-      map: () => showScreen(mapScreen()),
       location: (id) => showScreen(locationScreen(id)),
       perks: () => showScreen(perksScreen()),
       almanac: () => showScreen(almanacScreen()),
+      settings: () => showScreen(settingsScreen()),
       characters: () => showScreen(charactersScreen()),
     },
   };

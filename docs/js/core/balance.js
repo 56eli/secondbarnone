@@ -61,7 +61,7 @@ export const ENERGY_FULL_RECOVERY_DAYS = 7;
  * most working days cost more than one night returns, which is precisely what
  * makes topping up a decision rather than a formality.
  */
-export const ENERGY_RECOVERY = MAX_ENERGY / ENERGY_FULL_RECOVERY_DAYS;
+export const ENERGY_RECOVERY = 14.0;
 
 /** Below this, actions bite harder (see `GameState.exhaustionPenalty`). */
 export const EXHAUSTION_THRESHOLD = 25.0;
@@ -96,14 +96,18 @@ export const START_INSIGHT = 0;
  */
 export const ENDURANCE_GOAL_DAYS = 60;
 
-/** Rent deducted every Sunday. */
+/** Base rent deducted every Sunday at the start of a run. */
 export const RENT_AMOUNT = 18.0;
+/** A long-run sink that stops the early economy becoming permanently safe. */
+export const RENT_ESCALATION = 3.0;
+export const RENT_ESCALATION_PERIOD_DAYS = 24;
+export const RENT_MAX = 42.0;
 
 /** Reputation-based rent discount thresholds. */
 export const RENT_DISCOUNT_REP_THRESHOLD = 50;
-export const RENT_DISCOUNT_REP_BONUS = 2;
+export const RENT_DISCOUNT_REP_BONUS = 1;
 export const RENT_DISCOUNT_REP_HIGH = 80;
-export const RENT_DISCOUNT_REP_HIGH_BONUS = 4;
+export const RENT_DISCOUNT_REP_HIGH_BONUS = 2;
 
 /** Offset so journey day 1 maps to Thursday (Jan 1, 2026). Mon=0 … Sun=6. */
 export const START_WEEKDAY_OFFSET = 3;

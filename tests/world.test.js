@@ -240,7 +240,7 @@ test('the welcome does not rebalance the chapel itself', () => {
   // is later in the run — same numbers, same cost.
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.deepEqual(chapel.effects, {
-    sanity: 13, money: -6, energy: -18, reputation: 3, insight: 2,
+    sanity: 13, money: -6, energy: -14, reputation: 3, insight: 2,
   });
   const { sanity, money, energy } = chapel.effects;
   assert.ok(sanity < 0 || money < 0 || energy < 0, 'the welcome is still not a free lunch');
@@ -461,7 +461,7 @@ test('getPerk resolves known ids and refuses unknown ones', () => {
 test('aggregatePerks sums owned effects and ignores junk', () => {
   const total = aggregatePerks(['steady_breath', 'open_hand', 'not_real']);
   assert.equal(total.barSanityRelief, 3);
-  assert.equal(total.communityCostRelief, 4);
+  assert.equal(total.communityCostRelief, 3);
   assert.equal(total.rentRelief, 0);
 
   const none = aggregatePerks([]);

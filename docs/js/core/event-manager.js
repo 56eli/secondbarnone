@@ -73,10 +73,14 @@ export class EventManager {
 
     // Character frequency filter: if a character fired recently,
     // gently deprioritize their other events (not block).
-    const recentChars = new Set(this._recentIds.map(id => {
-      const ev = this._allEvents.find(e => e.id === id);
-      return ev ? ev.character : null;
-    }).filter(Boolean));
+    const recentChars = new Set(
+      this._recentIds
+        .map((id) => {
+          const ev = this._allEvents.find((e) => e.id === id);
+          return ev ? ev.character : null;
+        })
+        .filter(Boolean),
+    );
 
     const weightedPool = pool.map((e) => {
       if (recentChars.has(e.character)) {

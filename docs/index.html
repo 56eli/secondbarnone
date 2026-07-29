@@ -1,90 +1,142 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>secondbarnone</title>
-<meta name="description" content="A narrative balance game. Split your days between a spiritual community and a bar, and keep both your sanity and your wallet alive.">
-<meta name="theme-color" content="#0a0a12">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>secondbarnone</title>
+    <meta
+      name="description"
+      content="A narrative balance game. Split your days between a spiritual community and a bar, and keep both your sanity and your wallet alive."
+    />
+    <meta name="theme-color" content="#0a0a12" />
 
-<meta property="og:title" content="secondbarnone">
-<meta property="og:description" content="Split your days between a spiritual community and a bar. Keep both your sanity and your wallet alive.">
-<meta property="og:type" content="website">
+    <meta property="og:title" content="secondbarnone" />
+    <meta
+      property="og:description"
+      content="Split your days between a spiritual community and a bar. Keep both your sanity and your wallet alive."
+    />
+    <meta property="og:type" content="website" />
 
-<link rel="icon" href="assets/portraits/leon.webp">
-<link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-
-<div id="app">
-
-  <header id="hud">
-    <div class="hud-top">
-      <div class="hud-identity" id="hud-identity">
-        <button class="hud-portrait-btn" id="hud-portrait-btn" type="button" aria-label="View Léon's profile">
-          <img class="hud-portrait" id="hud-portrait" src="assets/portraits/leon.webp" alt="Léon" width="60" height="60">
-        </button>
-        <div class="hud-identity-text">
-          <span class="hud-name" id="hud-name">Léon</span>
+    <link rel="icon" href="assets/portraits/leon.webp" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud">
+        <div class="hud-top">
+          <div class="hud-identity" id="hud-identity">
+            <button
+              class="hud-portrait-btn"
+              id="hud-portrait-btn"
+              type="button"
+              aria-label="View Léon's profile"
+            >
+              <img
+                class="hud-portrait"
+                id="hud-portrait"
+                src="assets/portraits/leon.webp"
+                alt="Léon"
+                width="60"
+                height="60"
+              />
+            </button>
+            <div class="hud-identity-text">
+              <span class="hud-name" id="hud-name">Léon</span>
+            </div>
+          </div>
+          <div class="hud-actions">
+            <span class="hud-meta-right">
+              <span class="hud-weather" id="hud-weather">☀️ Clear</span>
+              <span class="hud-date" id="hud-date">Thursday, January 1, 2026</span>
+              <span class="hud-day" id="hud-day">Journey Day 1</span>
+              <span class="hud-insight" id="insight-num">🔮 0</span>
+            </span>
+            <button
+              class="settings-button"
+              id="settings-button"
+              type="button"
+              aria-label="Open settings"
+              title="Settings"
+            >
+              ⚙️
+            </button>
+          </div>
         </div>
-      </div>
-      <span class="hud-meta-right">
-        <span class="hud-weather" id="hud-weather">☀️ Clear</span>
-        <span class="hud-date" id="hud-date">Thursday, January 1, 2026</span>
-        <span class="hud-day" id="hud-day">Journey Day 1</span>
-        <span class="hud-insight" id="insight-num">🔮 0</span>
-      </span>
+
+        <div class="stat-row" data-stat="sanity">
+          <span class="stat-label" id="sanity-label">🧘 Sanity</span>
+          <span
+            class="bar-track"
+            role="meter"
+            aria-label="Sanity"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+          >
+            <span class="bar-fill sanity" id="sanity-bar"></span>
+          </span>
+          <span class="stat-num" id="sanity-num">50%</span>
+          <span class="delta" id="sanity-delta" aria-hidden="true"></span>
+        </div>
+
+        <div class="stat-row" data-stat="money">
+          <span class="stat-label" id="money-label">💰 Money</span>
+          <span
+            class="bar-track money-track"
+            role="meter"
+            aria-label="Money comfort"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="50"
+          >
+            <span class="bar-fill money" id="money-bar"></span>
+          </span>
+          <span class="stat-num" id="money-num">50</span>
+          <span class="delta" id="money-delta" aria-hidden="true"></span>
+        </div>
+
+        <div class="stat-row" data-stat="energy">
+          <span class="stat-label" id="energy-label">⚡ Energy</span>
+          <span
+            class="bar-track"
+            role="meter"
+            aria-label="Energy"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="100"
+          >
+            <span class="bar-fill energy" id="energy-bar"></span>
+          </span>
+          <span class="stat-num" id="energy-num">100%</span>
+        </div>
+
+        <div class="stat-row" data-stat="reputation">
+          <span class="stat-label" id="rep-label">🤝 Reputation</span>
+          <span
+            class="bar-track"
+            role="meter"
+            aria-label="Reputation"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="10"
+          >
+            <span class="bar-fill rep" id="rep-bar"></span>
+          </span>
+          <span class="stat-num" id="rep-num">10%</span>
+        </div>
+      </header>
+
+      <main id="content"></main>
+
+      <footer>
+        secondbarnone — a small narrative balance game.
+        <noscript><strong>This game needs JavaScript enabled.</strong></noscript>
+      </footer>
     </div>
 
-    <div class="stat-row" data-stat="sanity">
-      <span class="stat-label" id="sanity-label">🧘 Sanity</span>
-      <span class="bar-track" role="meter" aria-label="Sanity" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
-        <span class="bar-fill sanity" id="sanity-bar"></span>
-      </span>
-      <span class="stat-num" id="sanity-num">50%</span>
-      <span class="delta" id="sanity-delta" aria-hidden="true"></span>
-    </div>
+    <div id="toasts" aria-live="polite"></div>
+    <div id="fade"></div>
 
-    <div class="stat-row" data-stat="money">
-      <span class="stat-label" id="money-label">💰 Money</span>
-      <span class="bar-track money-track" role="meter" aria-label="Money comfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
-        <span class="bar-fill money" id="money-bar"></span>
-      </span>
-      <span class="stat-num" id="money-num">50</span>
-      <span class="delta" id="money-delta" aria-hidden="true"></span>
-    </div>
-
-    <div class="stat-row" data-stat="energy">
-      <span class="stat-label" id="energy-label">⚡ Energy</span>
-      <span class="bar-track" role="meter" aria-label="Energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-        <span class="bar-fill energy" id="energy-bar"></span>
-      </span>
-      <span class="stat-num" id="energy-num">100%</span>
-    </div>
-
-    <div class="stat-row" data-stat="reputation">
-      <span class="stat-label" id="rep-label">🤝 Reputation</span>
-      <span class="bar-track" role="meter" aria-label="Reputation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
-        <span class="bar-fill rep" id="rep-bar"></span>
-      </span>
-      <span class="stat-num" id="rep-num">10%</span>
-    </div>
-  </header>
-
-  <main id="content"></main>
-
-  <footer>
-    secondbarnone — a small narrative balance game.
-    <noscript><strong>This game needs JavaScript enabled.</strong></noscript>
-  </footer>
-
-  <audio id="bg-music" src="assets/music/warm_piano.wav" loop preload="auto"></audio>
-
-</div>
-
-<div id="toasts" aria-live="polite"></div>
-<div id="fade"></div>
-
-<script type="module" src="js/main.js"></script>
-</body>
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>

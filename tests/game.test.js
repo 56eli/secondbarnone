@@ -10,10 +10,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  GameState, MAX_STAT, MONEY_HARD_CEILING, START_SANITY, START_MONEY, RENT_AMOUNT,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS, ENDURANCE_GOAL_DAYS,
+  GameState,
+  MAX_STAT,
+  MONEY_HARD_CEILING,
+  START_SANITY,
+  START_MONEY,
+  RENT_AMOUNT,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
-import { EventManager, MIN_EVENT_GAP_DAYS, MAX_EVENT_GAP_DAYS, BURNOUT_THRESHOLD } from '../docs/js/core/event-manager.js';
+import {
+  EventManager,
+  MIN_EVENT_GAP_DAYS,
+  MAX_EVENT_GAP_DAYS,
+  BURNOUT_THRESHOLD,
+} from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
 import { LOCATIONS, locationIds, getLocation } from '../docs/js/data/locations.js';
 import { getWeather } from '../docs/js/data/weather.js';
@@ -135,13 +149,13 @@ test('money can grow well past 100 without being clamped', () => {
 // --------------------------------------------------------------- rent
 
 test('rent is charged on Sunday only', () => {
-  const gs = new GameState();               // Thursday
+  const gs = new GameState(); // Thursday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Friday
+  gs.advanceDay(); // Friday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Saturday
+  gs.advanceDay(); // Saturday
   assert.equal(gs.applyRentIfSunday(), 0);
-  gs.advanceDay();                          // Sunday
+  gs.advanceDay(); // Sunday
   const before = gs.money;
   assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.money, before - RENT_AMOUNT);
@@ -149,7 +163,7 @@ test('rent is charged on Sunday only', () => {
 
 test('rent is charged at most once per Sunday', () => {
   const gs = new GameState();
-  for (let i = 0; i < 3; i++) gs.advanceDay();  // Sunday
+  for (let i = 0; i < 3; i++) gs.advanceDay(); // Sunday
   assert.equal(gs.applyRentIfSunday(), RENT_AMOUNT);
   assert.equal(gs.applyRentIfSunday(), 0);
   assert.equal(gs.applyRentIfSunday(), 0);
@@ -168,7 +182,9 @@ test('rent cannot push money below zero', () => {
 test('sanity reaching zero ends the game', () => {
   const gs = new GameState();
   let msg = null;
-  gs.on('game_over_triggered', (m) => { msg = m; });
+  gs.on('game_over_triggered', (m) => {
+    msg = m;
+  });
   gs.sanity = 0;
   assert.equal(gs.checkGameOver(), true);
   assert.match(msg, /sanity/i);
@@ -177,7 +193,9 @@ test('sanity reaching zero ends the game', () => {
 test('money reaching zero ends the game', () => {
   const gs = new GameState();
   let msg = null;
-  gs.on('game_over_triggered', (m) => { msg = m; });
+  gs.on('game_over_triggered', (m) => {
+    msg = m;
+  });
   gs.money = 0;
   assert.equal(gs.checkGameOver(), true);
   assert.match(msg, /broke/i);
@@ -186,7 +204,9 @@ test('money reaching zero ends the game', () => {
 test('game over fires only once', () => {
   const gs = new GameState();
   let count = 0;
-  gs.on('game_over_triggered', () => { count += 1; });
+  gs.on('game_over_triggered', () => {
+    count += 1;
+  });
   gs.sanity = 0;
   gs.checkGameOver();
   gs.checkGameOver();
@@ -207,7 +227,13 @@ test('history keeps only the five most recent entries, newest first', () => {
 
 test('season maps from month index', () => {
   const gs = new GameState();
-  const cases = [[0, 'Winter'], [3, 'Spring'], [6, 'Summer'], [9, 'Autumn'], [11, 'Winter']];
+  const cases = [
+    [0, 'Winter'],
+    [3, 'Spring'],
+    [6, 'Summer'],
+    [9, 'Autumn'],
+    [11, 'Winter'],
+  ];
   for (const [monthIndex, season] of cases) {
     gs.monthIndex = monthIndex;
     assert.equal(gs.getSeason(), season);
@@ -216,13 +242,17 @@ test('season maps from month index', () => {
 
 test('daily focus cue reflects combined stat pressure without prescribing a destination', () => {
   const gs = new GameState();
-  gs.sanity = 10; gs.money = 10;
+  gs.sanity = 10;
+  gs.money = 10;
   assert.match(gs.getDailyNudge().label, /gently/i);
-  gs.sanity = 10; gs.money = 50;
+  gs.sanity = 10;
+  gs.money = 50;
   assert.match(gs.getDailyNudge().label, /room/i);
-  gs.sanity = 50; gs.money = 10;
+  gs.sanity = 50;
+  gs.money = 10;
   assert.match(gs.getDailyNudge().label, /wallet/i);
-  gs.sanity = 90; gs.money = 90;
+  gs.sanity = 90;
+  gs.money = 90;
   assert.match(gs.getDailyNudge().label, /No rush/i);
 });
 
@@ -250,10 +280,11 @@ test('every event is gated by location, tag, weather or a minimum day', () => {
   // An event with no gate at all would fire anywhere, at any time, which is
   // how a pool ends up feeling like noise. Every entry must earn its place.
   for (const e of buildEventPool()) {
-    const gated = e.requiredLocation !== ''
-      || e.requiredTag !== ''
-      || e.requiredWeather !== ''
-      || e.minimumDay > 1;
+    const gated =
+      e.requiredLocation !== '' ||
+      e.requiredTag !== '' ||
+      e.requiredWeather !== '' ||
+      e.minimumDay > 1;
     assert.ok(gated, `${e.id} has no gate of any kind`);
   }
 });
@@ -277,10 +308,12 @@ test('tag-gated events use tags that some location actually has', () => {
 test('weather-gated events name a real weather type', () => {
   for (const e of buildEventPool()) {
     if (!e.requiredWeather) continue;
-    assert.ok(getWeather(e.requiredWeather), `${e.id} requires unknown weather ${e.requiredWeather}`);
+    assert.ok(
+      getWeather(e.requiredWeather),
+      `${e.id} requires unknown weather ${e.requiredWeather}`,
+    );
   }
 });
-
 
 test('rarity weights follow the 10 / 2 / 2 rule', () => {
   for (const e of buildEventPool()) {
@@ -312,9 +345,12 @@ test('tag-gated events only fire where the tag applies', () => {
   em.initialize(['Geo']);
   const library = getLocation('public_library');
   for (let day = 1; day <= 300; day++) {
-    const e = em.selectEvent(day, day % 7, 'public_library', 0,
-      { tags: library.tags, weatherId: 'overcast' });
-    if (e?.requiredTag) assert.ok(library.tags.includes(e.requiredTag), `${e.id} fired at the library`);
+    const e = em.selectEvent(day, day % 7, 'public_library', 0, {
+      tags: library.tags,
+      weatherId: 'overcast',
+    });
+    if (e?.requiredTag)
+      assert.ok(library.tags.includes(e.requiredTag), `${e.id} fired at the library`);
   }
 });
 
@@ -344,7 +380,10 @@ test('burnout becomes reachable at the threshold', () => {
     em.initialize(['Geo']);
     for (let day = 1; day <= 300; day++) {
       const e = em.selectEvent(day, day % 7, 'bar', BURNOUT_THRESHOLD);
-      if (e?.id === 'burnout') { seen = true; break; }
+      if (e?.id === 'burnout') {
+        seen = true;
+        break;
+      }
     }
   }
   assert.ok(seen, 'burnout should be selectable once the threshold is met');
@@ -426,7 +465,7 @@ test('a full turn applies action, rent and event in order', () => {
   const gs = new GameState({ seed: 4242 });
   const em = new EventManager(seeded());
   em.initialize(gs.getCharacterNames());
-  for (let i = 0; i < 3; i++) gs.advanceDay();   // land on Sunday
+  for (let i = 0; i < 3; i++) gs.advanceDay(); // land on Sunday
   const before = gs.money;
   const { total } = computeDayEffects(gs, 'bar');
   const r = resolveTurn(gs, em, 'bar');
@@ -434,6 +473,19 @@ test('a full turn applies action, rent and event in order', () => {
   // The day's money effect, minus rent, plus any event delta.
   const expected = before + total.money - RENT_AMOUNT + (r.event?.moneyDelta ?? 0);
   assert.equal(gs.money, Math.max(expected, 0));
+});
+
+test('a turn cannot resolve twice before the calendar advances', () => {
+  const gs = new GameState({ seed: 123 });
+  const em = new EventManager(seeded());
+  em.initialize(gs.getCharacterNames());
+  resolveTurn(gs, em, 'bar');
+  const state = gs.toJSON();
+  const duplicate = resolveTurn(gs, em, 'bar');
+  assert.equal(duplicate.alreadyResolved, true);
+  assert.deepEqual(gs.toJSON(), state);
+  gs.advanceDay();
+  assert.equal(gs.isTurnResolved, false);
 });
 
 test('a turn writes exactly one history line', () => {
@@ -510,7 +562,10 @@ test('reset restores a clean starting state', () => {
   const gs = new GameState();
   const em = new EventManager(seeded());
   em.initialize(gs.getCharacterNames());
-  for (let i = 0; i < 8; i++) { resolveTurn(gs, em, 'bar'); gs.advanceDay(); }
+  for (let i = 0; i < 8; i++) {
+    resolveTurn(gs, em, 'bar');
+    gs.advanceDay();
+  }
   gs.resetGame();
   assert.equal(gs.sanity, START_SANITY);
   assert.equal(gs.money, START_MONEY);
@@ -532,7 +587,10 @@ test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   assert.equal(nemeses.length, 1);
   assert.equal(nemeses[0].id, 'kaden');
 
-  const rivals = chars.filter((c) => c.role === Role.RIVAL).map((c) => c.id).sort();
+  const rivals = chars
+    .filter((c) => c.role === Role.RIVAL)
+    .map((c) => c.id)
+    .sort();
   assert.deepEqual(rivals, ['alex', 'sato']);
 });
 

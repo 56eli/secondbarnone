@@ -230,20 +230,6 @@ maybe('People rows open the popup instead of double-nesting a button', async () 
   } finally { cleanup(window); }
 });
 
-maybe('the map\u2019s host chip does not nest a button inside the location card', async () => {
-  const window = await boot();
-  try {
-    const doc = window.document;
-    window.__game.api.goto.map();
-
-    const card = doc.querySelector('.loc-card');
-    assert.ok(card, 'the map should render location cards');
-    assert.equal(card.querySelector('button.avatar-btn'), null, 'no nested button inside a location card');
-    // The host mini-avatar is still present, just not independently clickable.
-    assert.ok(card.querySelector('.host-avatar'), 'the host mini-avatar should still render');
-  } finally { cleanup(window); }
-});
-
 maybe('opening a second portrait popup replaces the first rather than stacking', async () => {
   const window = await boot();
   try {
