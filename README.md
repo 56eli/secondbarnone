@@ -5,9 +5,10 @@ by day and tends bar by night. Every day you pick one place to be. The community
 restores your sanity but costs money; the bar pays but grinds you down. Rent hits
 every Sunday. Let sanity or money reach zero and the run ends.
 
-Those two places are where you start. There are **23 locations across five
+Those two places are where you start. There are **25 locations across five
 districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
-night market, a pirate radio station, a temple ruin an hour out on the bus.
+night market, a pirate radio station, a temple ruin an hour out on the bus,
+and a lamp-lit circuit in the old gypsum mines that opens on day 28.
 Every location has a **host** from the cast; every event belongs to someone you
 know. Every portrait — HUD, host banners, the People screen, event cards — is
 **clickable/tappable**, and the small avatar is a preview: tapping it opens the
@@ -40,10 +41,10 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 |                 | Godot version                   | This version                                                                    |
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
+| Deploy payload  | 39.5 MB                         | **3.78 MB** to play (+4.36 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                            |
-| Automated tests | 0                               | **445**                                                                         |
-| Coverage        | —                               | **~99.0%**                                                                      |
+| Automated tests | 0                               | **473**                                                                         |
+| Coverage        | —                               | **~98.6%** lines                                                                |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -67,10 +68,10 @@ are subject to CORS.
 Tests are tiered so the gate you run constantly is fast:
 
 ```bash
-npm run test:fast       # 325 rules tests — balance, invariants, exploits — ~3s
-npm run test:ui         # jsdom: DOM, UI, accessibility — ~100s
+npm run test:fast       # 353 rules tests — balance, invariants, exploits — ~3s
+npm run test:ui         # jsdom: DOM, UI, accessibility — ~40s
 npm run test:assets     # image dimensions, hashes, budgets (needs ImageMagick)
-npm test                # everything — 445 tests
+npm test                # everything — 473 tests, ~58s wall
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
@@ -119,8 +120,8 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       rng.js               seedable RNG
     data/
       characters.js        78 characters
-      locations.js         23 locations (each with a host)
-      events.js            244 events, keyed by location (3+ per character, earned host beats)
+      locations.js         25 locations (each with a host)
+      events.js            266 events, keyed by location (3+ per character, earned host beats)
       weather.js / perks.js
       festivals.js / achievements.js
     ui/screens.js          hub, location, practice, almanac, people, settings, portrait lightbox
@@ -141,7 +142,8 @@ and **Alex** are rivals with multi-beat arcs. The remaining 74 are side
 characters. Every character is bound to **one location** and has **at least three
 events** that fire only there, so a place is somewhere specific people are
 rather than a slot machine with scenery. Nine hosts now have earned fourth
-beats gated by affinity. **228 of 244 events** belong to side characters.
+beats gated by affinity, and four more beats are gated by reputation for the
+long game. **247 of 266 events** belong to side characters.
 
 Léon's portrait and name sit in the HUD on every screen.
 
@@ -161,7 +163,7 @@ Léon's portrait and name sit in the HUD on every screen.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
 - Rent: **−18 money** every Sunday, charged once.
-- A random event fires every 1–3 days. Event weights are 10 for Common and 2 for each Rare, with novelty weighting for events unseen this run and across previous runs. With the current catalogue (159 common, 76 rare-helpful, 9 rare-hurtful before location gates), rare events are deliberately occasional rather than evenly mixed into every visit.
+- A random event fires every 1–3 days. Event weights are 10 for Common and 2 for each Rare, with novelty weighting for events unseen this run and across previous runs. With the current catalogue (161 common, 79 rare-helpful, 26 rare-hurtful — at least one bad day per location), rare events are deliberately occasional rather than evenly mixed into every visit.
 - Burnout unlocks only after 3 consecutive bar days.
 - The same event never fires twice in a row.
 - Reaching 0 sanity or 0 money ends the run.
@@ -174,7 +176,11 @@ Léon's portrait and name sit in the HUD on every screen.
 - Every location's printed numbers are an **average**. The day you actually get
   swings around them — deterministically, so the preview never lies — but the
   swing never flips what a place is for.
-- Runs autosave to `localStorage` after every day and resume on reload.
+- Runs autosave to `localStorage` after every day and resume on reload. Settings
+  offers three named save slots (rename, switch, erase) plus export/import.
+- The game is installable: it ships a web app manifest and a service worker, so
+  on a supporting browser it can be added to the home screen and plays offline
+  after the first visit (art is cached as you encounter it).
 
 ## Homely design notes
 
@@ -186,10 +192,10 @@ Eleven things that make the city feel like a home:
    and playable straight away. From day two the chapel goes back behind its
    ordinary gate.
 3. **Every location has a host** you will likely see there.
-4. **Most events belong to side characters** — 222 of 235 — with their face on the result.
+4. **Most events belong to side characters** — 247 of 266 — with their face on the result.
 5. **Daily greetings** that change with weekday and season.
 6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
-7. **Dedicated backgrounds for all 23 locations**, including the home loft and every city destination.
+7. **Dedicated backgrounds for all 25 locations**, including the home loft and every city destination.
 8. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
 9. **Soft 60-day endurance goal** — long enough to see the whole arc, short enough to finish.
 10. **Uncapped money** — tips stack; broke still kills the run.

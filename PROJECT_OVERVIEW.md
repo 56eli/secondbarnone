@@ -7,7 +7,7 @@ Each day you choose one. Neglect either side and the run ends.
 This document covers design and internals. For setup, testing and deployment,
 see [README.md](README.md).
 
-> **Status:** playable, 445 tests, ~99.0% coverage on the shipped code.
+> **Status:** playable, 473 tests, ~98.6% line coverage on the shipped code.
 > Implemented in vanilla ES modules — no engine, no build step.
 >
 > Money is an uncapped wallet (still lethal at 0). Every location has a host
@@ -38,10 +38,10 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current                                            |
 | --------------- | ------------------------------- | -------------------------------------------------- |
-| Deploy payload  | 39.5 MB                         | **3.62 MB** to play (+4.36 MB on-demand portraits) |
-| Build step      | Godot binary + export templates | none                                               |
-| Automated tests | 0                               | **371**                                            |
-| Coverage        | —                               | **~99.7%**                                         |
+| Deploy payload  | 39.5 MB                         | **3.78 MB** to play (+4.36 MB on-demand portraits)  |
+| Build step      | Godot binary + export templates | none                                                |
+| Automated tests | 0                               | **473**                                               |
+| Coverage        | —                               | **~98.6%** lines                                      |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -66,8 +66,8 @@ docs/js/
     rng.js           seedable RNG
   data/
     characters.js    78 profiles, each bound to one location
-    locations.js     23 locations, 5 districts, 4 hub slots
-    events.js        244 events, keyed by location
+    locations.js     25 locations, 5 districts, 4 hub slots
+    events.js        266 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     observances.js    5 repeatable insight spends (the late-game sink)
@@ -188,7 +188,7 @@ becomes either a free lottery ticket or a tax.
 
 ### Locations
 
-**23 locations across 5 districts.** Each carries tags (`quiet`, `night`,
+**25 locations across 5 districts.** Each carries tags (`quiet`, `night`,
 `market`, `pilgrimage`, …) which are the join key for the whole game: weather
 modifies by tag and perks bonus by tag.
 
@@ -205,9 +205,9 @@ The slots have a character, which is the reason the rule buys anything:
 | Slot | Reads as                     | Examples                                                   |
 | ---- | ---------------------------- | ---------------------------------------------------------- |
 | 3    | somewhere quiet              | loft, bathhouse, library, pawnbroker, memorial garden      |
-| 4    | outdoors, spirit and service | canal, rooftop, clinic, soup kitchen, ruins, chapel        |
-| 5    | markets and the stage        | garden, Saturday market, flea market, open mic, Vermillion |
-| 6    | night work and errands       | night market, radio, letting office, Sato's, the retreat   |
+| 4    | outdoors, spirit and service | canal, rooftop, clinic, soup kitchen, ruins, chapel           |
+| 5    | markets and the stage        | garden, Saturday market, flea market, open mic, Vermillion, the gypsum mines |
+| 6    | night work and errands       | night market, radio, letting office, Sato's, the retreat, the Clos          |
 
 Five or six locations per slot, so no position is a near-constant and none is
 a free-for-all. The previous behaviour was a straight shuffle across all four
@@ -222,7 +222,7 @@ renderer, so it is testable headlessly — and the rendered cards carry a
 assert.
 
 Locations unlock on journey day, reputation, weekday, or a required perk/item.
-A fresh run can reach three rotating/fixed choices plus the day-one welcome; a long, well-regarded one can reach all 23 through the six-card hub rotation.
+A fresh run can reach three rotating/fixed choices plus the day-one welcome; a long, well-regarded one can reach all 25 through the six-card hub rotation. The last two unlocks are deliberately late: the Mines on day 28 (reputation 20) and the Clos on day 44 (reputation 45).
 
 **The day-one welcome.** Journey day 1 is the single exception. Brian keeps a
 place for Léon at the **House of Middleway**, so the chapel is offered on the
@@ -307,10 +307,11 @@ Every character carries an `affinity` count on the run, incremented when one of
 their events fires. The People screen reads it, so the roster shows who this
 run has actually met rather than handing over an encyclopaedia at turn one.
 
-This is deliberately a plain counter rather than a tier system: the tiers should
-be defined by the content that gates on them, and that content does not exist
-yet. See roadmap item 1.4 — the engine work is done, the fourth-and-later events
-are not written.
+This is deliberately a plain counter rather than a tier system: the tiers are
+defined by the content that gates on them. `minAffinity` beats exist (nine
+hosts earned a fourth event in v2.4) and `minReputation` gates late content;
+what does not exist yet is per-character fifth-and-later writing — see the
+roadmap's known-issues row on small-talk coverage.
 
 ### Practice and milestones
 
@@ -327,7 +328,7 @@ history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**244 events.** **228 (93.4%)** belong to side characters.
+**266 events.** **247 (92.9%)** belong to side characters.
 
 The catalogue has one rule, and it is structural:
 
@@ -509,11 +510,12 @@ The lightbox fetches the hi-res sheet lazily and falls back once to the
 thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
 rather than an empty frame.
 
-**23 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+**25 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
 playable location. Background paths are derived from the location catalogue by
 `scripts/check-assets.js`, so adding a location cannot silently ship a broken
 image path, and an _unreferenced_ background now fails a test rather than
-quietly adding weight.
+quietly adding weight. All are daylight scenes by art direction, with one named
+exception: the gypsum mines are lamp-lit underground (`docs/ART_DIRECTION.md`).
 
 Six backgrounds were repainted in the July 2026 pass for **Paris coherence** —
 the night market had East Asian lanterns, the "mountain retreat" had alpine
@@ -544,7 +546,7 @@ one pass.
 
 ## Testing
 
-**445 tests** across the suite.
+**473 tests** across the suite.
 
 | Area | Scope |
 | ---- | ----- |
