@@ -213,8 +213,8 @@ const RAW = [
     id: 'hawkinstv',
     name: 'HawkinsTV',
     role: Role.SIDE_CHARACTER,
-    bio: 'A livestreamer who wandered into the bar looking for content and stayed for the people. Films everything, broadcasts almost none of it. Claims the community has better stories than anything scripted.',
-    relationship: 'Keeps promising Léon a feature that will "change everything." Léon suspects the friendship matters more to Hawkins than the footage does.',
+    bio: 'A friendly anthropomorphic video-camera robot who wandered into the bar looking for content and stayed for the people. Films everything with its single expressive lens, broadcasts almost none of it. Claims the community has better stories than anything scripted. The little screen on its chest displays cheerful subtitles.',
+    relationship: 'Keeps promising Léon a feature that will "change everything." Léon suspects the friendship matters more to the little robot than the footage does.',
     locationId: 'radio_station',
   },
   {
@@ -301,8 +301,8 @@ const RAW = [
     id: 'vanna',
     name: 'Vanna',
     role: Role.SIDE_CHARACTER,
-    bio: 'A travel writer between assignments who has been "passing through" for fourteen months. Knows a story about every city and deflects every question about her own.',
-    relationship: 'Keeps threatening to leave. Léon has stopped believing her and she seems relieved about it.',
+    bio: 'A travel writer between assignments who has been "passing through" for fourteen months. Nobody is quite sure if Vanna is a woman, a very convincing bunny in a coat, or something else entirely. Knows a story about every city and deflects every question about her own (or its own).',
+    relationship: 'Keeps threatening to leave. Léon has stopped believing her (or him, or it) and she seems relieved about it.',
     locationId: 'mountain_retreat',
   },
   {
@@ -365,8 +365,8 @@ const RAW = [
     id: 'groovyphoenix',
     name: 'groovyphoenix',
     role: Role.SIDE_CHARACTER,
-    bio: 'A DJ who plays vinyl-only sets at the bar once a month and teaches ecstatic dance at the community on alternate Sundays. Insists these are the same practice.',
-    relationship: 'Got Léon to dance in public exactly once and has never let it go.',
+    bio: 'A glowing warm phoenix bird (a firebird) who plays vinyl-only sets at the bar once a month and teaches ecstatic dance at the community on alternate Sundays. Insists these are the same practice. Its feathers leave faint trails of light when it moves.',
+    relationship: 'Got Léon to dance in public exactly once and has never let it go. The bird still teases him about it with little sparks.',
     locationId: 'open_mic',
   },
   {
