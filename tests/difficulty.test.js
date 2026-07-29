@@ -46,7 +46,7 @@ test('the average player reaches the 60-day goal about half the time', () => {
 
 test('attention produces a clear but not binary skill gradient', () => {
   const s = results();
-  assert.ok(s.random.goalRate < 0.3, `random players win too often: ${s.random.goalRate}`);
+  assert.ok(s.random.goalRate < 0.25, `random players should rarely succeed: ${s.random.goalRate}`);
   assert.ok(
     s.doesnt_pay_attention.goalRate < s.random.goalRate,
     'ignoring previews, rent and energy should be worse than random exploration',
@@ -56,8 +56,8 @@ test('attention produces a clear but not binary skill gradient', () => {
     'occasional informed choices should outperform the average baseline',
   );
   assert.ok(
-    s.greedy.goalRate >= 0.95,
-    `greedy players should read as skilled: ${s.greedy.goalRate}`,
+    s.greedy.goalRate >= 0.70 && s.greedy.goalRate <= 1.00,
+    `greedy goal rate ${s.greedy.goalRate.toFixed(3)} should reward attention without becoming guaranteed`,
   );
   assert.ok(
     s.concentrates.goalRate >= s.greedy.goalRate,

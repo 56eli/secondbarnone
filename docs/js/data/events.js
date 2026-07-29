@@ -127,7 +127,7 @@ export const EVENTS_BY_LOCATION = {
       'The sit ran twenty minutes long because nobody wanted to be the one to move. Geo rang the bowl eventually, and looked almost apologetic about it.',
       Category.SPIRITUAL,
       S,
-      { sanity: 8, insight: 1 },
+      { sanity: 3, insight: 1, money: -2 },
     ),
     ev(
       'geo_teaching',
@@ -136,7 +136,7 @@ export const EVENTS_BY_LOCATION = {
       'Geo waits until the hall is empty to say your instruction on the breath was a little too certain. He is right, and he says it in a way that costs you nothing to accept.',
       Category.SPIRITUAL,
       S,
-      { sanity: 4, insight: 2 },
+      { sanity: 2, insight: 1, money: -2 },
     ),
     ev(
       'sc_deep_meditation',
@@ -155,7 +155,7 @@ export const EVENTS_BY_LOCATION = {
       'Yun sets down a fresh sheet of characters without comment. You look at it for a long time and the week arranges itself.',
       Category.SPIRITUAL,
       S,
-      { sanity: 10, insight: 1 },
+      { sanity: 5, insight: 1, money: -3 },
     ),
     ev(
       'yun_blank_page',
@@ -183,7 +183,7 @@ export const EVENTS_BY_LOCATION = {
       'Lakshay surfaces from the cellar to report the archive is at ninety-four percent capacity and that everyone is very glad you are here, in that order.',
       Category.COMMUNITY,
       S,
-      { sanity: 8 },
+      { sanity: 4, money: -2 },
     ),
     ev(
       'lakshay_drive_failure',
@@ -243,7 +243,7 @@ export const EVENTS_BY_LOCATION = {
       'A birthday party ran long and tipped like the night was going to be remembered. Barret splits it your way without being asked.',
       Category.BAR,
       S,
-      { money: 8 },
+      { sanity: 2, money: 6 },
     ),
     ev(
       'barret_books',
@@ -280,7 +280,7 @@ export const EVENTS_BY_LOCATION = {
       'The quiz, the raffle, the group photograph and moving one seat along — all refused with enormous warmth. Somehow you leave the exchange lighter.',
       Category.BAR,
       S,
-      { sanity: 4 },
+      { sanity: 3, money: -2 },
     ),
     ev(
       'dorian_stays_late',
@@ -308,7 +308,7 @@ export const EVENTS_BY_LOCATION = {
       'He turns up unrostered at nine and tells you to sit down for an hour. You do, and the hour is worth more than the shift.',
       Category.BAR,
       S,
-      { sanity: 6, energy: 10, money: -3 },
+      { sanity: 3, energy: 6, money: -4 },
     ),
     ev(
       'matt_karaoke',

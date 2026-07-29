@@ -91,6 +91,8 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
     loading: 'lazy',
     decoding: 'async',
     draggable: 'false',
+    width: '60',
+    height: '60',
   });
   // A broken portrait must not leave a clickable button that opens an empty
   // lightbox, so the fallback replaces the whole control, button included.
