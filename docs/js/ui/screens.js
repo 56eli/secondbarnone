@@ -539,7 +539,7 @@ function renderSpecial(gs, location, onSpecial) {
   if (location.special === 'long_trip') {
     return el('p', {
       class: 'special-note',
-      text: 'Three days, counted as one. They will not let you leave early.',
+      text: 'Three days of silence, counted as one turn — you come back down on the third evening and the calendar moves forward with you.',
     });
   }
 
@@ -706,35 +706,97 @@ export function renderAlmanac(gs, { onBack }) {
 
 // ------------------------------------------------------------ settings
 
-export function renderSettings(preferences, { onToggleContrast, onToggleMotion, onBack }) {
-  const toggle = (label, enabled, handler) =>
-    el('button', {
-      class: `settings-choice${enabled ? ' selected' : ''}`,
-      type: 'button',
-      'aria-pressed': String(enabled),
-      onclick: handler,
-      text: `${label}: ${enabled ? 'On' : 'Off'}`,
-    });
+export function renderSettings(
+  preferences,
+  { onToggleContrast, onToggleMotion, onToggleSound, onChangeVolume, onBack, onAbandon },
+) {
+  const toggle = (label, enabled, handler, desc) =>
+    el(
+      'div',
+      { class: 'settings-row' },
+      el('button', {
+        class: `settings-choice${enabled ? ' selected' : ''}`,
+        type: 'button',
+        'aria-pressed': String(enabled),
+        onclick: handler,
+        text: `${label}: ${enabled ? 'On' : 'Off'}`,
+      }),
+      desc ? el('p', { class: 'settings-desc', text: desc }) : null,
+    );
+
+  const soundOn = preferences.sound !== false;
+  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.35;
+
+  const volumeInput = el('input', {
+    type: 'range',
+    min: '0',
+    max: '1',
+    step: '0.05',
+    value: String(volume),
+    'aria-label': 'Music volume',
+    oninput: (e) => onChangeVolume?.(Number(e.target.value)),
+  });
+
   return el(
     'div',
     { class: 'screen settings-screen' },
     el('h2', { class: 'screen-title', text: '⚙️ Settings' }),
     el('p', {
       class: 'screen-sub',
-      text: 'These display preferences stay on this device and never change a run.',
+      text: 'These preferences stay on this device and never roll the calendar.',
     }),
+
     el(
       'section',
       { class: 'settings-group' },
       el('h3', { text: 'Accessibility' }),
-      el('p', { text: 'Use high contrast or reduce decorative motion.' }),
-      el(
-        'div',
-        { class: 'settings-choices' },
-        toggle('High contrast', preferences.highContrast, onToggleContrast),
-        toggle('Reduced motion', preferences.reducedMotion, onToggleMotion),
+      toggle(
+        'High contrast',
+        preferences.highContrast,
+        onToggleContrast,
+        'Stronger color separation for text and chips.',
+      ),
+      toggle(
+        'Reduced motion',
+        preferences.reducedMotion,
+        onToggleMotion,
+        'Disables particles and collapses fade transitions.',
       ),
     ),
+
+    el(
+      'section',
+      { class: 'settings-group' },
+      el('h3', { text: 'Sound' }),
+      toggle(
+        'Background music',
+        soundOn,
+        onToggleSound,
+        'A quiet warm piano loop — off until you turn it on, per autoplay rules.',
+      ),
+      el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
+    ),
+
+    el(
+      'section',
+      { class: 'settings-group settings-danger' },
+      el('h3', { text: 'Run' }),
+      el('p', {
+        class: 'settings-desc',
+        text: 'Runs autosave after every day. You can abandon the current run and start over here.',
+      }),
+      el('button', {
+        class: 'btn btn-danger',
+        type: 'button',
+        onclick: () => {
+          if (window.confirm('Abandon this run and start over? Your progress will be deleted.')) {
+            onAbandon?.();
+          }
+        },
+        text: 'Abandon run & start over',
+      }),
+    ),
+
     backRow(onBack),
   );
 }
@@ -880,18 +942,23 @@ export function renderGameOver(gs, message, { onRestart }) {
     ['Reputation', Math.round(gs.reputation)],
   ];
 
-  const title =
-    gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS ? 'A Long Road Ended' : 'The Balance Broke';
+  const title = gs.masteryWon
+    ? 'The City Is Yours'
+    : gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS
+      ? 'A Long Road Ended'
+      : 'The Balance Broke';
+
+  const closingNote = gs.masteryWon ? gs.masteryMessage : gs.won ? gs.winMessage : '';
 
   return el(
     'div',
     { class: 'screen gameover' },
     el('h2', { text: title }),
     el('p', { text: message }),
-    gs.won
+    closingNote
       ? el('p', {
           class: 'win-note',
-          text: gs.winMessage || 'You reached one hundred days before the end.',
+          text: closingNote,
         })
       : null,
     el('p', {
@@ -937,11 +1004,15 @@ export function renderResultModal(result, gs, { onContinue }) {
     : null;
 
   const notes = [];
-  if (result.justWon) notes.push(`🏅 ${result.winMessage || 'One hundred days. You held.'}`);
+  if (result.justWon) notes.push(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
+  if (result.masteryWon) notes.push(`🌟 ${result.masteryMessage}`);
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
+  if (result.extraRent)
+    notes.push(`📅 Rent came due while you were away — ${result.extraRent} money.`);
   if (exhaustion)
     notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
+  if (result.longTrip) notes.push(`🏔 Three days pass in silence. The calendar has moved.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 
   const modal = el(
@@ -967,9 +1038,38 @@ export function renderResultModal(result, gs, { onContinue }) {
   );
 
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
-  backdrop.addEventListener('click', (e) => {
-    if (e.target === backdrop) onContinue();
-  });
+  // Intentionally *do not* advance time on a backdrop click: a stray tap must
+  // never roll the calendar. The Continue button is the only way forward.
+
+  // Focus management + Escape (consistent with the portrait lightbox). Escape
+  // does NOT continue — that would also advance time on an errant keypress.
+  // It is simply bound to "no action" here because there is no cancel state;
+  // the day has been resolved and the player must click Continue.
+  const focusable = modal.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const prevFocus = document.activeElement;
+  setTimeout(() => first?.focus(), 0);
+
+  const onKey = (e) => {
+    if (e.key === 'Tab' && focusable.length) {
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  backdrop._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    if (prevFocus?.focus) prevFocus.focus();
+  };
   return backdrop;
 }
 

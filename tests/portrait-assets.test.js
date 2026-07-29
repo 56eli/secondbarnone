@@ -237,6 +237,12 @@ test('v2.0: non-exception characters prefer clean PNG masters (no baked frame so
 
 test('Brian and Vanna are immutable art exceptions', () => {
   // These are content locks, not a permission to regenerate them later.
+  // NOTE: the Vanna hashes below currently pin the human-bar portrait that
+  // shipped with this revision, NOT the canonical "bunny in a coat" portrait
+  // that ART_STANDARD.md describes. The bunny master is missing from the
+  // repository; see notes/VANNA_PORTRAIT_NOTE.md. When the original master is
+  // restored, regenerate the thumbs and update these three hashes — do NOT
+  // simply relax the test.
   const frozen = {
     vanna: {
       master: 'b9d655e35b2cd2b08f62e5834445aa02b7198e4091d4152ec086e3fea73fbd85',

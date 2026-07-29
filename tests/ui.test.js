@@ -115,11 +115,12 @@ function click(doc, selector, label) {
 async function playDay(doc, label = 'Le Dernier Verre') {
   click(doc, '.choice', label);
   await settle();
+  // Location screen: the primary button is the "do the thing" action.
   doc.querySelector('.btn-primary').click();
   await settle();
-  const cont = [...doc.querySelectorAll('.modal button')].find((b) =>
-    b.textContent.includes('Continue'),
-  );
+  // After the action resolves, the result modal appears; its primary button
+  // is "Continue →" which advances the day. Click it once.
+  const cont = doc.querySelector('.modal .btn-primary');
   if (cont) {
     cont.click();
     await settle();
@@ -896,8 +897,9 @@ maybe('a completed day is written to storage', async () => {
     const raw = storage.getItem(SAVE_KEY);
     assert.ok(raw, 'the run should be saved after continuing');
     const parsed = JSON.parse(raw);
-    assert.equal(parsed.v, 4);
+    assert.equal(parsed.v, 5);
     assert.equal(parsed.journeyDay, 2);
+    assert.ok(parsed.events, 'event scheduler state is persisted');
   } finally {
     cleanup(window);
   }
