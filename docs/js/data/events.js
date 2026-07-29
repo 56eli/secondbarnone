@@ -858,7 +858,7 @@ export const EVENTS_BY_LOCATION = {
       Category.BURNOUT, S, { sanity: -5, energy: -8 }),
   ],
 
-  // ============================================ Saint-Denis Basilica Crypt
+  // ============================================ LoC Mines
   temple_ruins: [
     ev('view_from_the_top', 'iulian', 'The View From the Top',
       'The whole valley under weather, the city a smudge at the edge of it, and your problems visible at their real size.',

@@ -559,19 +559,19 @@ export const LOCATIONS = [
   loc({
     id: 'temple_ruins',
     host: 'iulian',
-    name: 'Saint-Denis Basilica Crypt',
-    emoji: '⛩️',
+    name: 'LoC Mines',
+    emoji: '⛏️',
     district: District.OUTSKIRTS,
-    desc: 'An hour on the bus, then forty minutes uphill. Four standing walls, no roof, and an acoustic that makes one voice sound like several.',
-    actionLabel: 'Make the Climb',
-    actionDesc: 'You climbed to the ruins and sat in the roofless nave until the light went orange. Something in you reset.',
-    historyLabel: 'Sat in the temple ruins',
+    desc: 'A disused quarry turned spiritual practice site. It is not the act, but the devotion to the act that defines ones spiritual journey.',
+    actionLabel: 'Mine with a Pickaxe',
+    actionDesc: 'You descended into the cool earth with a pickaxe. The rhythm of the swing, the dust, the focus — the devotion itself became the prayer.',
+    historyLabel: 'Mined at the LoC Mines',
     tags: [Tag.SPIRITUAL, Tag.OUTDOOR, Tag.PILGRIMAGE, Tag.QUIET],
     effects: eff(22, -8, -28, 3, 4),
     variance: vary(6, 3, 7, 2, 2),
     slot: 4,
     unlock: { minDay: 12, minReputation: 30 },
-    bg: 'assets/backgrounds/temple_ruins.webp',
+    bg: 'assets/backgrounds/loc_mines.webp',
   }),
   loc({
     id: 'mountain_retreat',
@@ -651,15 +651,10 @@ export function evaluateUnlock(location, snap) {
   const perkSet = perks instanceof Set ? perks : new Set(perks);
   const u = location.unlock;
 
-  // Day-one welcome: Brian's invitation ignores day, reputation and weekday
-  // gates on the first morning only. The weather still has the last word —
-  // a storm shuts the woods for him the same as for anyone.
+  // Day-one welcome: Brian's invitation is unconditional on journey day 1.
+  // It overrides weather closures (e.g. snow) so the run always starts with
+  // House of Middleway available.
   if (location.dayOneWelcome && isWelcomeDay(journeyDay)) {
-    for (const tag of closedTags) {
-      if (location.tags.includes(tag)) {
-        return { unlocked: false, reason: 'Closed by the weather' };
-      }
-    }
     return { unlocked: true, reason: '' };
   }
 

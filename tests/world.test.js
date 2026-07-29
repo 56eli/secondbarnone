@@ -223,16 +223,16 @@ test('the welcome expires after day one and the ordinary gate returns', () => {
   assert.equal(earned.unlocked, true);
 });
 
-test('the welcome still bows to the weather', () => {
-  // A storm shuts the woods for Brian the same as for anyone; the invitation
-  // overrides progression gates, not the sky.
+test('the welcome on day 1 overrides weather closures', () => {
+  // Per spec: House of Middleway must be open on every seed day 1,
+  // overriding weather (e.g. snow/storm).
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.ok(chapel.tags.includes(Tag.OUTDOOR), 'the chapel is out in the woods');
   const stormy = evaluateUnlock(chapel, {
     journeyDay: 1, reputation: 0, weekday: 3, closedTags: [Tag.OUTDOOR],
   });
-  assert.equal(stormy.unlocked, false);
-  assert.match(stormy.reason, /weather/i);
+  assert.equal(stormy.unlocked, true, 'day 1 welcome must override weather closure');
+  assert.equal(stormy.reason, '');
 });
 
 test('the welcome does not rebalance the chapel itself', () => {
