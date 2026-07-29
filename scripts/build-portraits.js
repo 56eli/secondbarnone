@@ -9,7 +9,6 @@
  *
  * Hard permanent exceptions (never regenerate):
  *   • brian  — keeps its framed master forever
- *   • vanna  — keeps its framed master forever
  *
  * For everyone else: source masters must be clean square PNGs (≥1024px).
  *
@@ -44,7 +43,7 @@ export const HI_PX = 896;
  * Hard permanent exceptions — these two keep their original framed art forever.
  * All other characters must use clean square PNG masters (no baked frame).
  */
-export const FRAME_EXCEPTIONS = new Set(['brian', 'vanna']);
+export const FRAME_EXCEPTIONS = new Set(['brian']);
 const THUMB_QUALITY = 78;
 // 896px/q56 was chosen by comparing 100% crops against q68: no visible
 // difference in the painted style, ~18% smaller. 896px still covers the
@@ -52,14 +51,12 @@ const THUMB_QUALITY = 78;
 // deployed payload budget alongside the backgrounds.
 const HI_QUALITY = 56;
 
-
-
 /**
  * Resolve the best on-disk source for a character id (v2.0 policy).
  *
  * v2.0 rule:
  * - Preferred master: assets/portraits/<id>.png (clean square, no baked frame)
- * - Legacy .webp sources are only accepted for the two hard exceptions (brian, vanna)
+ * - Legacy .webp sources are only accepted for the framed Brian exception
  * - For all other characters, a missing PNG master is treated as an error
  *   (the build will still run but will log loudly and the asset test should catch it).
  *
@@ -78,16 +75,22 @@ export function sourceFor(id, { src = SRC, out = OUT } = {}) {
   if (candidates.length === 0) return null;
 
   for (const c of candidates) {
-    try { c.width = widthOf(c.path); } catch { c.width = 0; }
+    try {
+      c.width = widthOf(c.path);
+    } catch {
+      c.width = 0;
+    }
   }
 
-  candidates.sort((a, b) => (b.width - a.width) || (b.rank - a.rank));
+  candidates.sort((a, b) => b.width - a.width || b.rank - a.rank);
 
   const chosen = candidates[0];
 
   // Policy enforcement log
   if (!isException && !chosen.path.endsWith('.png')) {
-    console.warn(`  ⚠ ${id}: using legacy source (${chosen.path}). PNG master required for v2.0 (frame-less square).`);
+    console.warn(
+      `  ⚠ ${id}: using legacy source (${chosen.path}). PNG master required for v2.0 (frame-less square).`,
+    );
   }
   if (isException) {
     console.log(`  ℹ ${id}: using preserved exception master (framed version kept forever).`);
@@ -105,9 +108,12 @@ function convert(from, to, px, quality) {
     from,
     // "…>" only ever shrinks. A 512px source stays 512px rather than being
     // upscaled into a blurrier, larger file.
-    '-resize', `${px}x${px}>`,
-    '-quality', String(quality),
-    '-define', 'webp:method=6',
+    '-resize',
+    `${px}x${px}>`,
+    '-quality',
+    String(quality),
+    '-define',
+    'webp:method=6',
     to,
   ]);
 }
@@ -138,8 +144,8 @@ function main() {
     built += 1;
     const kb = (n) => `${(statSync(n).size / 1024).toFixed(0)}KB`;
     console.log(
-      `  ${c.id.padEnd(16)} ${String(widthOf(from)).padStart(4)}px src  ->  `
-      + `thumb ${kb(thumb).padStart(6)}  hi ${kb(hi).padStart(6)}`,
+      `  ${c.id.padEnd(16)} ${String(widthOf(from)).padStart(4)}px src  ->  ` +
+        `thumb ${kb(thumb).padStart(6)}  hi ${kb(hi).padStart(6)}`,
     );
   }
 

@@ -26,7 +26,26 @@ describe('new gameplay loop improvements', () => {
     gs.journeyDay = 100;
     gs.reputation = 85;
     gs.money = 250;
-    gs.visitedLocations = new Set(['spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic', 'river_walk', 'community_garden', 'farmers_market', 'bathhouse', 'night_market', 'flea_market', 'public_library', 'pawn_shop', 'radio_station', 'open_mic', 'landlord_office', 'sato_studio', 'alex_cocktail_bar']);
+    gs.visitedLocations = new Set([
+      'spiritual_community',
+      'bar',
+      'home_loft',
+      'rooftop',
+      'free_clinic',
+      'river_walk',
+      'community_garden',
+      'farmers_market',
+      'bathhouse',
+      'night_market',
+      'flea_market',
+      'public_library',
+      'pawn_shop',
+      'radio_station',
+      'open_mic',
+      'landlord_office',
+      'sato_studio',
+      'alex_cocktail_bar',
+    ]);
     gs.consecutiveBarDays = 2;
     assert.strictEqual(gs.checkSecondWin(), true);
   });
@@ -46,10 +65,23 @@ describe('new gameplay loop improvements', () => {
     gs.reputation = 90;
     gs.money = 300;
     gs.visitedLocations = new Set([
-      'spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic',
-      'river_walk', 'community_garden', 'farmers_market', 'bathhouse',
-      'night_market', 'flea_market', 'public_library', 'pawn_shop',
-      'radio_station', 'open_mic', 'landlord_office', 'sato_studio',
+      'spiritual_community',
+      'bar',
+      'home_loft',
+      'rooftop',
+      'free_clinic',
+      'river_walk',
+      'community_garden',
+      'farmers_market',
+      'bathhouse',
+      'night_market',
+      'flea_market',
+      'public_library',
+      'pawn_shop',
+      'radio_station',
+      'open_mic',
+      'landlord_office',
+      'sato_studio',
       'alex_cocktail_bar',
     ]);
     gs.consecutiveBarDays = 1;
@@ -95,6 +127,37 @@ describe('new gameplay loop improvements', () => {
     gs.energy = 20;
     const nudge = gs.getDailyNudge();
     assert.ok(typeof nudge.text === 'string');
-    assert.ok(nudge.text.includes('Pace') || nudge.text.includes('empty') || nudge.text.includes('rest'));
+    assert.ok(
+      nudge.text.includes('Pace') || nudge.text.includes('empty') || nudge.text.includes('rest'),
+    );
   });
+});
+
+it('settles a long trip atomically: travel rent can end the run and deltas include every travel day', async () => {
+  const { resolveTurn } = await import('../docs/js/core/turn.js');
+  const { createRng } = await import('../docs/js/core/rng.js');
+  const gs = new GameState({ seed: 1 });
+  // Day 2 is Friday, so the retreat's two additional silent nights include Sunday.
+  gs.journeyDay = 2;
+  gs.dayOfMonth = 2;
+  gs.money = 32;
+  gs.sanity = 50;
+  gs.energy = 100;
+  gs.reputation = 100;
+  const events = new EventManager(createRng(9));
+  events.initialize(gs.getCharacterNames());
+  // This test is about trip accounting, not a random event payout.
+  events._nextEventDay = 999;
+
+  const result = resolveTurn(gs, events, 'mountain_retreat');
+
+  assert.equal(result.longTrip, true);
+  assert.equal(result.extraDays, 2);
+  assert.ok(result.extraRent > 0, 'Sunday rent should be charged during travel');
+  assert.equal(gs.journeyDay, 4, 'the trip should finish on Sunday');
+  assert.equal(gs.money, 0, 'travel rent should be reflected in the final state');
+  assert.equal(result.gameOver, true, 'zero money during travel must end the run');
+  assert.equal(gs.gameOver, true);
+  assert.equal(result.deltas.money, gs.money - 32, 'displayed deltas include travel rent');
+  assert.equal(result.deltas.energy, gs.energy - 100, 'displayed deltas include recovery nights');
 });

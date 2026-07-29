@@ -146,12 +146,13 @@ export function scaleEventDeltas(event, perks) {
  * Resolve one day.
  *
  * @returns {{actionDesc:string, event:object|null, rentCharged:number,
- *            gameOver:boolean, deltas:object, reasons:string[],
- *            achievements:object[],
- *            exhaustion:number,
- *            sanityDelta:number, moneyDelta:number,
+ *            rentAmount:number, extraRent:number, extraDays:number,
+ *            longTrip:boolean, gameOver:boolean, justWon:boolean,
+ *            masteryWon:boolean, masteryMessage:string, winMessage:string,
+ *            deltas:object, reasons:string[], achievements:object[],
+ *            exhaustion:number, sanityDelta:number, moneyDelta:number,
  *            prevSanity:number, prevMoney:number, weather:object,
- *            festival:object|null}}
+ *            festival:object|null, alreadyResolved?:boolean}}
  */
 export function resolveTurn(gs, eventManager, locationId) {
   if (gs.isTurnResolved) {
@@ -160,6 +161,9 @@ export function resolveTurn(gs, eventManager, locationId) {
       event: null,
       rentCharged: 0,
       rentAmount: 0,
+      extraRent: 0,
+      extraDays: 0,
+      longTrip: false,
       gameOver: gs.gameOver,
       justWon: false,
       masteryWon: false,
@@ -218,47 +222,16 @@ export function resolveTurn(gs, eventManager, locationId) {
     }
   }
 
-  // 5 — achievements
-  const achievements = gs.checkAchievements();
-
-  // 5b — soft win (does not end the run)
-  const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
-
-  // 5c — mastery layer (fires once, does not end the run)
-  const masteryWon = typeof gs.checkSecondWin === 'function' ? gs.checkSecondWin() : false;
-  const masteryMessage = masteryWon ? gs.masteryMessage : '';
-  if (masteryWon) gs.winMessage = gs.masteryMessage;
-
-  // 6 — game over
-  const gameOver = gs.checkGameOver();
-
-  // 7 — history
-  const parts = [];
-  if (location) parts.push(location.historyLabel);
-  else if (getLocation(locationId)?.historyLabel) parts.push(getLocation(locationId).historyLabel);
-  if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
-  if (event) parts.push(`Event: ${event.title}`);
-  const line = parts.join(' / ');
-  gs.addHistory(line);
-
-  const deltas = {
-    sanity: gs.sanity - prev.sanity,
-    money: gs.money - prev.money,
-    energy: gs.energy - prev.energy,
-    reputation: gs.reputation - prev.reputation,
-    insight: gs.insight - prev.insight,
-  };
-
-  // 8 — long-trip locations (e.g. mountain retreat): resolve two additional
-  //     days of *recovery only*, charging rent on any Sundays that land in the
-  //     window. No further events fire, no further actions are taken — the
-  //     fiction is that you are off-grid, silent, unreachable. These days are
-  //     advanced on the calendar here (not in app.js) so that deltas and
-  //     stats are correct before the result modal is rendered.
+  // 5 — long-trip locations (e.g. mountain retreat): resolve two additional
+  // days of recovery only. Resolve the entire trip before achievements, wins,
+  // the final game-over check and result deltas so the turn is atomic: travel
+  // rent can never leave a live run at zero money, and the result screen never
+  // hides the cost or recovery from the player.
   const longTrip = location?.special === 'long_trip';
   let extraDays = 0;
   let extraRent = 0;
-  if (longTrip) {
+  let gameOver = gs.checkGameOver();
+  if (longTrip && !gameOver) {
     const addNight = () => {
       gs.journeyDay += 1;
       gs._advanceCalendarDay();
@@ -268,12 +241,9 @@ export function resolveTurn(gs, eventManager, locationId) {
       if (r) extraRent += r;
       gs.visitedLocations.add(location.id);
     };
-    // Two extra silent nights; the day of travel itself has already been
-    // resolved as the action day (step 1). Total calendar movement is three
-    // days, matching the "three days, counted as one turn" fiction.
+    // Two extra silent nights; the action day has already resolved above.
     addNight();
     addNight();
-    // Clamp stats after recovery
     gs.sanity = Math.max(0, Math.min(MAX_STAT, gs.sanity));
     gs.energy = Math.max(0, Math.min(MAX_ENERGY, gs.energy));
     gs.money = Math.max(0, gs.money);
@@ -287,7 +257,34 @@ export function resolveTurn(gs, eventManager, locationId) {
       gs.dayOfMonth,
     );
     gs._statsChanged();
+    // A Sunday encountered during travel can be fatal. This check is
+    // deliberately after both nights and their rent charges.
+    gameOver = gs.checkGameOver();
   }
+
+  // 6 — achievements and one-shot endings observe the final trip state.
+  const achievements = gs.checkAchievements();
+  const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
+  const masteryWon = typeof gs.checkSecondWin === 'function' ? gs.checkSecondWin() : false;
+  const masteryMessage = masteryWon ? gs.masteryMessage : '';
+  if (masteryWon) gs.winMessage = gs.masteryMessage;
+
+  // 7 — history and displayed deltas also use the final state.
+  const parts = [];
+  if (location) parts.push(location.historyLabel);
+  else if (getLocation(locationId)?.historyLabel) parts.push(getLocation(locationId).historyLabel);
+  if (rentCharged) parts.push(`Paid rent (-${rentCharged} money)`);
+  if (extraRent) parts.push(`Paid travel rent (-${extraRent} money)`);
+  if (event) parts.push(`Event: ${event.title}`);
+  gs.addHistory(parts.join(' / '));
+
+  const deltas = {
+    sanity: gs.sanity - prev.sanity,
+    money: gs.money - prev.money,
+    energy: gs.energy - prev.energy,
+    reputation: gs.reputation - prev.reputation,
+    insight: gs.insight - prev.insight,
+  };
 
   return {
     actionDesc,

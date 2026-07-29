@@ -32,9 +32,9 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current             |
 | --------------- | ------------------------------- | ------------------- |
-| Deploy payload  | 39.5 MB                         | **~2.9 MB** to play |
+| Deploy payload  | 39.5 MB                         | **3.94 MB** eager to play (+5.96 MB portrait lightbox tier; 0.80 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **360**             |
+| Automated tests | 0                               | **376**             |
 | Coverage        | —                               | **~99.7%**          |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
@@ -432,7 +432,7 @@ The lightbox fetches the hi-res sheet lazily and falls back once to the
 thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
 rather than an empty frame.
 
-**22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+**23 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
 playable location. Background paths are derived from the location catalogue by
 `scripts/check-assets.js`, so adding a location cannot silently ship a broken
 image path, and an _unreferenced_ background now fails a test rather than
@@ -459,7 +459,7 @@ asserts every repainted background keeps its master.
 Missing portraits fall back to an initials chip, which is exercised by test.
 
 Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/assets/` is ~2.9 MB eager plus ~4.4 MB of on-demand portrait sheets.
+`docs/assets/` is 3.94 MB eager plus 5.96 MB of on-demand portrait sheets; music is a separate 0.80 MB lazy asset.
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -519,12 +519,9 @@ zero just below its own threshold.
 Coverage on shipped code:
 
 ```
-app.js             ~99-100 across the board
-core/*            ~99-100 across the board
-data/*            ~99-100 across the board
-ui/screens.js      99.72 line | 84.06 branch |  97.10 funcs
-────────────────────────────────────────────────────────────
-all files          99.46 line | 90.38 branch |  96.03 funcs
+Measured 29 July 2026 (run `npm run coverage:check` for the current figure):
+
+all files          98.35 line | 86.68 branch | 92.19 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -551,5 +548,5 @@ by a dedicated test that boots the app with the media query forced on.
 
 - **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
   a real phone is still worthwhile (HUD identity row + six-card hub grid).
-- **No audio.**
+- **Music is optional and off by default.** A lazy-loaded PCM WAV loop is enabled only through Settings.
   has not bitten yet.

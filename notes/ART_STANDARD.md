@@ -7,15 +7,15 @@ All newly generated or regenerated portraits must be clean, square 1024px-or-lar
 ## Frozen exceptions
 
 - **Brian**: preserve the current portrait exactly. Never regenerate or reframe it.
-- **Vanna**: preserve the current bunny portrait exactly. Never regenerate or reframe it; the bunny/woman ambiguity is intentional.
+- **Vanna**: preserve the canonical close-up rabbit portrait exactly. It is already a clean square image; do not regenerate it. Its source and deployed tiers are locked by SHA-256 tests.
 
-All other portraits follow the frame-less standard. Brian and Vanna are the only exceptions.
+All portraits except Brian follow the frame-less standard. Brian is the only framed exception.
 
 ## Regenerated frame-removal batch — current pass
 
 The following visually-audited, circular-framed portraits were replaced with clean square masters and both deployed WebP tiers were rebuilt:
 
-`cary`, `crveni`, `daniela`, `diamndsdancin`, `docbot`, `fraghis`, `friend`, `hanans`, `hazel`, `iulian`.
+`cary`, `crveni`, `daniela`, `diamndsdancin`, `docbot`, `fraghis`, `friend`, `hanans`, `hazel`, `iulian`, `ahyeon`, `air_vaisselle`, `alvigunilla`, `andre_watson`, `aril_stellar`, `baris`, `blokely`, `brendan`, `carl_bot`.
 
 The batch was selected from visibly framed portraits with clear character/location briefs, not randomly. Non-human requirements were preserved: DocBot is an unmistakably mechanical clinic kiosk.
 
@@ -23,7 +23,7 @@ The batch was selected from visibly framed portraits with clear character/locati
 
 Continue in reviewed batches after an image-by-image check:
 
-`ahyeon`, `air_vaisselle`, `alvigunilla`, `andre_watson`, `aril_stellar`, `baris`, `blokely`, `brendan`, `carl_bot`, `cat`, `geo`, `gordon`, `jared`, `jits`, `kaschem`, `mrone`, `oh`, `qustoge`, `renata`, `raul`, `scatmandu`, `seth`, `siekamcebule`, `sir_cruds`, `susan`, `yungnosaj`.
+`cat`, `geo`, `gordon`, `jared`, `jits`, `kaschem`, `mrone`, `oh`, `qustoge`, `renata`, `raul`, `scatmandu`, `seth`, `siekamcebule`, `sir_cruds`, `susan`, `yungnosaj`.
 
 ## Character constraints
 
