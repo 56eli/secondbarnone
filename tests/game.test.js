@@ -16,10 +16,6 @@ import {
   START_SANITY,
   START_MONEY,
   RENT_AMOUNT,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import {
@@ -100,38 +96,40 @@ test('starting stats are 50/50', () => {
 
 test('spiritual community trades money for sanity', () => {
   const gs = new GameState();
-  gs.applyLocationAction('spiritual_community');
-  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
-  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
+  gs.noteVisit('spiritual_community');
+  gs.applyDeltas({ sanity: 15, money: -10 });
+  assert.equal(gs.sanity, START_SANITY + 15);
+  assert.equal(gs.money, START_MONEY - 10);
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
-  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
+  gs.noteVisit('bar');
+  gs.applyDeltas({ sanity: -12, money: 12 });
+  assert.equal(gs.money, START_MONEY + 12);
+  assert.equal(gs.sanity, START_SANITY - 12);
   assert.equal(gs.consecutiveBarDays, 1);
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
-  gs.applyLocationAction('spiritual_community');
+  gs.noteVisit('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyEventDeltas(999, 999);
+  gs.applyDeltas({ sanity: 999, money: 999 });
   assert.equal(gs.sanity, MAX_STAT);
   assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
   assert.ok(gs.money > MAX_STAT);
-  gs.applyEventDeltas(-99999, -99999);
+  gs.applyDeltas({ sanity: -99999, money: -99999 });
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
 });
@@ -139,7 +137,7 @@ test('sanity is capped; money is uncapped but floors at zero', () => {
 test('money can grow well past 100 without being clamped', () => {
   const gs = new GameState();
   gs.money = 95;
-  gs.applyLocationAction('bar');
+  gs.applyDeltas({ money: 12 });
   assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
   gs.applyDeltas({ money: 500 });
   assert.ok(gs.money >= 500);

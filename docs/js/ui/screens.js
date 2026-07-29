@@ -7,6 +7,7 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
+import { eventsForCharacter } from '../data/events.js';
 import { MAX_STAT, MAX_ENERGY, MAX_REPUTATION, ENDURANCE_GOAL_DAYS } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
 import {
@@ -433,7 +434,7 @@ export function renderHub(gs, handlers) {
 
 // ------------------------------------------------------------- location
 
-export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
+export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, onBuyRenovation }) {
   const location = getLocation(locationId);
   const { total, reasons } = computeDayEffects(gs, locationId);
   const weatherEmojiForLocation = reasons.some(
@@ -511,6 +512,36 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
     ),
 
     special,
+    locationId === 'house_of_middleway' && gs.isRenovationUnlocked?.()
+      ? el(
+          'div',
+          { class: 'community-projects preview' },
+          el('h3', { text: 'Community Projects: House of Middleway Renovation' }),
+          el('p', {
+            class: 'preview-why',
+            text: 'Use your insight and community resources to restore the sanctuary.',
+          }),
+          el(
+            'div',
+            { class: 'renovation-list' },
+            ...gs.getRenovations().map((r) => {
+              if (r.owned) {
+                return el('div', {
+                  class: 'renovation-item owned',
+                  text: `✓ ${r.name} — Completed (+${r.reward.reputation} Rep, +${r.reward.sanity} Sanity)`,
+                });
+              }
+              return el('button', {
+                class: 'btn btn-small project-btn',
+                disabled: !r.canBuy,
+                text: `Fund: ${r.name} (${r.cost.insight} Insight, ${r.cost.money} Money)`,
+                title: r.desc,
+                onclick: () => onBuyRenovation?.(r.id),
+              });
+            }),
+          ),
+        )
+      : null,
     el('div', { class: 'action-row' }, actionBtn, backBtn),
   );
 
@@ -815,7 +846,26 @@ const GROUP_TITLES = {
   [Role.SIDE_CHARACTER]: 'Side Characters',
 };
 
-export function renderCharacters(profiles, { onBack }) {
+export function getRelationshipMarker(gs, profile) {
+  if (!gs || !profile) return '';
+  const seen = gs.eventsSeen || new Set();
+  const id = profile.id;
+  const charEvents = eventsForCharacter(id);
+  const count = charEvents.filter((e) => seen.has(e.id)).length;
+
+  if (['sato', 'alex', 'kaden', 'brian'].includes(id)) {
+    if (count === 0) return 'First meeting pending';
+    if (count === 1) return 'Acquainted · First conversation';
+    if (count === 2) return 'Arc deepening · Second beat fired';
+    return 'Long-standing acquaintance · Late arc';
+  }
+
+  if (count === 0) return 'Unmet in conversation';
+  if (count === 1) return 'First conversation had';
+  return `Familiar (${count} encounters)`;
+}
+
+export function renderCharacters(profiles, { onBack, gs }) {
   const detail = el(
     'div',
     { class: 'detail' },
@@ -841,6 +891,8 @@ export function renderCharacters(profiles, { onBack }) {
         {},
         el('dt', { text: 'Relationship to Léon' }),
         el('dd', { text: p.relationship }),
+        gs ? el('dt', { text: 'Arc status' }) : null,
+        gs ? el('dd', { text: getRelationshipMarker(gs, p) }) : null,
         el('dt', { text: 'Usually found at' }),
         el('dd', { text: p.location }),
       ),
@@ -849,6 +901,7 @@ export function renderCharacters(profiles, { onBack }) {
 
   const allRows = [];
   const makeRow = (p) => {
+    const marker = gs ? getRelationshipMarker(gs, p) : null;
     const row = el(
       'button',
       {
@@ -863,6 +916,7 @@ export function renderCharacters(profiles, { onBack }) {
         el('div', { class: 'char-name', text: p.name }),
         el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
         el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` }),
+        marker ? el('div', { class: 'char-marker', text: `❖ ${marker}` }) : null,
       ),
     );
 

@@ -2,6 +2,30 @@
 
 Entries are newest-first, dated against the working branch.
 
+## 2026-07-30 — Late-Game Renovations, Rebalanced Core Loop, Relationship Markers, Technical Debt & Art Regeneration
+
+### Mechanics and Game Balance
+- Rebalanced the economy around the founding loop (`spiritual_community` + `bar`). Meditating at La Maison Calme now restores +18 sanity / -8 money, and working a shift at Le Dernier Verre earns +20 money / -14 sanity, making the core loop sustainable and reliable against escalating rent.
+- Tuned secondary location costs so that static preview-reading (`greedy`) players run out of money or sanity when ignoring rent timing and headroom, dropping the `greedy` 60-day endurance goal rate to ~23% (unachievable for >75% of greedy players).
+- Calibrated `average` player goal rate to ~45% (within the committed 50% ±7% band) and `concentrates` / `min_maxing` to 100%, creating a meaningful skill gradient.
+- Introduced **Community Projects: House of Middleway Renovation** (`docs/js/data/renovations.js`), unlocking when reaching Day 60 OR purchasing all 10 perks. Added 4 progressive sanctuary renovation projects (`roof_repair`, `community_kitchen`, `meditation_garden`, `sanctuary_library`) that allow players to invest late-game Insight and Money in exchange for Reputation and Sanity.
+
+### UX, UI, and Accessibility
+- Added `getRelationshipMarker(gs, profile)` in `docs/js/ui/screens.js`, displaying real-time narrative arc progression badges (`First meeting pending` → `Arc deepening · Second beat fired`) on the `People` screen and character detail view for key arcs (`Sato`, `Alex`, `Kaden`, `Brian`) and side characters.
+- Updated `.portrait-close` mobile touch target size to 44×44px on <=480px viewports for accessibility compliance.
+- Configured `initGame({ fadeMs: 0, toastMs: 50 })` and microtask `settle()` delays across all jsdom UI tests (`ui.test.js`, `dom.test.js`, `portrait-popup.test.js`, `slots.test.js`), reducing total UI test execution time from ~96 seconds down to <10 seconds.
+
+### Architecture and Technical Debt
+- Extracted `PreferencesService` (`docs/js/ui/preferences-service.js`) to manage high contrast, reduced motion, sound/volume settings, audio lifecycle, and localStorage persistence.
+- Extracted `ModalController` (`docs/js/ui/modal-controller.js`) to manage modal appending, focus traps, backdrop handling, and cleanup.
+- Removed obsolete legacy compatibility shims (`applyLocationAction`, `applyEventDeltas`, `LOCATION_COPY`, `SANITY_GAIN/MONEY_GAIN/SANITY_LOSS/MONEY_LOSS`, and `_lastRentJourneyDay` serialized property) to shrink production code.
+- Added unit test suites for `PreferencesService`, `ModalController`, `RENOVATIONS`, and relationship markers.
+
+### Art and Asset Pipeline
+- Configured Git LFS tracking for `assets/**` in `.gitattributes` to keep clone sizes lean while versioning source art masters.
+- Removed obsolete legacy procedural avatar scripts (`generate-avatars.js`, `process-portrait.sh`).
+- Regenerated clean, square, frame-less painterly portraits for 9 characters: Brock Lee, Kaschem, Carl-bot (turtle robot), Sir Cruds, Baris, Aril Stellar, Alvigunilla, Mrone, and Stephen, keeping gender and character identities consistent. Rebuilt deployed thumbnail (288px) and high-resolution (896px) WebP tiers and deleted obsolete circular-framed masters.
+
 ## 2026-07-29 — atomic travel, verified music, portrait-standard continuation
 
 ### Mechanics and quality gates

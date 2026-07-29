@@ -34,8 +34,8 @@ As plain ES modules the source _is_ the build:
 | --------------- | ------------------------------- | ------------------- |
 | Deploy payload  | 39.5 MB                         | **3.94 MB** eager to play (+5.96 MB portrait lightbox tier; 0.80 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **372**             |
-| Coverage        | —                               | **~99.7%**          |
+| Automated tests | 0                               | **385**             |
+| Coverage        | —                               | **~98.2%**          |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -474,7 +474,7 @@ The test suite spans rule, catalogue, asset, balance and jsdom UI coverage.
 | `balance.test.js`    | 34      | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
 | `cast.test.js`       | 28      | Character↔location binding, the three-events-each floor, and event reachability                                                                            |
 | `slots.test.js`      | 22      | Hub slot assignment and rotation, in data and in the rendered DOM                                                                                          |
-| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants                                       |
+| Ten existing files | **289** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, renovations, relationship markers, preferences/modals, and portrait/background asset invariants |
 
 `tests/portrait-assets.test.js` is new and checks the art itself rather than
 the code that renders it: both tiers exist for all 78 characters, thumbnails
@@ -519,9 +519,9 @@ zero just below its own threshold.
 Coverage on shipped code:
 
 ```
-Measured 29 July 2026 (run `npm run coverage:check` for the current figure):
+Measured 30 July 2026 (run `npm run coverage:check` for the current figure):
 
-all files          98.35 line | 86.68 branch | 92.19 funcs
+all files          98.15 line | 85.32 branch | 92.00 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits

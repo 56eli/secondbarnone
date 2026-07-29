@@ -149,17 +149,6 @@ test('applyDeltas ignores unknown keys and an empty bundle', () => {
   assert.equal(gs.energy, before.e);
 });
 
-test('the legacy applyEventDeltas signature still works', () => {
-  const gs = fresh();
-  gs.applyEventDeltas(-5, 7);
-  assert.equal(gs.sanity, 45);
-  assert.equal(gs.money, 57);
-  gs.applyEventDeltas(0, 0, -10, 5, 2);
-  assert.equal(gs.energy, START_ENERGY - 10);
-  assert.equal(gs.reputation, START_REPUTATION + 5);
-  assert.equal(gs.insight, 2);
-});
-
 test('stats_changed reports all four gauges', () => {
   const gs = fresh();
   let seen = null;

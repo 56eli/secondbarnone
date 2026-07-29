@@ -34,8 +34,8 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | Deploy payload  | 39.5 MB                         | **3.94 MB** eager (+5.96 MB of full-size portraits fetched only when tapped; 0.80 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **379**                                                                        |
-| Coverage        | —                               | **~99.7%**                                                                     |
+| Automated tests | 0                               | **385**                                                                        |
+| Coverage        | —                               | **~98.2%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -63,10 +63,10 @@ npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
 
-Current measured coverage (29 July 2026) — `npm run coverage:check`:
+Current measured coverage (30 July 2026) — `npm run coverage:check`:
 
 ```
-all files    98.35 line | 86.68 branch | 92.19 funcs
+all files    98.15 line | 85.32 branch | 92.00 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are

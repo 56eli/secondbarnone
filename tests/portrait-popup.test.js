@@ -50,7 +50,7 @@ async function boot(opts = {}) {
   });
 
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame(opts);
+  window.__game = initGame({ fadeMs: 0, toastMs: 50, ...opts });
   return window;
 }
 
@@ -62,7 +62,7 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-const settle = () => new Promise((r) => setTimeout(r, 480));
+const settle = () => new Promise((r) => setTimeout(r, 10));
 
 maybe('clicking the HUD portrait enlarges the picture and nothing else', async () => {
   const window = await boot();

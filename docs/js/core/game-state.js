@@ -13,16 +13,13 @@ import { aggregatePerks, canBuyPerk, getPerk } from '../data/perks.js';
 import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
+import { RENOVATIONS, getRenovation } from '../data/renovations.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
   MAX_STAT,
   START_SANITY,
   START_MONEY,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_RECOVERY,
@@ -55,10 +52,6 @@ export {
   START_MONEY,
   MONEY_SOFT_CAP,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_FULL_RECOVERY_DAYS,
@@ -146,7 +139,7 @@ export class GameState {
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
     this._turnResolvedOnDay = -1;
-    this._lastRentJourneyDay = -1;
+    this._rentChargedOnDay = -1;
     /** Set of journeyDay values for Sundays that have been pre-paid.
      *  Prepaying on a due Sunday never adds today to this set. */
     this.rentPrepaidDays = new Set();
@@ -154,6 +147,8 @@ export class GameState {
     this.recentHistory = [];
 
     this.perks = new Set();
+    this.renovations = new Set();
+    this.eventsSeen = new Set();
     this.achievements = new Set();
     this.visitedLocations = new Set();
     this.nightDays = 0;
@@ -299,6 +294,42 @@ export class GameState {
     return true;
   }
 
+  isRenovationUnlocked() {
+    return this.journeyDay >= ENDURANCE_GOAL_DAYS || this.perks.size >= 10;
+  }
+
+  getRenovations() {
+    return RENOVATIONS.map((r) => {
+      const owned = this.renovations.has(r.id);
+      const canBuy =
+        !owned &&
+        this.isRenovationUnlocked() &&
+        this.insight >= r.cost.insight &&
+        this.money >= r.cost.money;
+      return { ...r, owned, canBuy };
+    });
+  }
+
+  buyRenovation(id) {
+    if (!this.isRenovationUnlocked()) return false;
+    const ren = getRenovation(id);
+    if (!ren || this.renovations.has(id)) return false;
+    if (this.insight < ren.cost.insight || this.money < ren.cost.money) return false;
+
+    this.insight = Math.max(0, this.insight - ren.cost.insight);
+    this.money = Math.max(0, this.money - ren.cost.money);
+    this.renovations.add(id);
+
+    this.applyDeltas({
+      reputation: ren.reward.reputation,
+      sanity: ren.reward.sanity,
+    });
+
+    this.emit('renovations_changed', id);
+    this._statsChanged();
+    return true;
+  }
+
   // ---------------- stat mutation ----------------
 
   /**
@@ -314,23 +345,6 @@ export class GameState {
     this.reputation = clamp(this.reputation + (d.reputation ?? 0), 0, MAX_REPUTATION);
     this.insight = Math.max(this.insight + (d.insight ?? 0), 0);
     this._statsChanged();
-  }
-
-  /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(
-    sanityDelta,
-    moneyDelta,
-    energyDelta = 0,
-    reputationDelta = 0,
-    insightDelta = 0,
-  ) {
-    this.applyDeltas({
-      sanity: sanityDelta,
-      money: moneyDelta,
-      energy: energyDelta,
-      reputation: reputationDelta,
-      insight: insightDelta,
-    });
   }
 
   /** Overnight energy recovery, boosted by Second Wind. */
@@ -375,7 +389,7 @@ export class GameState {
    */
   isRentDue() {
     if (this.getWeekdayIndex() !== 6) return false;
-    if (this._lastRentJourneyDay === this.journeyDay) return false;
+    if (this._rentChargedOnDay === this.journeyDay) return false;
     if (this.rentPrepaidDays.has(this.journeyDay)) return false;
     if (this.getFestival()?.waivesRent) return false;
     return true;
@@ -403,9 +417,9 @@ export class GameState {
    */
   applyRentIfSunday() {
     if (this.getWeekdayIndex() !== 6) return 0;
-    if (this._lastRentJourneyDay === this.journeyDay) return 0;
+    if (this._rentChargedOnDay === this.journeyDay) return 0;
     if (this.getFestival()?.waivesRent) return 0;
-    this._lastRentJourneyDay = this.journeyDay;
+    this._rentChargedOnDay = this.journeyDay;
     const amount = this.rentPrepaidDays.has(this.journeyDay) ? 0 : this.rentDue();
     this.rentPrepaidDays.delete(this.journeyDay);
     if (amount > 0) {
@@ -458,22 +472,6 @@ export class GameState {
     this._turnResolvedOnDay = this.journeyDay;
   }
 
-  /** Legacy two-location action, retained so old callers keep working. */
-  applyLocationAction(location) {
-    if (location === 'spiritual_community') {
-      this.sanity = Math.min(this.sanity + SANITY_GAIN, MAX_STAT);
-      this.money = Math.max(this.money - MONEY_LOSS, 0);
-      this.consecutiveBarDays = 0;
-    } else if (location === 'bar') {
-      // Money is uncapped — bar tips keep stacking past the old 100 ceiling.
-      this.money = Math.min(this.money + MONEY_GAIN, MONEY_HARD_CEILING);
-      this.sanity = Math.max(this.sanity - SANITY_LOSS, 0);
-      this.consecutiveBarDays += 1;
-    }
-    this.lastLocationVisited = location;
-    this._statsChanged();
-  }
-
   /** Record that a day was spent somewhere. */
   noteVisit(locationId) {
     const location = getLocation(locationId);
@@ -483,6 +481,11 @@ export class GameState {
     else this.consecutiveBarDays = 0;
     if (location?.tags.includes('night')) this.nightDays += 1;
     if (this.getFestival()) this.festivalsSeen += 1;
+  }
+
+  recordEventSeen(event) {
+    if (!event || !event.id) return;
+    this.eventsSeen.add(event.id);
   }
 
   checkGameOver() {
@@ -707,11 +710,12 @@ export class GameState {
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       turnResolvedOnDay: this._turnResolvedOnDay,
-      lastRentJourneyDay: this._lastRentJourneyDay,
       rentPrepaidDays: [...this.rentPrepaidDays],
       rentPaidCount: this.rentPaidCount,
       recentHistory: [...this.recentHistory],
       perks: [...this.perks],
+      renovations: [...this.renovations],
+      eventsSeen: [...this.eventsSeen],
       achievements: [...this.achievements],
       visitedLocations: [...this.visitedLocations],
       nightDays: this.nightDays,
@@ -750,7 +754,6 @@ export class GameState {
     this.lastLocationVisited =
       typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
     this._turnResolvedOnDay = num(migrated.turnResolvedOnDay, -1);
-    this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
     this.rentPaidCount = num(migrated.rentPaidCount, 0);
     // Rent prepayments: v5 stores an explicit set of Sundays; older saves
     // used a single "prepaidUntilDay" number. Import both.
@@ -775,6 +778,8 @@ export class GameState {
     this.recentHistory = arr(migrated.recentHistory).slice(0, 5);
 
     this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
+    this.renovations = new Set(arr(migrated.renovations).filter((id) => getRenovation(id)));
+    this.eventsSeen = new Set(arr(migrated.eventsSeen).filter((id) => typeof id === 'string'));
     this.achievements = new Set(arr(migrated.achievements));
     this.visitedLocations = new Set(arr(migrated.visitedLocations));
     this.nightDays = num(migrated.nightDays, 0);

@@ -304,6 +304,8 @@ async function boot(opts = {}) {
     seed: opts.seed ?? 12345,
     storage: fakeStorage(),
     autoload: false,
+    fadeMs: 0,
+    toastMs: 50,
   });
   return window;
 }
