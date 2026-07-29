@@ -17,10 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createAllProfiles } from '../docs/js/data/characters.js';
 import { LOCATIONS } from '../docs/js/data/locations.js';
-import { sourceFor, THUMB_PX, HI_PX, FRAME_EXCEPTIONS } from '../scripts/build-portraits.js';
-
-// v2.0 policy constants
-const FRAMELESS_STANDARD = true; // all new art must be clean square (no baked frame)
+import { sourceFor, THUMB_PX, HI_PX, LOCKED_PORTRAITS } from '../scripts/build-portraits.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -215,27 +212,18 @@ test('sourceFor prefers the largest available source, not the first format', () 
   }
 });
 
-// ------------------------------------------------------------- v2.0 frame-less policy
+// ------------------------------------------------------------- approved-art policy
 
-test('v2.0: non-exception characters prefer clean PNG masters (no baked frame sources)', () => {
+test('every current portrait has an approved PNG master', () => {
   for (const c of profiles) {
-    if (FRAME_EXCEPTIONS.has(c.id)) continue;
-
-    const pngPath = join(ROOT, 'assets', 'portraits', `${c.id}.png`);
-    const webpPath = join(ROOT, 'assets', 'portraits', `${c.id}.webp`);
-
-    // Strong recommendation: every non-exception should have a PNG master
-    // (this will become a hard assert once the 16 missing masters are added)
-    if (existsSync(webpPath) && !existsSync(pngPath)) {
-      // Soft warning in test output — real enforcement lives in build + CI
-      console.warn(
-        `  ⚠ v2.0 policy: ${c.id} still uses legacy .webp as best source. PNG master required.`,
-      );
-    }
+    assert.ok(
+      existsSync(join(ROOT, 'assets', 'portraits', `${c.id}.png`)),
+      `${c.id}: approved portrait master is missing`,
+    );
   }
 });
 
-test('Brian and Vanna are immutable art exceptions', () => {
+test('Brian and Vanna are immutable approved-art locks', () => {
   // These are content locks, not a permission to regenerate them later.
   // Vanna is the canonical close-up rabbit portrait supplied by the project
   // owner; this test deliberately pins its source and both derived tiers.
@@ -251,8 +239,8 @@ test('Brian and Vanna are immutable art exceptions', () => {
       hi: '6de3faa89b7ae54bef770bb033027f68eba3d60b2d3332f2a44e21edbd912fd5',
     },
   };
-  assert.deepEqual(FRAME_EXCEPTIONS, new Set(['brian']));
-  assert.deepEqual(new Set(Object.keys(frozen)), new Set(['brian', 'vanna']));
+  assert.deepEqual(LOCKED_PORTRAITS, new Set(['brian', 'vanna']));
+  assert.deepEqual(new Set(Object.keys(frozen)), LOCKED_PORTRAITS);
   for (const [id, hashes] of Object.entries(frozen)) {
     assert.equal(sha256(join(ROOT, 'assets', 'portraits', `${id}.png`)), hashes.master);
     assert.equal(sha256(join(PORTRAITS, `${id}.webp`)), hashes.thumb);

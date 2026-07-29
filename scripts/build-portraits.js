@@ -5,12 +5,13 @@
  * Presentation model (long-term health):
  *   • All previews in the game (HUD, lists, hosts, events) are ROUND via CSS.
  *   • The lightbox popup shows CLEAN SQUARE art at standardized size.
- *   • NO baked circular frames in new or regenerated masters (except hard exceptions).
+ *   • NO baked circular frames in new or regenerated masters.
  *
- * Hard permanent exceptions (never regenerate):
- *   • brian  — keeps its framed master forever
+ * Content-locked portraits (Brian and Vanna) are protected by SHA-256 tests.
+ * A content lock is not a frame exception: both keep their approved clean-square
+ * source and must never be regenerated without owner approval.
  *
- * For everyone else: source masters must be clean square PNGs (≥1024px).
+ * All source masters must be clean square PNGs (≥1024px for new art).
  *
  * The game needs each portrait at two very different sizes:
  *
@@ -19,7 +20,7 @@
  *
  * Source preference (strict for v2.0):
  *   assets/portraits/<id>.png     ← ONLY accepted master for new art
- *   (legacy .webp / .svg are tolerated only for the two exceptions during transition)
+ *   (legacy deployed WebP is a last-resort read-only fallback during transition)
  *
  * Usage: node scripts/build-portraits.js [--only id,id,...]
  */
@@ -39,11 +40,8 @@ const OUT_HI = join(OUT, 'hi');
 export const THUMB_PX = 288;
 export const HI_PX = 896;
 
-/**
- * Hard permanent exceptions — these two keep their original framed art forever.
- * All other characters must use clean square PNG masters (no baked frame).
- */
-export const FRAME_EXCEPTIONS = new Set(['brian']);
+/** Portraits that are content-locked by exact SHA-256 tests. */
+export const LOCKED_PORTRAITS = new Set(['brian', 'vanna']);
 const THUMB_QUALITY = 78;
 // 896px/q56 was chosen by comparing 100% crops against q68: no visible
 // difference in the painted style, ~18% smaller. 896px still covers the
@@ -56,19 +54,16 @@ const HI_QUALITY = 56;
  *
  * v2.0 rule:
  * - Preferred master: assets/portraits/<id>.png (clean square, no baked frame)
- * - Legacy .webp sources are only accepted for the framed Brian exception
- * - For all other characters, a missing PNG master is treated as an error
+ * - Legacy .webp sources are a transition fallback only; no build may overwrite
+ *   a content-locked portrait without its SHA-256 review being updated
  *   (the build will still run but will log loudly and the asset test should catch it).
  *
  * "Best" still prefers largest resolution.
  */
 export function sourceFor(id, { src = SRC, out = OUT } = {}) {
-  const isException = FRAME_EXCEPTIONS.has(id);
-
   const candidates = [
     { path: join(src, `${id}.png`), rank: 3 },
-    // Legacy WebP only tolerated for the two permanent framed exceptions
-    ...(isException ? [{ path: join(src, `${id}.webp`), rank: 2 }] : []),
+    { path: join(src, `${id}.webp`), rank: 2 },
     { path: join(out, `${id}.webp`), rank: 1 },
   ].filter((c) => existsSync(c.path));
 
@@ -87,13 +82,10 @@ export function sourceFor(id, { src = SRC, out = OUT } = {}) {
   const chosen = candidates[0];
 
   // Policy enforcement log
-  if (!isException && !chosen.path.endsWith('.png')) {
+  if (!chosen.path.endsWith('.png')) {
     console.warn(
       `  ⚠ ${id}: using legacy source (${chosen.path}). PNG master required for v2.0 (frame-less square).`,
     );
-  }
-  if (isException) {
-    console.log(`  ℹ ${id}: using preserved exception master (framed version kept forever).`);
   }
 
   return chosen.path;
