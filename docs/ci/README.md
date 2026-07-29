@@ -46,16 +46,21 @@ the layer that broke rather than reporting "tests failed".
 | ------------ | -------------------------------------------------------- | ------- |
 | `quality`    | `lint`, `typecheck`, `format:check`                      | 10 s    |
 | `rules`      | `test:fast` — balance, invariants, exploits, content     | 3 s     |
-| `interface`  | `test:ui` — jsdom DOM, UI and accessibility              | 60 s    |
+| `interface`  | `test:ui` — jsdom DOM, UI and accessibility              | 40 s    |
 | `assets`     | `test:assets` + `check-assets.js` (installs ImageMagick) | 40 s    |
-| `coverage`   | `coverage:check` — 80% floor on all three metrics        | 120 s   |
+| `coverage`   | `coverage:check` — 80% floor on all three metrics        | 60 s    |
 
 `rules` is the gate that should fail first: it is the fastest and covers the
 game logic where the expensive bugs live.
 
+Deliberately **not** in the workflow: `npm run test:mutation`. The mutation
+harness writes to source files and refuses to run on a dirty tree, which
+makes it a poor per-commit gate — it belongs to a scheduled nightly run or a
+manual pass before a release. See roadmap 3.4.
+
 ## Running the same checks locally
 
 ```bash
-npm run test:fast     # while working — ~330 rules tests, ~3 s
+npm run test:fast     # while working — 353 rules tests, ~3 s
 npm run check         # before pushing — everything + asset integrity
 ```
