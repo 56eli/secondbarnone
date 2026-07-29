@@ -2,6 +2,26 @@
 
 Entries are newest-first, dated against the working branch.
 
+## 2026-07-29 — atomic travel, verified music, portrait-standard continuation
+
+### Mechanics and quality gates
+- Made Mountain Retreat resolution atomic. Sunday rent during its two silent travel days now correctly triggers game over at zero money, and displayed turn deltas include all travel recovery and rent.
+- Added a regression test for a Friday retreat that reaches a fatal Sunday.
+- Turned typechecking into a real gate: TypeScript and `jsconfig.json` are committed, `npm run typecheck` fails on errors, and CI runs lint, formatting and typechecking before the coverage suite.
+- Added the documented `npm run simulate` command and Node 20+ engine declaration.
+- Removed the stale `package-lock.json` ignore rule.
+
+### Music
+- Rebuilt the background loop as standard 16-bit PCM, mono, 22.05 kHz WAV. The previous deployment header advertised an invalid 34-bit PCM layout that browsers could not reliably decode.
+- Added an asset-level test that validates the deployed WAV header and the 1 MiB lazy-audio cap.
+
+### Art
+- Restored Vanna from the owner-supplied canonical rabbit portrait, replaced the obsolete human-at-a-bar master and regenerated both WebP tiers. Exact hashes now lock the canonical master and derived files.
+- Removed Vanna from the framed-art exception list: her canonical image is already a clean square source. Brian remains the sole framed exception.
+- Replaced nine further circular-framed portrait masters with clean, square painterly art: Ahyeon, Air-Vaisselle, Alvigunilla, Andre Watson, Aril Stellar, Baris, blokely, Brendan and Carl-bot. Updated the reviewed-art backlog.
+
+---
+
 ## 2026-07-29 — P0 fixes + audio + save/abandon
 
 ### Mechanics

@@ -147,6 +147,7 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
  *
  * Closing never touches game state.
  */
+/** @param {object} profile @param {{onClose?:()=>void}} [options] */
 export function renderPortraitPopup(profile, { onClose } = {}) {
   const thumb = profile.portrait || `assets/portraits/${profile.id}.webp`;
   const full = profile.portraitHi || `assets/portraits/hi/${profile.id}.webp`;
@@ -218,7 +219,7 @@ export function openCharacterPopup(profile) {
   const close = () => {
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
-    if (previouslyFocused?.focus) previouslyFocused.focus();
+    if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
   };
   const onKey = (e) => {
     if (e.key === 'Escape') close();
@@ -1068,7 +1069,7 @@ export function renderResultModal(result, gs, { onContinue }) {
   document.addEventListener('keydown', onKey);
   backdrop._cleanup = () => {
     document.removeEventListener('keydown', onKey);
-    if (prevFocus?.focus) prevFocus.focus();
+    if (prevFocus instanceof HTMLElement) prevFocus.focus();
   };
   return backdrop;
 }

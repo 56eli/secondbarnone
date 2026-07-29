@@ -270,7 +270,7 @@ const RAW = [
     role: Role.SIDE_CHARACTER,
     bio: 'An illustrator who sketches everyone at the bar without asking and gives the drawings away for free. Works nights, sleeps days, dreams vividly and talks about it at length.',
     relationship:
-      'Has drawn Léon forty-one times and never once got his eyes right, which she finds hilarious.',
+      'Has drawn Léon forty-one times and never once got his eyes right, which he finds hilarious.',
     locationId: 'rooftop',
   },
   {

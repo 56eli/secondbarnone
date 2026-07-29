@@ -32,9 +32,9 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 |                 | Godot version                   | This version                                                                   |
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
-| Deploy payload  | 39.5 MB                         | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
+| Deploy payload  | 39.5 MB                         | **3.94 MB** eager (+5.96 MB of full-size portraits fetched only when tapped; 0.80 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **374**                                                                        |
+| Automated tests | 0                               | **379**                                                                        |
 | Coverage        | —                               | **~99.7%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -63,14 +63,24 @@ npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
 ```
 
-Current coverage — `npm run coverage:check`:
+Current measured coverage (29 July 2026) — `npm run coverage:check`:
 
 ```
-all files    99.65 line | 90.38 branch | 96.00 funcs
+all files    98.35 line | 86.68 branch | 92.19 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
 deterministic while normal play stays random.
+
+### Difficulty assessment
+
+`npm run simulate -- --runs=300 --days=61` drives seven deterministic player
+models through the **actual six-card hub**: `random`, `doesnt_pay_attention`,
+`pays_attention_sometimes`, `average`, `greedy`, `concentrates`, and
+`min_maxing`. The dedicated `tests/difficulty.test.js` calibrates the 60-day
+soft win so the defined average player succeeds **50% ±7%** of the time over
+300 seeded runs. The models are balancing instruments, not claims about real
+players; human playtests remain the final authority.
 
 Asset integrity is checked separately:
 

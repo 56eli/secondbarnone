@@ -187,10 +187,9 @@ export function varianceForDay(location, journeyDay = 1, seed = 0) {
  * @param {object} cfg
  * @returns {object} a frozen location definition
  */
-function loc(cfg) {
+function loc({ unlock: unlockConfig, ...cfg }) {
   return Object.freeze({
     tags: [],
-    unlock: {},
     special: null,
     bg: '',
     /** Side character who "keeps" this place — shown on the location card. */
@@ -207,7 +206,7 @@ function loc(cfg) {
     effects: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.effects },
     /** Maximum daily swing in each direction. See varianceForDay(). */
     variance: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.variance },
-    unlock: { minDay: 1, minReputation: 0, ...cfg.unlock },
+    unlock: { minDay: 1, minReputation: 0, ...unlockConfig },
   });
 }
 

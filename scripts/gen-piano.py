@@ -7,10 +7,10 @@ Stdlib only; no external samples or dependencies.
 """
 import math, struct, wave, os, random
 
-SR = 44100
-BPM = 56
+SR = 22050
+BPM = 60
 BEAT = 60.0 / BPM
-BARS = 8
+BARS = 4
 BAR = BEAT * 4
 DUR = BARS * BAR
 
