@@ -6,23 +6,38 @@
  * re-importing the module.
  *
  * Owns the HUD, screen switching with fade transitions, the result modal,
- * toasts, autosave and the game-over overlay. Game rules live in core/; this
- * file is presentation and wiring only.
+ * toasts, autosave, audio and the game-over overlay. Game rules live in core/;
+ * this file is presentation and wiring only.
  */
 
 import { resourceBarClass } from './core/resource-bar.js';
 import {
-  GameState, MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP, saveStore,
+  GameState,
+  MAX_STAT,
+  MAX_ENERGY,
+  MAX_REPUTATION,
+  MONEY_SOFT_CAP,
+  saveStore,
 } from './core/game-state.js';
 import { EventManager } from './core/event-manager.js';
 import { resolveTurn } from './core/turn.js';
+import { createRng } from './core/rng.js';
 import {
-  renderHub, renderMap, renderLocation, renderCharacters, renderGameOver,
-  renderResultModal, renderPerks, renderAlmanac, renderToast, openCharacterPopup,
+  renderHub,
+  renderLocation,
+  renderCharacters,
+  renderGameOver,
+  renderResultModal,
+  renderPerks,
+  renderAlmanac,
+  renderSettings,
+  renderToast,
+  openCharacterPopup,
 } from './ui/screens.js';
 
 const FADE_MS = 350;
 const TOAST_MS = 2600;
+const MUSIC_URL = 'assets/music/warm_piano.wav';
 
 /**
  * Boot a game into the current document.
@@ -31,7 +46,8 @@ const TOAST_MS = 2600;
  */
 export function initGame(opts = {}) {
   const gs = new GameState({ seed: opts.seed });
-  const events = new EventManager(opts.rng);
+  const rng = opts.rng ?? createRng();
+  const events = new EventManager(rng);
   events.initialize(gs.getCharacterNames());
 
   const storage = 'storage' in opts ? opts.storage : globalThis.localStorage;
@@ -51,6 +67,7 @@ export function initGame(opts = {}) {
     weather: document.getElementById('hud-weather'),
     portrait: document.getElementById('hud-portrait'),
     portraitBtn: document.getElementById('hud-portrait-btn'),
+    settingsBtn: document.getElementById('settings-button'),
     name: document.getElementById('hud-name'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
@@ -70,10 +87,86 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
+  let musicEl = null;
+  let preferences = { highContrast: false, reducedMotion: false, sound: false, volume: 0.35 };
+  try {
+    preferences = {
+      ...preferences,
+      ...JSON.parse(storage?.getItem('secondbarnone.settings.v1') ?? '{}'),
+    };
+    // Older saves stored sound state under musicOn / muted. Be tolerant.
+    if (typeof preferences.sound !== 'boolean') {
+      preferences.sound =
+        preferences.musicOn === true || preferences.muted === false ? true : false;
+    }
+    if (typeof preferences.volume !== 'number') preferences.volume = 0.35;
+  } catch {
+    /* storage is optional */
+  }
+  const applyPreferences = () => {
+    document.documentElement.classList.toggle('high-contrast', Boolean(preferences.highContrast));
+    document.documentElement.classList.toggle('reduce-motion', Boolean(preferences.reducedMotion));
+    applySound();
+    try {
+      storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
+    } catch {
+      /* best effort */
+    }
+  };
 
-  dom.portraitBtn?.addEventListener('click', () => {
-    if (leonProfile) openCharacterPopup(leonProfile);
-  });
+  // ---------------------------------------------------------------- audio
+
+  /** Lazily create the music <audio> element — never preloaded, never
+   *  auto-played without user interaction (browsers block that anyway). */
+  function ensureMusic() {
+    if (musicEl) return musicEl;
+    const el = document.createElement('audio');
+    el.id = 'bgm';
+    el.src = MUSIC_URL;
+    el.loop = true;
+    el.preload = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    el.volume = preferences.volume;
+    document.body.append(el);
+    musicEl = el;
+    return el;
+  }
+
+  function applySound() {
+    if (!musicEl) {
+      if (preferences.sound) ensureMusic();
+      else return;
+    }
+    musicEl.volume = preferences.volume;
+    if (preferences.sound) {
+      // play() returns a promise; autoplay policies may reject it, in which
+      // case we stay muted rather than throw. The user can toggle again from
+      // Settings after interacting with the page.
+      const p = musicEl.play();
+      if (p && typeof p.catch === 'function')
+        p.catch(() => {
+          preferences.sound = false;
+          try {
+            storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
+          } catch {
+            /* noop */
+          }
+        });
+    } else {
+      musicEl.pause();
+    }
+  }
+
+  function toggleSound() {
+    preferences.sound = !preferences.sound;
+    if (preferences.sound) ensureMusic();
+    applyPreferences();
+  }
+
+  function setVolume(v) {
+    preferences.volume = Math.max(0, Math.min(1, Number(v) || 0));
+    applyPreferences();
+  }
 
   // ---------------------------------------------------------------- HUD
 
@@ -84,7 +177,9 @@ export function initGame(opts = {}) {
     node.classList.remove('bar-critical', 'bar-warning', 'bar-fair', 'bar-full');
     node.classList.add(resourceBarClass(percent, 100));
   };
-  const setText = (node, text) => { if (node) node.textContent = text; };
+  const setText = (node, text) => {
+    if (node) node.textContent = text;
+  };
 
   function updateHud() {
     setText(dom.date, gs.getDateDisplay());
@@ -93,7 +188,6 @@ export function initGame(opts = {}) {
     const weather = gs.getWeather();
     setText(dom.weather, `${weather.emoji} ${weather.name}`);
 
-    // Léon stays on every page — portrait + name in the HUD.
     const leon = typeof gs.getProtagonist === 'function' ? gs.getProtagonist() : null;
     if (leon) {
       leonProfile = leon;
@@ -109,7 +203,6 @@ export function initGame(opts = {}) {
     const sPct = Math.round((gs.sanity / MAX_STAT) * 100);
     const ePct = Math.round((gs.energy / MAX_ENERGY) * 100);
     const rPct = Math.round((gs.reputation / MAX_REPUTATION) * 100);
-    // Money bar is a comfort meter against the soft cap; the number is uncapped.
     const mComfort = Math.min(100, Math.round((gs.money / MONEY_SOFT_CAP) * 100));
 
     setBar(dom.sanityBar, gs.sanity, MAX_STAT);
@@ -132,7 +225,6 @@ export function initGame(opts = {}) {
     setText(dom.repNum, `${rPct}%`);
     setText(dom.insight, `🔮 ${gs.insight}`);
 
-    // Keep aria meters honest.
     const setMeter = (bar, now, max) => {
       const track = bar?.parentElement;
       if (track?.getAttribute('role') === 'meter') {
@@ -146,12 +238,11 @@ export function initGame(opts = {}) {
     setMeter(dom.repBar, rPct, 100);
   }
 
-  /** Floating +N / −N indicator. */
   function flashDelta(node, delta) {
     if (!node || !delta) return;
     node.textContent = `${delta > 0 ? '+' : ''}${Math.round(delta)}`;
     node.className = `delta ${delta > 0 ? 'pos' : 'neg'}`;
-    void node.offsetWidth; // restart the animation
+    void node.offsetWidth;
     node.classList.add('show');
   }
 
@@ -174,7 +265,10 @@ export function initGame(opts = {}) {
   }
 
   function showScreen(node) {
-    if (stopParticles) { stopParticles(); stopParticles = null; }
+    if (stopParticles) {
+      stopParticles();
+      stopParticles = null;
+    }
     content.replaceChildren(node);
     if (typeof node._startParticles === 'function') stopParticles = node._startParticles();
   }
@@ -184,17 +278,9 @@ export function initGame(opts = {}) {
   function hubScreen() {
     return renderHub(gs, {
       onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onMap: () => transitionTo(mapScreen),
       onCharacters: () => transitionTo(charactersScreen),
       onPerks: () => transitionTo(perksScreen),
       onAlmanac: () => transitionTo(almanacScreen),
-    });
-  }
-
-  function mapScreen() {
-    return renderMap(gs, {
-      onVisit: (loc) => transitionTo(() => locationScreen(loc)),
-      onBack: () => transitionTo(hubScreen),
     });
   }
 
@@ -212,7 +298,6 @@ export function initGame(opts = {}) {
     });
   }
 
-
   function perksScreen() {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
@@ -226,6 +311,33 @@ export function initGame(opts = {}) {
 
   function almanacScreen() {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
+  }
+
+  function settingsScreen() {
+    return renderSettings(preferences, {
+      onBack: () => transitionTo(hubScreen),
+      onToggleContrast: () => {
+        preferences.highContrast = !preferences.highContrast;
+        applyPreferences();
+        showScreen(settingsScreen());
+      },
+      onToggleMotion: () => {
+        preferences.reducedMotion = !preferences.reducedMotion;
+        applyPreferences();
+        showScreen(settingsScreen());
+      },
+      onToggleSound: () => {
+        toggleSound();
+        showScreen(settingsScreen());
+      },
+      onChangeVolume: (v) => {
+        setVolume(v);
+      },
+      onAbandon: () => {
+        restart();
+        toast('New run started.');
+      },
+    });
   }
 
   // -------------------------------------------------------------- extras
@@ -247,7 +359,12 @@ export function initGame(opts = {}) {
     flashDelta(dom.sanityDelta, result.deltas.sanity);
     flashDelta(dom.moneyDelta, result.deltas.money);
     for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
-    if (result.justWon) toast(`🏅 ${result.winMessage || 'One hundred days.'}`);
+    if (result.justWon && !result.masteryWon)
+      toast(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
+    if (result.masteryWon) toast(`🌟 ${result.masteryMessage || result.winMessage}`);
+    if (result.extraRent) {
+      toast(`📅 Rent came due while you were away (${result.extraRent} money).`);
+    }
 
     if (result.gameOver) {
       saveStore.clear(storage);
@@ -257,10 +374,22 @@ export function initGame(opts = {}) {
 
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
+        modal._cleanup?.();
         modal.remove();
-        gs.advanceDay();
+        if (!result.longTrip) gs.advanceDay();
+        else {
+          gs.emit(
+            'day_changed',
+            gs.journeyDay,
+            gs.getWeekdayName(),
+            gs.getMonthName(),
+            gs.year,
+            gs.dayOfMonth,
+          );
+          gs._statsChanged();
+        }
         updateHud();
-        saveStore.save(gs, storage);
+        saveStore.save(gs, storage, { events: events.toJSON() });
         transitionTo(hubScreen);
       },
     });
@@ -279,6 +408,13 @@ export function initGame(opts = {}) {
   function restart() {
     gs.resetGame();
     events.reset();
+    // Re-seed the RNG used by the event manager so the new run has fresh
+    // event timing rather than replaying the last one.
+    if (typeof rng.setState === 'function' && rng.isSeeded) {
+      // seeded RNGs keep state; nothing to do, events.reset() already advanced it
+    } else if (rng !== createRng) {
+      // unseeded Math.random path: nothing to reset
+    }
     saveStore.clear(storage);
     hud.hidden = false;
     updateHud();
@@ -287,28 +423,40 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- boot
 
-  gs.on('game_over_triggered', (msg) => { lastGameOverMessage = msg; });
+  gs.on('game_over_triggered', (msg) => {
+    lastGameOverMessage = msg;
+  });
   gs.on('stats_changed', updateHud);
   gs.on('day_changed', updateHud);
 
   if (opts.autoload !== false && saveStore.has(storage)) {
-    if (saveStore.load(gs, storage)) toast('Run resumed.');
+    if (saveStore.load(gs, storage)) {
+      toast('Run resumed.');
+      // Restore event manager state (next event day, recent ids, RNG) if saved.
+      const blob = saveStore.loadExtra(storage);
+      if (blob && blob.events) events.loadFrom(blob.events);
+    }
   }
 
+  dom.portraitBtn?.addEventListener('click', () => {
+    if (leonProfile) openCharacterPopup(leonProfile);
+  });
+  dom.settingsBtn?.addEventListener('click', () => transitionTo(settingsScreen));
+
+  applyPreferences();
   updateHud();
   showScreen(hubScreen());
 
-  // A small surface for tests and the console — not used by the UI itself.
   const api = {
     toast,
     updateHud,
-    save: () => saveStore.save(gs, storage),
+    save: () => saveStore.save(gs, storage, { events: events.toJSON() }),
     goto: {
       hub: () => showScreen(hubScreen()),
-      map: () => showScreen(mapScreen()),
       location: (id) => showScreen(locationScreen(id)),
       perks: () => showScreen(perksScreen()),
       almanac: () => showScreen(almanacScreen()),
+      settings: () => showScreen(settingsScreen()),
       characters: () => showScreen(charactersScreen()),
     },
   };

@@ -15,13 +15,32 @@ import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
-  MAX_STAT, START_SANITY, START_MONEY, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  RENT_ESCALATION,
+  RENT_ESCALATION_PERIOD_DAYS,
+  RENT_MAX,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 /**
@@ -31,30 +50,67 @@ import {
  * `data/` modules import balance.js directly, which avoids an import cycle.
  */
 export {
-  MAX_STAT, START_SANITY, START_MONEY,
-  MONEY_SOFT_CAP, MONEY_HARD_CEILING,
-  SANITY_GAIN, SANITY_LOSS, MONEY_GAIN, MONEY_LOSS,
-  MAX_ENERGY, START_ENERGY, ENERGY_FULL_RECOVERY_DAYS, ENERGY_RECOVERY,
-  EXHAUSTION_THRESHOLD, EXHAUSTION_MAX_PENALTY,
-  MAX_REPUTATION, START_REPUTATION, START_INSIGHT,
-  ENDURANCE_GOAL_DAYS, RENT_AMOUNT, START_WEEKDAY_OFFSET,
-  RENT_DISCOUNT_REP_THRESHOLD, RENT_DISCOUNT_REP_BONUS, RENT_DISCOUNT_REP_HIGH, RENT_DISCOUNT_REP_HIGH_BONUS,
+  MAX_STAT,
+  START_SANITY,
+  START_MONEY,
+  MONEY_SOFT_CAP,
+  MONEY_HARD_CEILING,
+  SANITY_GAIN,
+  SANITY_LOSS,
+  MONEY_GAIN,
+  MONEY_LOSS,
+  MAX_ENERGY,
+  START_ENERGY,
+  ENERGY_FULL_RECOVERY_DAYS,
+  ENERGY_RECOVERY,
+  EXHAUSTION_THRESHOLD,
+  EXHAUSTION_MAX_PENALTY,
+  MAX_REPUTATION,
+  START_REPUTATION,
+  START_INSIGHT,
+  ENDURANCE_GOAL_DAYS,
+  RENT_AMOUNT,
+  RENT_ESCALATION,
+  RENT_ESCALATION_PERIOD_DAYS,
+  RENT_MAX,
+  START_WEEKDAY_OFFSET,
+  RENT_DISCOUNT_REP_THRESHOLD,
+  RENT_DISCOUNT_REP_BONUS,
+  RENT_DISCOUNT_REP_HIGH,
+  RENT_DISCOUNT_REP_HIGH_BONUS,
 } from './balance.js';
 
 export const WEEKDAY_NAMES = [
-  'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 
 export const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** localStorage key for the save slot. */
-export const SAVE_KEY = 'secondbarnone.save.v4';
-const LEGACY_SAVE_KEY = 'secondbarnone.save.v3';
+export const SAVE_VERSION = 5;
+export const SAVE_KEY = 'secondbarnone.save.v5';
+const LEGACY_KEYS = ['secondbarnone.save.v4', 'secondbarnone.save.v3'];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -83,12 +139,17 @@ export class GameState {
     /** Set when the player reaches the endurance goal without dying. */
     this.won = false;
     this.winMessage = '';
+    /** Set once when the second (100-day) mastery ending fires. */
+    this.masteryWon = false;
+    this.masteryMessage = '';
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
-    this._lastRentDayOfMonth = -1;
+    this._turnResolvedOnDay = -1;
     this._lastRentJourneyDay = -1;
-    this.rentPrepaidUntilDay = 0;
+    /** Set of journeyDay values for Sundays that have been pre-paid.
+     *  Prepaying on a due Sunday never adds today to this set. */
+    this.rentPrepaidDays = new Set();
     this.rentPaidCount = 0;
     this.recentHistory = [];
 
@@ -132,8 +193,16 @@ export class GameState {
 
   resetGame() {
     this._initStats();
+    this.pendingAchievements = [];
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
   }
 
   // ---------------- calendar ----------------
@@ -159,7 +228,14 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     this._statsChanged();
   }
 
@@ -178,7 +254,7 @@ export class GameState {
   }
 
   _isLeapYear(y) {
-    return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
   }
 
   // ---------------- weather & festivals ----------------
@@ -241,7 +317,13 @@ export class GameState {
   }
 
   /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(sanityDelta, moneyDelta, energyDelta = 0, reputationDelta = 0, insightDelta = 0) {
+  applyEventDeltas(
+    sanityDelta,
+    moneyDelta,
+    energyDelta = 0,
+    reputationDelta = 0,
+    insightDelta = 0,
+  ) {
     this.applyDeltas({
       sanity: sanityDelta,
       money: moneyDelta,
@@ -284,47 +366,96 @@ export class GameState {
     return this.energy < EXHAUSTION_THRESHOLD + this.getPerkEffects().exhaustionResist;
   }
 
-  /** Rent due today? Sundays only, once each, unless prepaid or waived. */
+  /**
+   * Rent due today? Sundays only, once each, unless prepaid or waived.
+   *
+   * Prepaid Sundays are tracked explicitly in `rentPrepaidDays` so that
+   * paying ahead on a rent-due Sunday doesn't accidentally cover the
+   * morning's notice — only future Sundays are added to the set.
+   */
   isRentDue() {
     if (this.getWeekdayIndex() !== 6) return false;
     if (this._lastRentJourneyDay === this.journeyDay) return false;
-    if (this.journeyDay <= this.rentPrepaidUntilDay) return false;
+    if (this.rentPrepaidDays.has(this.journeyDay)) return false;
     if (this.getFestival()?.waivesRent) return false;
     return true;
+  }
+
+  /** Base rent rises through a long run, then stops at a playable ceiling. */
+  baseRentForToday() {
+    const steps = Math.floor((this.journeyDay - 1) / RENT_ESCALATION_PERIOD_DAYS);
+    return Math.min(RENT_AMOUNT + steps * RENT_ESCALATION, RENT_MAX);
   }
 
   /** What rent actually costs after perks and reputation discounts. */
   rentDue() {
     const perkRelief = this.getPerkEffects().rentRelief;
     let repDiscount = 0;
-    if (this.reputation >= RENT_DISCOUNT_REP_HIGH) {
-      repDiscount = RENT_DISCOUNT_REP_HIGH_BONUS;
-    } else if (this.reputation >= RENT_DISCOUNT_REP_THRESHOLD) {
-      repDiscount = RENT_DISCOUNT_REP_BONUS;
-    }
-    return Math.max(RENT_AMOUNT - perkRelief - repDiscount, 0);
+    if (this.reputation >= RENT_DISCOUNT_REP_HIGH) repDiscount = RENT_DISCOUNT_REP_HIGH_BONUS;
+    else if (this.reputation >= RENT_DISCOUNT_REP_THRESHOLD) repDiscount = RENT_DISCOUNT_REP_BONUS;
+    return Math.max(this.baseRentForToday() - perkRelief - repDiscount, 0);
   }
 
-  /** Charge rent once per Sunday. Returns the amount charged (0 if none). */
+  /**
+   * Charge rent once per Sunday. Returns the amount charged (0 if the day
+   * is prepaid, waived, or already charged). Consumes the prepayment for
+   * today so it doesn't silently double-cover.
+   */
   applyRentIfSunday() {
-    if (!this.isRentDue()) return 0;
-    this._lastRentDayOfMonth = this.dayOfMonth;
+    if (this.getWeekdayIndex() !== 6) return 0;
+    if (this._lastRentJourneyDay === this.journeyDay) return 0;
+    if (this.getFestival()?.waivesRent) return 0;
     this._lastRentJourneyDay = this.journeyDay;
-    const amount = this.rentDue();
-    this.money = Math.max(this.money - amount, 0);
-    this.rentPaidCount += 1;
-    this._statsChanged();
+    const amount = this.rentPrepaidDays.has(this.journeyDay) ? 0 : this.rentDue();
+    this.rentPrepaidDays.delete(this.journeyDay);
+    if (amount > 0) {
+      this.money = Math.max(this.money - amount, 0);
+      this.rentPaidCount += 1;
+      this._statsChanged();
+    }
     return amount;
   }
 
-  /** Pay ahead at the letting office: covers `weeks` of Sundays. */
+  /** Back-compat accessor used by saves and older tests. */
+  get rentPrepaidUntilDay() {
+    // Largest prepaid Sunday on or after today, or 0 if none.
+    let max = 0;
+    for (const d of this.rentPrepaidDays) if (d >= this.journeyDay && d > max) max = d;
+    return max;
+  }
+
+  /**
+   * Pay ahead at the letting office: covers `weeks` of *future* Sundays.
+   *
+   * Cost is the current `rentDue()` amount per week. Prepaying never covers
+   * a Sunday whose rent is due today — you settle today out of pocket and
+   * the payment buys the next week(s) forward. This prevents an exploit
+   * where a single Sunday payment erased both today and the next Sunday.
+   */
   prepayRent(weeks = 1) {
     const cost = this.rentDue() * weeks;
     if (this.money < cost) return false;
+    // First Sunday covered by the payment. If rent is due today, today is
+    // explicitly excluded (you can't buy your way out of the morning's
+    // notice with the same payment that covers next week) — cover starts in
+    // seven days. Otherwise cover starts at the next upcoming Sunday.
+    const wi = this.getWeekdayIndex();
+    const daysUntilNextSunday = this.isRentDue() ? 7 : (6 - wi + 7) % 7 || 7;
+    for (let w = 0; w < weeks; w += 1) {
+      this.rentPrepaidDays.add(this.journeyDay + daysUntilNextSunday + w * 7);
+    }
     this.money -= cost;
-    this.rentPrepaidUntilDay = Math.max(this.rentPrepaidUntilDay, this.journeyDay) + weeks * 7;
     this._statsChanged();
     return true;
+  }
+
+  /** Has the current journey day already received its action? */
+  get isTurnResolved() {
+    return this._turnResolvedOnDay === this.journeyDay;
+  }
+
+  markTurnResolved() {
+    this._turnResolvedOnDay = this.journeyDay;
   }
 
   /** Legacy two-location action, retained so old callers keep working. */
@@ -375,14 +506,17 @@ export class GameState {
 
   /** Second mastery layer: survive 100 days with reputation, exploration and stability. */
   checkSecondWin() {
+    if (this.masteryWon) return false;
     if (this.gameOver || this.journeyDay < 100) return false;
     if (this.reputation < 80) return false;
     if (this.money < 200) return false;
     if (this.visitedLocations.size < 18) return false;
-    // No more than 5 consecutive bar days in this run
+    // No more than 5 consecutive bar days when the threshold is crossed.
     if (this.consecutiveBarDays > 5) return false;
-    this.winMessage = 'A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone\'s.';
-    this.emit('win_triggered', this.winMessage);
+    this.masteryWon = true;
+    this.masteryMessage =
+      "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
+    this.emit('mastery_triggered', this.masteryMessage);
     return true;
   }
 
@@ -404,11 +538,16 @@ export class GameState {
   getGreeting() {
     const day = this.getWeekdayName();
     const season = this.getSeason();
-    if (day === 'Sunday') return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
-    if (day === 'Monday') return 'Monday. The week opens its hands and asks what you will put in them.';
-    if (day === 'Friday') return 'Friday evening light. People are kinder to themselves, and to you.';
-    if (day === 'Saturday') return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
-    if (season === 'Winter') return `${day}. Cold enough that the kettle feels like a small kindness.`;
+    if (day === 'Sunday')
+      return 'Sunday morning. The city is quieter. So is the rent notice on the fridge.';
+    if (day === 'Monday')
+      return 'Monday. The week opens its hands and asks what you will put in them.';
+    if (day === 'Friday')
+      return 'Friday evening light. People are kinder to themselves, and to you.';
+    if (day === 'Saturday')
+      return 'Saturday. Markets, open mics, and the kind of tired that feels earned.';
+    if (season === 'Winter')
+      return `${day}. Cold enough that the kettle feels like a small kindness.`;
     if (season === 'Spring') return `${day}. Something is beginning, whether you are ready or not.`;
     if (season === 'Summer') return `${day}. The light lasts longer than your patience, some days.`;
     return `${day}. Autumn air, and the sense that the year is keeping score.`;
@@ -416,8 +555,14 @@ export class GameState {
 
   /** Léon himself — always available for the HUD portrait. */
   getProtagonist() {
-    return this.characterProfiles.find((p) => p.id === 'leon')
-      ?? { id: 'leon', name: 'Léon', portrait: 'assets/portraits/leon.webp', role: 'protagonist' };
+    return (
+      this.characterProfiles.find((p) => p.id === 'leon') ?? {
+        id: 'leon',
+        name: 'Léon',
+        portrait: 'assets/portraits/leon.webp',
+        role: 'protagonist',
+      }
+    );
   }
 
   // ---------------- achievements ----------------
@@ -462,7 +607,6 @@ export class GameState {
     this.emit('history_updated', entry);
   }
 
-
   getSeason() {
     const m = this.monthIndex;
     if (m === 11 || m === 0 || m === 1) return 'Winter';
@@ -472,40 +616,67 @@ export class GameState {
     return 'Unknown';
   }
 
-
   /**
    * A gentle, informational focus cue for the hub. It never chooses for the
    * player; it just makes a looming need easier to notice at a glance.
    */
   getDailyNudge() {
     if (this.sanity < 25 && this.money < 25) {
-      return { emoji: '🫶', label: 'Take it gently', text: 'Both your head and wallet are under pressure. One careful day is enough.' };
+      return {
+        emoji: '🫶',
+        label: 'Take it gently',
+        text: 'Both your head and wallet are under pressure. One careful day is enough.',
+      };
     }
     if (this.sanity < 25) {
-      return { emoji: '🫧', label: 'A little room', text: 'Your sanity is low. A quieter plan may help you come back to yourself.' };
+      return {
+        emoji: '🫧',
+        label: 'A little room',
+        text: 'Your sanity is low. A quieter plan may help you come back to yourself.',
+      };
     }
     if (this.energy < EXHAUSTION_THRESHOLD) {
-      const predictive = this.consecutiveBarDays >= 2 ? 'A bar night will put you near empty quickly. Consider rest tomorrow.' : 'Your energy is running thin. Small, restorative plans still count.';
+      const predictive =
+        this.consecutiveBarDays >= 2
+          ? 'A bar night will put you near empty quickly. Consider rest tomorrow.'
+          : 'Your energy is running thin. Small, restorative plans still count.';
       return { emoji: '🫖', label: 'Pace yourself', text: predictive };
     }
     if (this.isRentDue()) {
-      return { emoji: '🧾', label: 'Sunday rent', text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.` };
+      return {
+        emoji: '🧾',
+        label: 'Sunday rent',
+        text: `Rent is due today: ${this.rentDue()} money. You can settle it at the letting office ahead of time.`,
+      };
     }
     if (this.money < 25) {
-      return { emoji: '🪙', label: 'Keep an eye on the wallet', text: 'Money is low. A paid day can make the next choice less urgent.' };
+      return {
+        emoji: '🪙',
+        label: 'Keep an eye on the wallet',
+        text: 'Money is low. A paid day can make the next choice less urgent.',
+      };
     }
     const daysToSunday = (6 - this.getWeekdayIndex() + 7) % 7;
-    if (daysToSunday > 0 && daysToSunday <= 2 && this.rentPrepaidUntilDay < this.journeyDay + daysToSunday) {
-      return { emoji: '📅', label: 'Looking ahead', text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.` };
+    if (daysToSunday > 0 && daysToSunday <= 2) {
+      const sundayDay = this.journeyDay + daysToSunday;
+      if (!this.rentPrepaidDays.has(sundayDay)) {
+        return {
+          emoji: '📅',
+          label: 'Looking ahead',
+          text: `Sunday rent is ${daysToSunday === 1 ? 'tomorrow' : 'in two days'}. A little cushion can make it quieter.`,
+        };
+      }
     }
-    return { emoji: '🏠', label: 'No rush', text: 'Nothing is on fire. Choose the kind of day you can return from.' };
+    return {
+      emoji: '🏠',
+      label: 'No rush',
+      text: 'Nothing is on fire. Choose the kind of day you can return from.',
+    };
   }
 
   /** Friend-event name pool — everyone except the protagonist. */
   getCharacterNames() {
-    return this.characterProfiles
-      .filter((p) => p.id !== 'leon')
-      .map((p) => p.name);
+    return this.characterProfiles.filter((p) => p.id !== 'leon').map((p) => p.name);
   }
 
   getAllCharacters() {
@@ -517,7 +688,7 @@ export class GameState {
   /** Plain JSON-safe snapshot of the whole run. */
   toJSON() {
     return {
-      v: 4,
+      v: SAVE_VERSION,
       sanity: this.sanity,
       money: this.money,
       energy: this.energy,
@@ -531,11 +702,13 @@ export class GameState {
       gameOverMessage: this.gameOverMessage,
       won: this.won,
       winMessage: this.winMessage,
+      masteryWon: this.masteryWon,
+      masteryMessage: this.masteryMessage,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
-      lastRentDayOfMonth: this._lastRentDayOfMonth,
+      turnResolvedOnDay: this._turnResolvedOnDay,
       lastRentJourneyDay: this._lastRentJourneyDay,
-      rentPrepaidUntilDay: this.rentPrepaidUntilDay,
+      rentPrepaidDays: [...this.rentPrepaidDays],
       rentPaidCount: this.rentPaidCount,
       recentHistory: [...this.recentHistory],
       perks: [...this.perks],
@@ -550,7 +723,7 @@ export class GameState {
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
     const migrated = migrateSave(data);
-    if (!migrated || typeof migrated !== 'object' || ![3, 4].includes(migrated.v)) return false;
+    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5].includes(migrated.v)) return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
@@ -565,16 +738,40 @@ export class GameState {
     this.monthIndex = clamp(num(migrated.monthIndex, 0), 0, 11);
     this.year = num(migrated.year, 2026);
     this.gameOver = Boolean(migrated.gameOver);
-    this.gameOverMessage = typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
+    this.gameOverMessage =
+      typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
     this.won = Boolean(migrated.won);
     this.winMessage = typeof migrated.winMessage === 'string' ? migrated.winMessage : '';
+    this.masteryWon = Boolean(migrated.masteryWon);
+    this.masteryMessage =
+      typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
-    this.lastLocationVisited = typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
-    this._lastRentDayOfMonth = num(migrated.lastRentDayOfMonth, -1);
+    this.lastLocationVisited =
+      typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
+    this._turnResolvedOnDay = num(migrated.turnResolvedOnDay, -1);
     this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
-    this.rentPrepaidUntilDay = num(migrated.rentPrepaidUntilDay, 0);
     this.rentPaidCount = num(migrated.rentPaidCount, 0);
+    // Rent prepayments: v5 stores an explicit set of Sundays; older saves
+    // used a single "prepaidUntilDay" number. Import both.
+    this.rentPrepaidDays = new Set();
+    if (Array.isArray(migrated.rentPrepaidDays)) {
+      for (const d of migrated.rentPrepaidDays) {
+        const n = Number(d);
+        if (Number.isFinite(n) && n >= this.journeyDay) this.rentPrepaidDays.add(n);
+      }
+    } else if (
+      typeof migrated.rentPrepaidUntilDay === 'number' &&
+      migrated.rentPrepaidUntilDay > 0
+    ) {
+      // Translate the old exclusive cutoff into explicit Sundays.
+      const wi = this.getWeekdayIndex();
+      let d = this.journeyDay + ((6 - wi + 7) % 7 || 7);
+      while (d < migrated.rentPrepaidUntilDay) {
+        this.rentPrepaidDays.add(d);
+        d += 7;
+      }
+    }
     this.recentHistory = arr(migrated.recentHistory).slice(0, 5);
 
     this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
@@ -586,23 +783,31 @@ export class GameState {
     this.pendingAchievements = [];
 
     this._statsChanged();
-    this.emit('day_changed', this.journeyDay, this.getWeekdayName(), this.getMonthName(), this.year, this.dayOfMonth);
+    this.emit(
+      'day_changed',
+      this.journeyDay,
+      this.getWeekdayName(),
+      this.getMonthName(),
+      this.year,
+      this.dayOfMonth,
+    );
     return true;
   }
 }
 
 // ------------------------------------------------------------- persistence
 
-/** Migrate a save from older schema versions to current v4. */
+/** Migrate a save from older schema versions to current SAVE_VERSION. */
 export function migrateSave(data) {
   if (!data || typeof data !== 'object') return null;
-  const currentVersion = data.v ?? 3;
-  if (currentVersion >= 4) return data;
+  const v = data.v ?? 3;
+  if (v > SAVE_VERSION) return null; // don't load from the future
+  if (v === SAVE_VERSION) return data;
 
-  const migrated = { ...data, v: 4 };
+  const migrated = { ...data };
 
-  // v3 -> v4: add missing fields with safe defaults
-  if (currentVersion === 3) {
+  // v3 -> v4: first energy/rep/insight expansion
+  if (v < 4) {
     if (typeof migrated.reputation !== 'number') migrated.reputation = 10;
     if (typeof migrated.energy !== 'number') migrated.energy = 100;
     if (typeof migrated.insight !== 'number') migrated.insight = 0;
@@ -611,9 +816,18 @@ export function migrateSave(data) {
     if (typeof migrated.achievements === 'undefined') migrated.achievements = [];
     if (typeof migrated.nightDays !== 'number') migrated.nightDays = 0;
     if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
-    if (typeof migrated.weatherSeed !== 'number') migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+    if (typeof migrated.weatherSeed !== 'number')
+      migrated.weatherSeed = Math.floor(Math.random() * 1e9);
   }
 
+  // v4 -> v5: add mastery state + event-manager + RNG serialisation slot
+  if (v < 5) {
+    if (typeof migrated.masteryWon !== 'boolean') migrated.masteryWon = false;
+    if (typeof migrated.masteryMessage !== 'string') migrated.masteryMessage = '';
+    if (!migrated.events) migrated.events = null;
+  }
+
+  migrated.v = SAVE_VERSION;
   return migrated;
 }
 
@@ -622,14 +836,22 @@ export function migrateSave(data) {
  * storage and quota errors must never take the game down, so every operation
  * is best-effort and reports a boolean.
  */
+/**
+ * Persistence wrapper.
+ *
+ * Saves are written as a single object containing both GameState and
+ * EventManager (+ RNG) state, so that event timing and recent-event memory
+ * survive reloads. We still accept legacy single-blob saves from v3/v4.
+ */
 export const saveStore = {
   available(storage = globalThis.localStorage) {
     return Boolean(storage);
   },
-  save(gs, storage = globalThis.localStorage) {
+  save(gs, storage = globalThis.localStorage, extra = {}) {
     if (!storage) return false;
     try {
-      storage.setItem(SAVE_KEY, JSON.stringify(gs.toJSON()));
+      const blob = { ...gs.toJSON(), ...extra };
+      storage.setItem(SAVE_KEY, JSON.stringify(blob));
       return true;
     } catch {
       return false;
@@ -638,20 +860,29 @@ export const saveStore = {
   load(gs, storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
-      // Keep v3 runs playable; task and journal fields are intentionally ignored
-      // as part of the calmer v4 state shape.
-      const raw = storage.getItem(SAVE_KEY) ?? storage.getItem(LEGACY_SAVE_KEY);
+      let raw = storage.getItem(SAVE_KEY);
+      for (const k of LEGACY_KEYS) if (!raw) raw = storage.getItem(k);
       if (!raw) return false;
       return gs.loadFrom(JSON.parse(raw));
     } catch {
       return false;
     }
   },
+  loadExtra(storage = globalThis.localStorage) {
+    if (!storage) return null;
+    try {
+      const raw = storage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
   clear(storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
       storage.removeItem(SAVE_KEY);
-      storage.removeItem(LEGACY_SAVE_KEY);
+      for (const k of LEGACY_KEYS) storage.removeItem(k);
       return true;
     } catch {
       return false;
@@ -660,7 +891,9 @@ export const saveStore = {
   has(storage = globalThis.localStorage) {
     if (!storage) return false;
     try {
-      return storage.getItem(SAVE_KEY) !== null || storage.getItem(LEGACY_SAVE_KEY) !== null;
+      if (storage.getItem(SAVE_KEY) !== null) return true;
+      for (const k of LEGACY_KEYS) if (storage.getItem(k) !== null) return true;
+      return false;
     } catch {
       return false;
     }

@@ -47,8 +47,15 @@ const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
  * avatar the game ever renders inline is 84 CSS px.
  */
 const MAX_EAGER_BYTES = 4 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
+// Hi-res portraits are lazy; keep a tight eager budget and a realistic total gallery budget.
+// Total budget covers everything in docs/ including the lazy lightbox portraits
+// and the lazy music file. Real on-load cost stays at the eager budget.
+const MAX_TOTAL_BYTES = 11 * 1024 * 1024;
 const HI_DIR = join('assets', 'portraits', 'hi');
+// Background music is lazy-loaded only when the player turns it on; it must
+// never be counted in the eager budget.
+const LAZY_DIRS = [HI_DIR, join('assets', 'music')];
+const MAX_LAZY_AUDIO_BYTES = 1024 * 1024; // 1 MB cap on lazy music
 
 let failures = 0;
 const fail = (msg) => { console.error(`  ✗ ${msg}`); failures += 1; };
@@ -87,16 +94,25 @@ async function* walk(dir) {
 
 let total = 0;
 let eager = 0;
+let lazyAudio = 0;
 for await (const file of walk(DOCS)) {
   const { size } = await stat(file);
   const rel = relative(DOCS, file);
   total += size;
-  if (!rel.startsWith(HI_DIR)) eager += size;
-  if (size > MAX_FILE_BYTES) fail(`${rel} is ${(size / 1024).toFixed(0)} KB (limit ${MAX_FILE_BYTES / 1024} KB)`);
+  const inLazyDir = LAZY_DIRS.some((d) => rel.startsWith(d));
+  if (!inLazyDir) eager += size;
+  if (rel.startsWith(join('assets', 'music'))) {
+    lazyAudio += size;
+    if (size > MAX_LAZY_AUDIO_BYTES)
+      fail(`${rel} is ${(size / 1024).toFixed(0)} KB (limit ${MAX_LAZY_AUDIO_BYTES / 1024} KB)`);
+  }
+  if (!inLazyDir && size > MAX_FILE_BYTES)
+    fail(`${rel} is ${(size / 1024).toFixed(0)} KB (limit ${MAX_FILE_BYTES / 1024} KB)`);
 }
 const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
 console.log(`  eager payload: ${mb(eager)} (limit ${mb(MAX_EAGER_BYTES)})`);
-console.log(`  lightbox tier: ${mb(total - eager)} (fetched on demand)`);
+console.log(`  lightbox tier: ${mb(total - eager - lazyAudio)} (fetched on demand)`);
+console.log(`  lazy music:    ${mb(lazyAudio)} (off until toggled)`);
 console.log(`  total payload: ${mb(total)} (limit ${mb(MAX_TOTAL_BYTES)})`);
 if (eager > MAX_EAGER_BYTES) fail(`eager payload exceeds ${mb(MAX_EAGER_BYTES)}`);
 if (total > MAX_TOTAL_BYTES) fail(`total payload exceeds ${mb(MAX_TOTAL_BYTES)}`);

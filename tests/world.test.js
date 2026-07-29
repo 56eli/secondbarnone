@@ -223,16 +223,16 @@ test('the welcome expires after day one and the ordinary gate returns', () => {
   assert.equal(earned.unlocked, true);
 });
 
-test('the welcome still bows to the weather', () => {
-  // A storm shuts the woods for Brian the same as for anyone; the invitation
-  // overrides progression gates, not the sky.
+test('the welcome on day 1 overrides weather closures', () => {
+  // Per spec: House of Middleway must be open on every seed day 1,
+  // overriding weather (e.g. snow/storm).
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.ok(chapel.tags.includes(Tag.OUTDOOR), 'the chapel is out in the woods');
   const stormy = evaluateUnlock(chapel, {
     journeyDay: 1, reputation: 0, weekday: 3, closedTags: [Tag.OUTDOOR],
   });
-  assert.equal(stormy.unlocked, false);
-  assert.match(stormy.reason, /weather/i);
+  assert.equal(stormy.unlocked, true, 'day 1 welcome must override weather closure');
+  assert.equal(stormy.reason, '');
 });
 
 test('the welcome does not rebalance the chapel itself', () => {
@@ -240,7 +240,7 @@ test('the welcome does not rebalance the chapel itself', () => {
   // is later in the run — same numbers, same cost.
   const chapel = getLocation(WELCOME_LOCATION_ID);
   assert.deepEqual(chapel.effects, {
-    sanity: 13, money: -6, energy: -18, reputation: 3, insight: 2,
+    sanity: 13, money: -6, energy: -14, reputation: 3, insight: 2,
   });
   const { sanity, money, energy } = chapel.effects;
   assert.ok(sanity < 0 || money < 0 || energy < 0, 'the welcome is still not a free lunch');
@@ -461,7 +461,7 @@ test('getPerk resolves known ids and refuses unknown ones', () => {
 test('aggregatePerks sums owned effects and ignores junk', () => {
   const total = aggregatePerks(['steady_breath', 'open_hand', 'not_real']);
   assert.equal(total.barSanityRelief, 3);
-  assert.equal(total.communityCostRelief, 4);
+  assert.equal(total.communityCostRelief, 3);
   assert.equal(total.rentRelief, 0);
 
   const none = aggregatePerks([]);

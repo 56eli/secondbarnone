@@ -7,15 +7,16 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
-import {
-  MAX_STAT, MAX_ENERGY, MAX_REPUTATION, MONEY_SOFT_CAP,
-  ENDURANCE_GOAL_DAYS,
-} from '../core/game-state.js';
+import { MAX_STAT, MAX_ENERGY, MAX_REPUTATION, ENDURANCE_GOAL_DAYS } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
 import {
-  LOCATIONS, DISTRICT_ORDER, getLocation, evaluateUnlock,
+  LOCATIONS,
+  getLocation,
+  evaluateUnlock,
   isWelcomeDay,
-  HUB_SLOTS, dailySlotLineup, indexToSlot,
+  HUB_SLOTS,
+  dailySlotLineup,
+  indexToSlot,
 } from '../data/locations.js';
 import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
@@ -57,13 +58,15 @@ const STAT_META = [
 
 /** A compact row of +N / −N chips for a delta bundle. */
 export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
-  const chips = STAT_META
-    .filter(([key]) => Math.round(bundle[key] ?? 0) !== 0)
-    .map(([key, emoji]) => {
+  const chips = STAT_META.filter(([key]) => Math.round(bundle[key] ?? 0) !== 0).map(
+    ([key, emoji]) => {
       const v = Math.round(bundle[key]);
-      const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${fmtDelta(v)}` : `${emoji} ${fmtDelta(v)}`;
+      const label = weatherEmoji
+        ? `${weatherEmoji} ${emoji} ${fmtDelta(v)}`
+        : `${emoji} ${fmtDelta(v)}`;
       return el('span', { class: `chip ${v > 0 ? 'pos' : 'neg'}` }, label);
-    });
+    },
+  );
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
   return el('div', { class: cls }, ...chips);
 }
@@ -94,20 +97,36 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
   const chip = () => el('div', { class: cls, 'aria-label': `${profile.name} portrait` }, initials);
 
   if (!clickable) {
-    img.addEventListener('error', () => { img.replaceWith(chip()); }, { once: true });
+    img.addEventListener(
+      'error',
+      () => {
+        img.replaceWith(chip());
+      },
+      { once: true },
+    );
     return img;
   }
 
-  const btn = el('button', {
-    class: 'avatar-btn',
-    type: 'button',
-    'aria-label': `${profile.name} — view portrait`,
-    onclick: (e) => {
-      e.stopPropagation();
-      openCharacterPopup(profile);
+  const btn = el(
+    'button',
+    {
+      class: 'avatar-btn',
+      type: 'button',
+      'aria-label': `${profile.name} — view portrait`,
+      onclick: (e) => {
+        e.stopPropagation();
+        openCharacterPopup(profile);
+      },
     },
-  }, img);
-  img.addEventListener('error', () => { btn.replaceWith(chip()); }, { once: true });
+    img,
+  );
+  img.addEventListener(
+    'error',
+    () => {
+      btn.replaceWith(chip());
+    },
+    { once: true },
+  );
   return btn;
 }
 
@@ -141,25 +160,38 @@ export function renderPortraitPopup(profile, { onClose } = {}) {
     decoding: 'async',
     draggable: 'false',
   });
-  img.addEventListener('error', () => {
-    // Fall back once to the small sheet; if that fails too, leave it be
-    // rather than looping.
-    if (img.getAttribute('src') !== thumb) img.setAttribute('src', thumb);
-  }, { once: true });
+  img.addEventListener(
+    'error',
+    () => {
+      // Fall back once to the small sheet; if that fails too, leave it be
+      // rather than looping.
+      if (img.getAttribute('src') !== thumb) img.setAttribute('src', thumb);
+    },
+    { once: true },
+  );
 
-  const close = el('button', {
-    class: 'portrait-close',
-    type: 'button',
-    'aria-label': 'Close portrait',
-    onclick: () => onClose?.(),
-  }, '×');
+  const close = el(
+    'button',
+    {
+      class: 'portrait-close',
+      type: 'button',
+      'aria-label': 'Close portrait',
+      onclick: () => onClose?.(),
+    },
+    '×',
+  );
 
-  const figure = el('div', {
-    class: 'portrait-lightbox',
-    role: 'dialog',
-    'aria-modal': 'true',
-    'aria-label': `${profile.name} portrait`,
-  }, img, close);
+  const figure = el(
+    'div',
+    {
+      class: 'portrait-lightbox',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': `${profile.name} portrait`,
+    },
+    img,
+    close,
+  );
 
   const backdrop = el('div', { class: 'modal-backdrop portrait-popup-backdrop' }, figure);
   // Tapping anywhere outside the picture dismisses it. Tapping the picture
@@ -188,7 +220,9 @@ export function openCharacterPopup(profile) {
     document.removeEventListener('keydown', onKey);
     if (previouslyFocused?.focus) previouslyFocused.focus();
   };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+  };
 
   const backdrop = renderPortraitPopup(profile, { onClose: close });
   document.addEventListener('keydown', onKey);
@@ -203,38 +237,24 @@ function findCharacter(gsOrList, id) {
   if (!id) return null;
   const list = Array.isArray(gsOrList)
     ? gsOrList
-    : (gsOrList?.characterProfiles || gsOrList?.getAllCharacters?.() || []);
+    : gsOrList?.characterProfiles || gsOrList?.getAllCharacters?.() || [];
   return list.find((p) => p.id === id) || null;
-}
-
-/**
- * Small "kept by …" chip used on location cards and the location screen.
- * `clickable` controls whether the mini avatar opens the character popup;
- * it must be false when the chip sits inside another button (the map's
- * location cards), since a <button> cannot contain another <button>.
- */
-function hostChip(gs, hostId, cls = 'host-chip', { clickable = true } = {}) {
-  const host = findCharacter(gs, hostId);
-  if (!host) return null;
-  return el('div', { class: cls },
-    avatar(host, 'avatar host-avatar', { clickable }),
-    el('span', { class: 'host-name', text: host.name }),
-  );
 }
 
 /** Standard back button used by every sub-screen. */
 function backRow(onBack, ...extra) {
-  return el('div', { class: 'action-row' },
+  return el(
+    'div',
+    { class: 'action-row' },
     el('button', { class: 'btn', text: '← Back to hub', onclick: onBack }),
-    ...extra);
+    ...extra,
+  );
 }
 
 // ------------------------------------------------------------------ hub
 
 export function renderHub(gs, handlers) {
-  const {
-    onVisit, onCharacters, onMap, onPerks, onAlmanac,
-  } = handlers;
+  const { onVisit, onCharacters, onPerks, onAlmanac } = handlers;
   const weather = gs.getWeather();
   const festival = gs.getFestival();
   const nudge = typeof gs.getDailyNudge === 'function' ? gs.getDailyNudge() : null;
@@ -247,16 +267,32 @@ export function renderHub(gs, handlers) {
   const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
     const { total, reasons } = computeDayEffects(gs, id);
-    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
-    return el('button', {
-      class: 'choice choice-primary',
-      onclick: () => onVisit(id),
-      'data-location': id,
-      'data-slot': String(indexToSlot(offset)),
-    },
+    const weatherEmoji = reasons.some(
+      (r) =>
+        r.includes('☀️') ||
+        r.includes('☁️') ||
+        r.includes('🌧️') ||
+        r.includes('⛈️') ||
+        r.includes('🌫️') ||
+        r.includes('❄️') ||
+        r.includes('🔥') ||
+        r.includes('🧊') ||
+        r.includes('🌸'),
+    )
+      ? (gs.getWeather()?.emoji ?? '')
+      : '';
+    return el(
+      'button',
+      {
+        class: 'choice choice-primary',
+        onclick: () => onVisit(id),
+        'data-location': id,
+        'data-slot': String(indexToSlot(offset)),
+      },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      effectChips(total, 'chips choice-eff', weatherEmoji));
+      effectChips(total, 'chips choice-eff', weatherEmoji),
+    );
   });
 
   const snap = {
@@ -277,7 +313,20 @@ export function renderHub(gs, handlers) {
   const otherChoices = selected.map((location, offset) => {
     const slot = HUB_SLOTS[offset];
     const { total, reasons } = computeDayEffects(gs, location.id);
-    const weatherEmoji = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
+    const weatherEmoji = reasons.some(
+      (r) =>
+        r.includes('☀️') ||
+        r.includes('☁️') ||
+        r.includes('🌧️') ||
+        r.includes('⛈️') ||
+        r.includes('🌫️') ||
+        r.includes('❄️') ||
+        r.includes('🔥') ||
+        r.includes('🧊') ||
+        r.includes('🌸'),
+    )
+      ? (gs.getWeather()?.emoji ?? '')
+      : '';
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
@@ -285,114 +334,98 @@ export function renderHub(gs, handlers) {
     const isWelcome = location.dayOneWelcome && isWelcomeDay(snap.journeyDay);
 
     if (unlocked) {
-      return el('button', {
-        class: `choice choice-primary${visited ? ' visited' : ''}${isWelcome ? ' welcome' : ''}`,
-        onclick: () => onVisit(location.id),
-        'data-location': location.id,
-        'data-slot': String(slot),
-        // Explicit string: the el() helper renders a boolean `true` as a bare
-        // valueless attribute, which reads back as '' rather than 'true'.
-        'data-welcome': isWelcome ? 'true' : false,
-      },
+      return el(
+        'button',
+        {
+          class: `choice choice-primary${visited ? ' visited' : ''}${isWelcome ? ' welcome' : ''}`,
+          onclick: () => onVisit(location.id),
+          'data-location': location.id,
+          'data-slot': String(slot),
+          // Explicit string: the el() helper renders a boolean `true` as a bare
+          // valueless attribute, which reads back as '' rather than 'true'.
+          'data-welcome': isWelcome ? 'true' : false,
+        },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
         el('span', { class: 'choice-action', text: location.actionLabel }),
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-      effectChips(total, 'chips choice-eff', weatherEmoji)
+        effectChips(total, 'chips choice-eff', weatherEmoji),
       );
     } else {
-      return el('button', {
-        class: 'choice locked',
-        disabled: true,
-        'data-location': location.id,
-        'data-slot': String(slot),
-      },
+      return el(
+        'button',
+        {
+          class: 'choice locked',
+          disabled: true,
+          'data-location': location.id,
+          'data-slot': String(slot),
+        },
         el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
-        el('span', { class: 'choice-action', text: `Locked: ${reason}` })
+        el('span', { class: 'choice-action', text: `Locked: ${reason}` }),
       );
     }
   });
 
   const greeting = typeof gs.getGreeting === 'function' ? gs.getGreeting() : '';
 
-  return el('div', { class: 'screen hub', style: "background-image:url('assets/backgrounds/hub_background.webp')" },
-    el('div', { class: 'hub-heading' },
-      el('div', {},
+  return el(
+    'div',
+    {
+      class: 'screen hub',
+      style: "background-image:url('assets/backgrounds/hub_background.webp')",
+    },
+    el(
+      'div',
+      { class: 'hub-heading' },
+      el(
+        'div',
+        {},
         el('p', { class: 'eyebrow', text: 'Today’s choice' }),
         el('h2', { class: 'screen-title', text: 'Where will you spend today?' }),
-        el('p', { class: 'hub-meta', text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}` })),
-      el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` })),
+        el('p', {
+          class: 'hub-meta',
+          text: `${gs.getDateDisplay()}  |  Journey Day ${gs.journeyDay}`,
+        }),
+      ),
+      el('span', { class: 'weather-badge', text: `${weather.emoji} ${weather.name}` }),
+    ),
     greeting ? el('p', { class: 'hub-greeting', text: greeting }) : null,
-    nudge ? el('aside', { class: 'daily-nudge', 'aria-label': nudge.label },
-      el('span', { class: 'nudge-emoji', text: nudge.emoji }),
-      el('div', {}, el('strong', { text: nudge.label }), el('span', { text: nudge.text }))) : null,
+    nudge
+      ? el(
+          'aside',
+          { class: 'daily-nudge', 'aria-label': nudge.label },
+          el('span', { class: 'nudge-emoji', text: nudge.emoji }),
+          el('div', {}, el('strong', { text: nudge.label }), el('span', { text: nudge.text })),
+        )
+      : null,
     festival
-      ? el('p', { class: 'festival-banner', text: `${festival.emoji} ${festival.name} — ${festival.line}` })
+      ? el('p', {
+          class: 'festival-banner',
+          text: `${festival.emoji} ${festival.name} — ${festival.line}`,
+        })
       : null,
 
     el('div', { class: 'choices' }, ...quick, ...otherChoices),
 
-    el('div', { class: 'hub-tools', 'aria-label': 'Journey tools' },
+    el(
+      'div',
+      { class: 'hub-tools', 'aria-label': 'Journey tools' },
       el('span', { class: 'tool-label', text: 'Keep close' }),
       el('button', { class: 'btn btn-small', onclick: onPerks, text: `🔮 Practice ${gs.insight}` }),
       el('button', { class: 'btn btn-small', onclick: onAlmanac, text: '📖 Weather & milestones' }),
-      el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 People' })),
+      el('button', { class: 'btn btn-small', onclick: onCharacters, text: '👥 People' }),
+    ),
 
-    el('details', { class: 'history' },
-      el('summary', { text: `Recent days${gs.recentHistory.length ? ` (${gs.recentHistory.length})` : ''}` }),
-      historyItems),
+    el(
+      'details',
+      { class: 'history' },
+      el('summary', {
+        text: `Recent days${gs.recentHistory.length ? ` (${gs.recentHistory.length})` : ''}`,
+      }),
+      historyItems,
+    ),
   );
-}
-
-// ------------------------------------------------------------------- map
-
-export function renderMap(gs, { onVisit, onBack }) {
-  const snap = {
-    journeyDay: gs.journeyDay,
-    reputation: gs.reputation,
-    weekday: gs.getWeekdayIndex(),
-    perks: gs.perks,
-    closedTags: gs.getClosedTags(),
-  };
-
-  const districts = DISTRICT_ORDER.map((district) => {
-    const here = LOCATIONS.filter((l) => l.district === district);
-    if (here.length === 0) return null;
-
-    const cards = here.map((location) => {
-      const { unlocked, reason } = evaluateUnlock(location, snap);
-      const { total } = computeDayEffects(gs, location.id);
-      const visited = gs.visitedLocations.has(location.id);
-
-      const card = el('button', {
-        class: `loc-card${unlocked ? '' : ' locked'}${visited ? ' visited' : ''}`,
-        disabled: !unlocked,
-        'data-location': location.id,
-      },
-      el('span', { class: 'loc-name', text: `${location.emoji} ${location.name}` }),
-      hostChip(gs, location.host, 'host-chip compact', { clickable: false }),
-      unlocked
-        ? effectChips(total, 'chips loc-chips')
-        : el('span', { class: 'loc-lock', text: `🔒 ${reason}` }),
-      el('span', { class: 'loc-tags', text: location.tags.join(' · ') }));
-
-      if (unlocked) card.addEventListener('click', () => onVisit(location.id));
-      return card;
-    });
-
-    const open = here.filter((l) => evaluateUnlock(l, snap).unlocked).length;
-    return el('section', { class: 'district' },
-      el('h3', { class: 'district-title' }, district,
-        el('span', { class: 'district-count', text: ` ${open}/${here.length} open` })),
-      el('div', { class: 'loc-grid' }, ...cards));
-  }).filter(Boolean);
-
-  return el('div', { class: 'screen map-screen' },
-    el('h2', { class: 'screen-title', text: 'The City' }),
-    el('p', { class: 'screen-sub', text: 'Effects shown include today’s weather, festivals, and your practice.' }),
-    ...districts,
-    backRow(onBack));
 }
 
 // ------------------------------------------------------------- location
@@ -400,7 +433,20 @@ export function renderMap(gs, { onVisit, onBack }) {
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
   const location = getLocation(locationId);
   const { total, reasons } = computeDayEffects(gs, locationId);
-  const weatherEmojiForLocation = reasons.some((r) => r.includes('☀️') || r.includes('☁️') || r.includes('🌧️') || r.includes('⛈️') || r.includes('🌫️') || r.includes('❄️') || r.includes('🔥') || r.includes('🧊') || r.includes('🌸')) ? (gs.getWeather()?.emoji ?? '') : '';
+  const weatherEmojiForLocation = reasons.some(
+    (r) =>
+      r.includes('☀️') ||
+      r.includes('☁️') ||
+      r.includes('🌧️') ||
+      r.includes('⛈️') ||
+      r.includes('🌫️') ||
+      r.includes('❄️') ||
+      r.includes('🔥') ||
+      r.includes('🧊') ||
+      r.includes('🌸'),
+  )
+    ? (gs.getWeather()?.emoji ?? '')
+    : '';
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -416,7 +462,6 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
   });
   backBtn.addEventListener('click', () => onBack());
 
-
   // Location specials: the pawnbroker, the letting office, and so on.
   const special = renderSpecial(gs, location, onSpecial);
 
@@ -424,26 +469,43 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
   // Hosts speak in their own voice here. Full biographies remain on the People
   // screen, so a location can stay about the day rather than become a dossier.
   const hostBanner = host
-    ? el('aside', { class: 'host-banner', 'aria-label': `A word from ${host.name}` },
-      avatar(host, 'avatar host-avatar-lg'),
-      el('div', { class: 'host-meeting' },
-        el('div', { class: 'host-label', text: 'Here today' }),
-        el('div', { class: 'host-name-lg', text: host.name }),
-        el('blockquote', { class: 'small-talk', text: `“${smallTalkFor(host.id, gs.journeyDay)}”` })))
+    ? el(
+        'aside',
+        { class: 'host-banner', 'aria-label': `A word from ${host.name}` },
+        avatar(host, 'avatar host-avatar-lg'),
+        el(
+          'div',
+          { class: 'host-meeting' },
+          el('div', { class: 'host-label', text: 'Here today' }),
+          el('div', { class: 'host-name-lg', text: host.name }),
+          el('blockquote', {
+            class: 'small-talk',
+            text: `“${smallTalkFor(host.id, gs.journeyDay)}”`,
+          }),
+        ),
+      )
     : null;
 
-  const node = el('div', { class: 'screen location', style: location.bg ? `background-image:url('${location.bg}')` : '' },
+  const node = el(
+    'div',
+    {
+      class: 'screen location',
+      style: location.bg ? `background-image:url('${location.bg}')` : '',
+    },
     particles,
     el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
     el('p', { class: 'screen-sub', text: location.desc }),
     hostBanner,
 
-    el('div', { class: 'preview' },
-      el('h3', { text: "Today, here" }),
+    el(
+      'div',
+      { class: 'preview' },
+      el('h3', { text: 'Today, here' }),
       effectChips(total, 'chips preview-chips', weatherEmojiForLocation),
       reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
-        : null),
+        : null,
+    ),
 
     special,
     el('div', { class: 'action-row' }, actionBtn, backBtn),
@@ -458,7 +520,9 @@ function renderSpecial(gs, location, onSpecial) {
   if (location.special === 'prepay_rent') {
     const cost = gs.rentDue();
     const covered = gs.rentPrepaidUntilDay > gs.journeyDay;
-    return el('div', { class: 'special' },
+    return el(
+      'div',
+      { class: 'special' },
       el('p', {
         text: covered
           ? `You are paid up to journey day ${gs.rentPrepaidUntilDay}.`
@@ -469,10 +533,14 @@ function renderSpecial(gs, location, onSpecial) {
         disabled: gs.money < cost,
         text: `Pay a week ahead (${cost} money)`,
         onclick: () => onSpecial('prepay_rent'),
-      }));
+      }),
+    );
   }
   if (location.special === 'long_trip') {
-    return el('p', { class: 'special-note', text: 'Three days, counted as one. They will not let you leave early.' });
+    return el('p', {
+      class: 'special-note',
+      text: 'Three days of silence, counted as one turn — you come back down on the third evening and the calendar moves forward with you.',
+    });
   }
 
   return null;
@@ -496,7 +564,9 @@ function startParticles(container) {
     setTimeout(() => p.remove(), dur * 1000);
   };
   for (let i = 0; i < 6; i++) setTimeout(spawn, i * 320);
-  const id = setInterval(() => { container.isConnected ? spawn() : clearInterval(id); }, 850);
+  const id = setInterval(() => {
+    container.isConnected ? spawn() : clearInterval(id);
+  }, 850);
   return () => clearInterval(id);
 }
 
@@ -506,30 +576,47 @@ export function renderPerks(gs, { onBuy, onBack }) {
   const rows = PERKS.map((perk) => {
     const owned = gs.hasPerk(perk.id);
     const check = gs.canBuy(perk.id);
-    return el('div', { class: `perk-row${owned ? ' owned' : ''}${!owned && !check.ok ? ' blocked' : ''}` },
+    return el(
+      'div',
+      { class: `perk-row${owned ? ' owned' : ''}${!owned && !check.ok ? ' blocked' : ''}` },
       el('span', { class: 'perk-emoji', text: perk.emoji }),
-      el('div', { class: 'perk-meta' },
+      el(
+        'div',
+        { class: 'perk-meta' },
         el('div', { class: 'perk-name', text: perk.name }),
         el('div', { class: 'perk-desc', text: perk.desc }),
         perk.requires.length > 0
-          ? el('div', { class: 'perk-req', text: `after ${perk.requires.map((r) => getPerk(r).name).join(', ')}` })
-          : null),
+          ? el('div', {
+              class: 'perk-req',
+              text: `after ${perk.requires.map((r) => getPerk(r).name).join(', ')}`,
+            })
+          : null,
+      ),
       owned
         ? el('span', { class: 'perk-owned', text: '✓ learned' })
         : el('button', {
-          class: 'btn btn-small',
-          disabled: !check.ok,
-          title: check.ok ? `Estimated: reachable ~day ${Math.ceil(perk.cost / 1.2 + (perk.requires.length || 0) * 5)}` : check.reason,
-          text: `${perk.cost} 🔮`,
-          onclick: () => onBuy(perk.id),
-        }));
+            class: 'btn btn-small',
+            disabled: !check.ok,
+            title: check.ok
+              ? `Estimated: reachable ~day ${Math.ceil(perk.cost / 1.2 + (perk.requires.length || 0) * 5)}`
+              : check.reason,
+            text: `${perk.cost} 🔮`,
+            onclick: () => onBuy(perk.id),
+          }),
+    );
   });
 
-  return el('div', { class: 'screen' },
+  return el(
+    'div',
+    { class: 'screen' },
     el('h2', { class: 'screen-title', text: '🔮 Practice' }),
-    el('p', { class: 'screen-sub', text: `Quiet days give insight. Insight buys habits that stay bought. You have ${gs.insight}.` }),
+    el('p', {
+      class: 'screen-sub',
+      text: `Quiet days give insight. Insight buys habits that stay bought. You have ${gs.insight}.`,
+    }),
     el('div', { class: 'perk-list' }, ...rows),
-    backRow(onBack));
+    backRow(onBack),
+  );
 }
 
 // --------------------------------------------------------------- almanac
@@ -542,39 +629,176 @@ export function renderAlmanac(gs, { onBack }) {
 
   // Energy forecast: predict trajectory based on current energy level
   const energyNow = gs.energy;
-  const forecastEnergy = energyNow < 25 ? 'Low — rest will restore quickly.'
-    : energyNow > 75 ? 'Strong — you can push a little.'
-    : 'Moderate — keep an eye on it.';
+  const forecastEnergy =
+    energyNow < 25
+      ? 'Low — rest will restore quickly.'
+      : energyNow > 75
+        ? 'Strong — you can push a little.'
+        : 'Moderate — keep an eye on it.';
 
-  return el('div', { class: 'screen' },
+  return el(
+    'div',
+    { class: 'screen' },
     el('h2', { class: 'screen-title', text: '📖 The Almanac' }),
-    el('p', { class: 'screen-sub', text: 'Weather is not luck. It is written down, and you can read ahead.' }),
+    el('p', {
+      class: 'screen-sub',
+      text: 'Weather is not luck. It is written down, and you can read ahead.',
+    }),
 
     el('h3', { class: 'section-h', text: 'Energy Outlook' }),
     el('p', { class: 'energy-forecast', text: forecastEnergy }),
 
     el('h3', { class: 'section-h', text: 'Forecast' }),
-    el('div', { class: 'forecast' }, ...days.map(({ day, weather }, i) => el('div', { class: `fc${i === 0 ? ' today' : ''}` },
-      el('div', { class: 'fc-day', text: i === 0 ? 'Today' : `Day ${day}` }),
-      el('div', { class: 'fc-emoji', text: weather.emoji }),
-      el('div', { class: 'fc-name', text: weather.name }),
-      weather.closes.length > 0 ? el('div', { class: 'fc-closes', text: `closes ${weather.closes.join(', ')}` }) : null))),
+    el(
+      'div',
+      { class: 'forecast' },
+      ...days.map(({ day, weather }, i) =>
+        el(
+          'div',
+          { class: `fc${i === 0 ? ' today' : ''}` },
+          el('div', { class: 'fc-day', text: i === 0 ? 'Today' : `Day ${day}` }),
+          el('div', { class: 'fc-emoji', text: weather.emoji }),
+          el('div', { class: 'fc-name', text: weather.name }),
+          weather.closes.length > 0
+            ? el('div', { class: 'fc-closes', text: `closes ${weather.closes.join(', ')}` })
+            : null,
+        ),
+      ),
+    ),
 
     el('h3', { class: 'section-h', text: 'Coming up' }),
-    el('ul', { class: 'fest-list' }, ...festivals.map((f) => el('li', {},
-      el('strong', { text: `${f.emoji} ${f.name}` }),
-      ` — ${f.line}`))),
+    el(
+      'ul',
+      { class: 'fest-list' },
+      ...festivals.map((f) =>
+        el('li', {}, el('strong', { text: `${f.emoji} ${f.name}` }), ` — ${f.line}`),
+      ),
+    ),
 
-    el('h3', { class: 'section-h', text: `Achievements (${earned.length}/${ACHIEVEMENTS.length})` }),
-    el('div', { class: 'ach-grid' },
-      ...earned.map((a) => el('div', { class: 'ach earned', title: a.desc },
-        el('span', { class: 'ach-emoji', text: a.emoji }),
-        el('span', { class: 'ach-name', text: a.name }))),
-      ...pending.map((a) => el('div', { class: 'ach', title: a.desc },
-        el('span', { class: 'ach-emoji', text: '·' }),
-        el('span', { class: 'ach-name', text: a.name })))),
+    el('h3', {
+      class: 'section-h',
+      text: `Achievements (${earned.length}/${ACHIEVEMENTS.length})`,
+    }),
+    el(
+      'div',
+      { class: 'ach-grid' },
+      ...earned.map((a) =>
+        el(
+          'div',
+          { class: 'ach earned', title: a.desc },
+          el('span', { class: 'ach-emoji', text: a.emoji }),
+          el('span', { class: 'ach-name', text: a.name }),
+        ),
+      ),
+      ...pending.map((a) =>
+        el(
+          'div',
+          { class: 'ach', title: a.desc },
+          el('span', { class: 'ach-emoji', text: '·' }),
+          el('span', { class: 'ach-name', text: a.name }),
+        ),
+      ),
+    ),
 
-    backRow(onBack));
+    backRow(onBack),
+  );
+}
+
+// ------------------------------------------------------------ settings
+
+export function renderSettings(
+  preferences,
+  { onToggleContrast, onToggleMotion, onToggleSound, onChangeVolume, onBack, onAbandon },
+) {
+  const toggle = (label, enabled, handler, desc) =>
+    el(
+      'div',
+      { class: 'settings-row' },
+      el('button', {
+        class: `settings-choice${enabled ? ' selected' : ''}`,
+        type: 'button',
+        'aria-pressed': String(enabled),
+        onclick: handler,
+        text: `${label}: ${enabled ? 'On' : 'Off'}`,
+      }),
+      desc ? el('p', { class: 'settings-desc', text: desc }) : null,
+    );
+
+  const soundOn = preferences.sound !== false;
+  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.35;
+
+  const volumeInput = el('input', {
+    type: 'range',
+    min: '0',
+    max: '1',
+    step: '0.05',
+    value: String(volume),
+    'aria-label': 'Music volume',
+    oninput: (e) => onChangeVolume?.(Number(e.target.value)),
+  });
+
+  return el(
+    'div',
+    { class: 'screen settings-screen' },
+    el('h2', { class: 'screen-title', text: '⚙️ Settings' }),
+    el('p', {
+      class: 'screen-sub',
+      text: 'These preferences stay on this device and never roll the calendar.',
+    }),
+
+    el(
+      'section',
+      { class: 'settings-group' },
+      el('h3', { text: 'Accessibility' }),
+      toggle(
+        'High contrast',
+        preferences.highContrast,
+        onToggleContrast,
+        'Stronger color separation for text and chips.',
+      ),
+      toggle(
+        'Reduced motion',
+        preferences.reducedMotion,
+        onToggleMotion,
+        'Disables particles and collapses fade transitions.',
+      ),
+    ),
+
+    el(
+      'section',
+      { class: 'settings-group' },
+      el('h3', { text: 'Sound' }),
+      toggle(
+        'Background music',
+        soundOn,
+        onToggleSound,
+        'A quiet warm piano loop — off until you turn it on, per autoplay rules.',
+      ),
+      el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
+    ),
+
+    el(
+      'section',
+      { class: 'settings-group settings-danger' },
+      el('h3', { text: 'Run' }),
+      el('p', {
+        class: 'settings-desc',
+        text: 'Runs autosave after every day. You can abandon the current run and start over here.',
+      }),
+      el('button', {
+        class: 'btn btn-danger',
+        type: 'button',
+        onclick: () => {
+          if (window.confirm('Abandon this run and start over? Your progress will be deleted.')) {
+            onAbandon?.();
+          }
+        },
+        text: 'Abandon run & start over',
+      }),
+    ),
+
+    backRow(onBack),
+  );
 }
 
 // ------------------------------------------------------------ characters
@@ -589,35 +813,55 @@ const GROUP_TITLES = {
 };
 
 export function renderCharacters(profiles, { onBack }) {
-  const detail = el('div', { class: 'detail' },
-    el('p', { class: 'detail-empty', text: 'Select a character to read their story.' }));
+  const detail = el(
+    'div',
+    { class: 'detail' },
+    el('p', { class: 'detail-empty', text: 'Select a character to read their story.' }),
+  );
 
   const showDetail = (p) => {
     detail.replaceChildren(
-      el('div', { class: 'detail-head' },
+      el(
+        'div',
+        { class: 'detail-head' },
         avatar(p, 'avatar detail-avatar'),
-        el('div', {},
+        el(
+          'div',
+          {},
           el('h3', { text: p.name }),
-          el('div', { class: `detail-role role-${p.role}`, text: roleLabel(p.role) }))),
+          el('div', { class: `detail-role role-${p.role}`, text: roleLabel(p.role) }),
+        ),
+      ),
       el('p', { text: p.bio }),
-      el('dl', {},
+      el(
+        'dl',
+        {},
         el('dt', { text: 'Relationship to Léon' }),
         el('dd', { text: p.relationship }),
         el('dt', { text: 'Usually found at' }),
-        el('dd', { text: p.location })),
+        el('dd', { text: p.location }),
+      ),
     );
   };
 
   const allRows = [];
   const makeRow = (p) => {
-    const row = el('button', {
-      class: `char-row role-${p.role}`, role: 'option', 'aria-selected': 'false',
-    },
-    avatar(p, 'avatar', { clickable: false }),
-    el('div', { class: 'char-meta' },
-      el('div', { class: 'char-name', text: p.name }),
-      el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
-      el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` })));
+    const row = el(
+      'button',
+      {
+        class: `char-row role-${p.role}`,
+        role: 'option',
+        'aria-selected': 'false',
+      },
+      avatar(p, 'avatar', { clickable: false }),
+      el(
+        'div',
+        { class: 'char-meta' },
+        el('div', { class: 'char-name', text: p.name }),
+        el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
+        el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` }),
+      ),
+    );
 
     row.addEventListener('click', () => {
       for (const r of allRows) r.setAttribute('aria-selected', 'false');
@@ -656,26 +900,35 @@ export function renderCharacters(profiles, { onBack }) {
       let shown = 0;
       for (const row of rows) {
         const p = row._profile;
-        const hit = !q
-          || p.name.toLowerCase().includes(q)
-          || p.location.toLowerCase().includes(q)
-          || roleLabel(p.role).toLowerCase().includes(q)
-          || p.bio.toLowerCase().includes(q);
+        const hit =
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          p.location.toLowerCase().includes(q) ||
+          roleLabel(p.role).toLowerCase().includes(q) ||
+          p.bio.toLowerCase().includes(q);
         row.hidden = !hit;
         if (hit) shown += 1;
       }
       heading.hidden = shown === 0;
       visible += shown;
     }
-    count.textContent = q ? `${visible} match${visible === 1 ? '' : 'es'}` : `${profiles.length} people`;
+    count.textContent = q
+      ? `${visible} match${visible === 1 ? '' : 'es'}`
+      : `${profiles.length} people`;
   });
 
-  return el('div', { class: 'screen' },
+  return el(
+    'div',
+    { class: 'screen' },
     el('h2', { class: 'screen-title', text: 'Characters' }),
-    el('p', { class: 'screen-sub', text: 'The people who keep Léon’s city feeling like a home — every place has someone waiting.' }),
+    el('p', {
+      class: 'screen-sub',
+      text: 'The people who keep Léon’s city feeling like a home — every place has someone waiting.',
+    }),
     el('div', { class: 'char-toolbar' }, search, count),
     el('div', { class: 'char-layout' }, list, detail),
-    backRow(onBack));
+    backRow(onBack),
+  );
 }
 
 // ------------------------------------------------------------- game over
@@ -689,53 +942,82 @@ export function renderGameOver(gs, message, { onRestart }) {
     ['Reputation', Math.round(gs.reputation)],
   ];
 
-  const title = gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS
-    ? 'A Long Road Ended'
-    : 'The Balance Broke';
+  const title = gs.masteryWon
+    ? 'The City Is Yours'
+    : gs.won && gs.journeyDay >= ENDURANCE_GOAL_DAYS
+      ? 'A Long Road Ended'
+      : 'The Balance Broke';
 
-  return el('div', { class: 'screen gameover' },
+  const closingNote = gs.masteryWon ? gs.masteryMessage : gs.won ? gs.winMessage : '';
+
+  return el(
+    'div',
+    { class: 'screen gameover' },
     el('h2', { text: title }),
     el('p', { text: message }),
-    gs.won ? el('p', { class: 'win-note', text: gs.winMessage || 'You reached one hundred days before the end.' }) : null,
+    closingNote
+      ? el('p', {
+          class: 'win-note',
+          text: closingNote,
+        })
+      : null,
     el('p', {
       class: 'summary',
       text: `You lasted ${gs.journeyDay} day${gs.journeyDay === 1 ? '' : 's'}, ending on ${gs.getDateDisplay()}.`,
     }),
-    el('dl', { class: 'run-stats' },
-      ...stats.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: String(v) })])),
-    el('button', { class: 'btn btn-primary', text: 'Begin again', onclick: onRestart }));
+    el(
+      'dl',
+      { class: 'run-stats' },
+      ...stats.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: String(v) })]),
+    ),
+    el('button', { class: 'btn btn-primary', text: 'Begin again', onclick: onRestart }),
+  );
 }
 
 // ----------------------------------------------------------------- modal
 
 export function renderResultModal(result, gs, { onContinue }) {
-  const {
-    actionDesc, event, rentCharged, deltas, weather, festival,
-    achievements, exhaustion,
-  } = result;
+  const { actionDesc, event, rentCharged, deltas, weather, festival, achievements, exhaustion } =
+    result;
 
   const eventChar = event?.character ? findCharacter(gs, event.character) : null;
   const eventBlock = event
-    ? el('div', { class: 'event-block' },
-      el('span', { class: `rarity-tag rarity-${event.rarity}`, text: rarityLabel(event.rarity) }),
-      eventChar
-        ? el('div', { class: 'event-person' },
-          avatar(eventChar, 'avatar event-avatar'),
-          el('div', {},
-            el('p', { class: 'event-title', text: event.title }),
-            el('p', { class: 'event-who', text: eventChar.name })))
-        : el('p', { class: 'event-title', text: event.title }),
-      el('p', { text: event.description }))
+    ? el(
+        'div',
+        { class: 'event-block' },
+        el('span', { class: `rarity-tag rarity-${event.rarity}`, text: rarityLabel(event.rarity) }),
+        eventChar
+          ? el(
+              'div',
+              { class: 'event-person' },
+              avatar(eventChar, 'avatar event-avatar'),
+              el(
+                'div',
+                {},
+                el('p', { class: 'event-title', text: event.title }),
+                el('p', { class: 'event-who', text: eventChar.name }),
+              ),
+            )
+          : el('p', { class: 'event-title', text: event.title }),
+        el('p', { text: event.description }),
+      )
     : null;
 
   const notes = [];
-  if (result.justWon) notes.push(`🏅 ${result.winMessage || 'One hundred days. You held.'}`);
+  if (result.justWon) notes.push(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
+  if (result.masteryWon) notes.push(`🌟 ${result.masteryMessage}`);
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
-  if (exhaustion) notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
+  if (result.extraRent)
+    notes.push(`📅 Rent came due while you were away — ${result.extraRent} money.`);
+  if (exhaustion)
+    notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
+  if (result.longTrip) notes.push(`🏔 Three days pass in silence. The calendar has moved.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
 
-  const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },
+  const modal = el(
+    'div',
+    { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Day result' },
     el('h3', { text: 'End of Day' }),
     el('p', { class: 'modal-weather', text: `${weather.emoji} ${weather.name}` }),
     el('p', { text: actionDesc }),
@@ -744,22 +1026,62 @@ export function renderResultModal(result, gs, { onContinue }) {
       : null,
     eventBlock,
     el('div', { class: 'modal-stats' }, effectChips(deltas, 'chips')),
-    el('div', { class: 'modal-totals', text: `Sanity ${Math.round((gs.sanity / MAX_STAT) * 100)}% · Money ${Math.round(gs.money)} · Energy ${Math.round((gs.energy / MAX_ENERGY) * 100)}% · Rep ${Math.round((gs.reputation / MAX_REPUTATION) * 100)}% · Insight ${gs.insight}` }),
-    el('div', { class: 'modal-actions' },
-      el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue })),
+    el('div', {
+      class: 'modal-totals',
+      text: `Sanity ${Math.round((gs.sanity / MAX_STAT) * 100)}% · Money ${Math.round(gs.money)} · Energy ${Math.round((gs.energy / MAX_ENERGY) * 100)}% · Rep ${Math.round((gs.reputation / MAX_REPUTATION) * 100)}% · Insight ${gs.insight}`,
+    }),
+    el(
+      'div',
+      { class: 'modal-actions' },
+      el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue }),
+    ),
   );
 
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) onContinue(); });
+  // Intentionally *do not* advance time on a backdrop click: a stray tap must
+  // never roll the calendar. The Continue button is the only way forward.
+
+  // Focus management + Escape (consistent with the portrait lightbox). Escape
+  // does NOT continue — that would also advance time on an errant keypress.
+  // It is simply bound to "no action" here because there is no cancel state;
+  // the day has been resolved and the player must click Continue.
+  const focusable = modal.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const prevFocus = document.activeElement;
+  setTimeout(() => first?.focus(), 0);
+
+  const onKey = (e) => {
+    if (e.key === 'Tab' && focusable.length) {
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  backdrop._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    if (prevFocus?.focus) prevFocus.focus();
+  };
   return backdrop;
 }
 
 function rarityLabel(rarity) {
-  return { standard: 'Common', rare_helpful: 'Rare · Helpful', rare_hurtful: 'Rare · Hurtful' }[rarity] ?? '';
+  return (
+    { standard: 'Common', rare_helpful: 'Rare · Helpful', rare_hurtful: 'Rare · Hurtful' }[
+      rarity
+    ] ?? ''
+  );
 }
 
 /** Small transient toast, used for achievements and saves. */
 export function renderToast(text) {
   return el('div', { class: 'toast', role: 'status', text });
 }
-

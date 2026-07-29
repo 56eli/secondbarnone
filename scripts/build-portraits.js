@@ -1,30 +1,26 @@
 #!/usr/bin/env node
 /**
- * Portrait tier builder.
+ * Portrait tier builder (v2.0 — frame-less square standard).
+ *
+ * Presentation model (long-term health):
+ *   • All previews in the game (HUD, lists, hosts, events) are ROUND via CSS.
+ *   • The lightbox popup shows CLEAN SQUARE art at standardized size.
+ *   • NO baked circular frames in new or regenerated masters (except hard exceptions).
+ *
+ * Hard permanent exceptions (never regenerate):
+ *   • brian  — keeps its framed master forever
+ *   • vanna  — keeps its framed master forever
+ *
+ * For everyone else: source masters must be clean square PNGs (≥1024px).
  *
  * The game needs each portrait at two very different sizes:
  *
  *   thumb  docs/assets/portraits/<id>.webp      288px — every inline use
- *                                                       (HUD 82px, People row
- *                                                       42px, detail 84px)
- *   hi     docs/assets/portraits/hi/<id>.webp  1024px — the tap-to-enlarge
- *                                                       lightbox only
+ *   hi     docs/assets/portraits/hi/<id>.webp  896px — the tap-to-enlarge lightbox only
  *
- * Why two tiers: the largest portrait the game ever *inlines* is 84 CSS px, so
- * the 512px sheets we used to ship were ~6x oversized on every screen. The
- * lightbox, by contrast, renders up to 560 CSS px, which is ~1120 physical px
- * on a 2x display — 512px was visibly soft there. Splitting the tiers makes
- * normal play download much less while making the one place that wants detail
- * genuinely sharp. The hi tier is fetched lazily, only when a portrait is
- * actually opened.
- *
- * Source preference per id, best first:
- *   assets/portraits/<id>.png    painted source (1024px for current art)
- *   assets/portraits/<id>.webp   older painted art kept only as 512px WebP
- *   docs/assets/portraits/<id>.webp  last resort (already-deployed sheet)
- *
- * The hi tier never upscales: a 512px-only character gets a 512px hi file,
- * which is still strictly larger than its 288px thumb.
+ * Source preference (strict for v2.0):
+ *   assets/portraits/<id>.png     ← ONLY accepted master for new art
+ *   (legacy .webp / .svg are tolerated only for the two exceptions during transition)
  *
  * Usage: node scripts/build-portraits.js [--only id,id,...]
  */
@@ -43,6 +39,12 @@ const OUT_HI = join(OUT, 'hi');
 
 export const THUMB_PX = 288;
 export const HI_PX = 896;
+
+/**
+ * Hard permanent exceptions — these two keep their original framed art forever.
+ * All other characters must use clean square PNG masters (no baked frame).
+ */
+export const FRAME_EXCEPTIONS = new Set(['brian', 'vanna']);
 const THUMB_QUALITY = 78;
 // 896px/q56 was chosen by comparing 100% crops against q68: no visible
 // difference in the painted style, ~18% smaller. 896px still covers the
@@ -50,26 +52,48 @@ const THUMB_QUALITY = 78;
 // deployed payload budget alongside the backgrounds.
 const HI_QUALITY = 56;
 
+
+
 /**
- * Resolve the best on-disk source for a character id.
+ * Resolve the best on-disk source for a character id (v2.0 policy).
  *
- * "Best" is the *largest* candidate, not the first format that happens to
- * exist. Three early characters (joar, susan, yume) keep a 160px PNG next to
- * a 512px WebP; a naive png-first probe picked the 160px file and produced a
- * "hi" sheet smaller and blurrier than the thumbnail it was meant to enlarge.
- * Ties break toward PNG, which is the lossless master where both are equal.
+ * v2.0 rule:
+ * - Preferred master: assets/portraits/<id>.png (clean square, no baked frame)
+ * - Legacy .webp sources are only accepted for the two hard exceptions (brian, vanna)
+ * - For all other characters, a missing PNG master is treated as an error
+ *   (the build will still run but will log loudly and the asset test should catch it).
+ *
+ * "Best" still prefers largest resolution.
  */
 export function sourceFor(id, { src = SRC, out = OUT } = {}) {
+  const isException = FRAME_EXCEPTIONS.has(id);
+
   const candidates = [
-    { path: join(src, `${id}.png`), rank: 2 },
-    { path: join(src, `${id}.webp`), rank: 1 },
-    { path: join(out, `${id}.webp`), rank: 0 },
+    { path: join(src, `${id}.png`), rank: 3 },
+    // Legacy WebP only tolerated for the two permanent framed exceptions
+    ...(isException ? [{ path: join(src, `${id}.webp`), rank: 2 }] : []),
+    { path: join(out, `${id}.webp`), rank: 1 },
   ].filter((c) => existsSync(c.path));
+
   if (candidates.length === 0) return null;
 
-  for (const c of candidates) c.width = widthOf(c.path);
+  for (const c of candidates) {
+    try { c.width = widthOf(c.path); } catch { c.width = 0; }
+  }
+
   candidates.sort((a, b) => (b.width - a.width) || (b.rank - a.rank));
-  return candidates[0].path;
+
+  const chosen = candidates[0];
+
+  // Policy enforcement log
+  if (!isException && !chosen.path.endsWith('.png')) {
+    console.warn(`  ⚠ ${id}: using legacy source (${chosen.path}). PNG master required for v2.0 (frame-less square).`);
+  }
+  if (isException) {
+    console.log(`  ℹ ${id}: using preserved exception master (framed version kept forever).`);
+  }
+
+  return chosen.path;
 }
 
 function widthOf(file) {

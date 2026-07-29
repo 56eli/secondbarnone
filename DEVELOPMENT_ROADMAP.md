@@ -47,7 +47,7 @@ unknown state. Moving entries to custom is a deliberate, ongoing effort —
 the template file should be updated whenever an asset is replaced.
 
 - **Portrait generation:** the standard prompt template for regenerating
-  portraits lives at [docs/PORTRAIT_REFERENCE.md](docs/PORTRAIT_REFERENCE.md).
+  portraits lives at [notes/ART_STANDARD.md](notes/ART_STANDARD.md).
   Edit it freely — it is the single source of truth for the house style and
   should be used for all bulk regenerations.
 - **Sex/portrait mismatches:** a live list of characters whose current portrait
