@@ -34,7 +34,7 @@ As plain ES modules the source _is_ the build:
 | --------------- | ------------------------------- | ------------------- |
 | Deploy payload  | 39.5 MB                         | **3.94 MB** eager to play (+5.96 MB portrait lightbox tier; 0.80 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **376**             |
+| Automated tests | 0                               | **379**             |
 | Coverage        | —                               | **~99.7%**          |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
