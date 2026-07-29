@@ -20,3 +20,37 @@
 - Add property-based and mutation tests around turn order, save migration, weather gates and economy invariants. These are the highest-risk systems as content grows.
 - Establish an art direction sheet (portrait lighting, crop, palette and representation checklist) and commission/produce portraits in batches so side characters do not feel visually secondary.
 - Keep content data schema-versioned and authoring-friendly; a small validation script should catch duplicate ids, missing hosts, unreachable events and orphaned rewards before review.
+
+## Long-term asset goal (characters & locations)
+
+The long-term goal for the project's cast and locations is to bring every
+entry to a fully custom, human-authored state. Progress is tracked in
+[CHARACTER_AND_LOCATION_TEMPLATES.md](CHARACTER_AND_LOCATION_TEMPLATES.md),
+which lists every character and location with their current asset provenance.
+
+The target state for each character is:
+
+- **Sex** — known (Male / Female / Other), not "unknown"
+- **Image** — custom (hand-painted or commissioned), not AI-generated
+- **Profile** — custom (written by a human author), not AI-generated
+- **Events** — custom (authored dialogue and scenarios), not AI-generated
+
+The target state for each location is:
+
+- **Image** — custom, not AI-generated
+- **Description** — custom, not AI-generated
+- **Location reference** — verified against the real setting
+
+Currently 1 of 78 characters has a custom image (Brian). All other fields
+across the entire cast and location catalogue remain in the AI-generated or
+unknown state. Moving entries to custom is a deliberate, ongoing effort —
+the template file should be updated whenever an asset is replaced.
+
+- **Portrait generation:** the standard prompt template for regenerating
+  portraits lives at [docs/PORTRAIT_REFERENCE.md](docs/PORTRAIT_REFERENCE.md).
+  Edit it freely — it is the single source of truth for the house style and
+  should be used for all bulk regenerations.
+- **Sex/portrait mismatches:** a live list of characters whose current portrait
+  does not match their recorded sex is tracked in
+  [CHARACTER_AND_LOCATION_TEMPLATES.md](CHARACTER_AND_LOCATION_TEMPLATES.md)
+  under "Sex/portrait mismatches". Regenerate these using the reference above.
