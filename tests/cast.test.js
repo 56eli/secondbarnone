@@ -15,12 +15,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createAllProfiles, charactersAtLocation, Role, SMALL_TALK, smallTalkFor,
+  createAllProfiles,
+  charactersAtLocation,
+  Role,
+  SMALL_TALK,
+  smallTalkFor,
 } from '../docs/js/data/characters.js';
 import {
-  buildEventPool, EVENTS_BY_LOCATION, eventsForCharacter, eventsAtLocation,
-  eventCountsByCharacter, weightForRarity, Rarity, Category,
-  WEIGHT_STANDARD, WEIGHT_RARE_HELPFUL, WEIGHT_RARE_HURTFUL,
+  buildEventPool,
+  EVENTS_BY_LOCATION,
+  eventsForCharacter,
+  eventsAtLocation,
+  eventCountsByCharacter,
+  weightForRarity,
+  Rarity,
+  Category,
+  WEIGHT_STANDARD,
+  WEIGHT_RARE_HELPFUL,
+  WEIGHT_RARE_HURTFUL,
 } from '../docs/js/data/events.js';
 import { LOCATIONS, getLocation, locationIds } from '../docs/js/data/locations.js';
 import { getWeather } from '../docs/js/data/weather.js';
@@ -47,8 +59,11 @@ test('every character is bound to exactly one real location', () => {
 test('the displayed location name is derived from the binding, never stored', () => {
   // Two fields that can disagree are two fields that eventually will.
   for (const p of PROFILES) {
-    assert.equal(p.location, getLocation(p.locationId).name,
-      `${p.id} shows "${p.location}" but is bound to ${p.locationId}`);
+    assert.equal(
+      p.location,
+      getLocation(p.locationId).name,
+      `${p.id} shows "${p.location}" but is bound to ${p.locationId}`,
+    );
   }
 });
 
@@ -66,8 +81,10 @@ test('the cast is spread roughly evenly across the city', () => {
   const highest = Math.max(...counts.map((c) => c.n));
 
   assert.ok(lowest >= 3, `${counts.find((c) => c.n === lowest).id} has only ${lowest} people`);
-  assert.ok(highest - lowest <= 2,
-    `spread is ${lowest}-${highest}: ${counts.map((c) => `${c.id}:${c.n}`).join(', ')}`);
+  assert.ok(
+    highest - lowest <= 2,
+    `spread is ${lowest}-${highest}: ${counts.map((c) => `${c.id}:${c.n}`).join(', ')}`,
+  );
 });
 
 test('every location host is bound to the location they host', () => {
@@ -76,8 +93,11 @@ test('every location host is bound to the location they host', () => {
   for (const l of LOCATIONS) {
     const host = BY_ID.get(l.host);
     assert.ok(host, `${l.id} host ${l.host} is not in the cast`);
-    assert.equal(host.locationId, l.id,
-      `${l.host} hosts ${l.id} but is bound to ${host.locationId}`);
+    assert.equal(
+      host.locationId,
+      l.id,
+      `${l.host} hosts ${l.id} but is bound to ${host.locationId}`,
+    );
   }
 });
 
@@ -97,9 +117,9 @@ test('every host has small talk and every small-talk entry is a host', () => {
 
 test('every character has at least three events', () => {
   const counts = eventCountsByCharacter();
-  const short = PROFILES
-    .map((p) => ({ id: p.id, n: counts.get(p.id) ?? 0 }))
-    .filter((c) => c.n < MIN_EVENTS_PER_CHARACTER);
+  const short = PROFILES.map((p) => ({ id: p.id, n: counts.get(p.id) ?? 0 })).filter(
+    (c) => c.n < MIN_EVENTS_PER_CHARACTER,
+  );
   assert.deepEqual(short, [], `these characters are under ${MIN_EVENTS_PER_CHARACTER} events`);
 });
 
@@ -113,8 +133,11 @@ test('every event belongs to a real character', () => {
 test('every event fires only at its own character\u2019s location', () => {
   for (const e of POOL) {
     const owner = BY_ID.get(e.character);
-    assert.equal(e.requiredLocation, owner.locationId,
-      `${e.id} belongs to ${e.character} (${owner.locationId}) but fires at ${e.requiredLocation}`);
+    assert.equal(
+      e.requiredLocation,
+      owner.locationId,
+      `${e.id} belongs to ${e.character} (${owner.locationId}) but fires at ${e.requiredLocation}`,
+    );
   }
 });
 
@@ -128,12 +151,16 @@ test('a character\u2019s events are all in one place', () => {
 test('every location has events, and they belong to the people who are there', () => {
   for (const l of LOCATIONS) {
     const events = eventsAtLocation(l.id);
-    assert.ok(events.length >= MIN_EVENTS_PER_CHARACTER * 3,
-      `${l.id} has only ${events.length} events`);
+    assert.ok(
+      events.length >= MIN_EVENTS_PER_CHARACTER * 3,
+      `${l.id} has only ${events.length} events`,
+    );
     const residents = new Set(charactersAtLocation(l.id));
     for (const e of events) {
-      assert.ok(residents.has(e.character),
-        `${e.id} fires at ${l.id} but ${e.character} is not there`);
+      assert.ok(
+        residents.has(e.character),
+        `${e.id} fires at ${l.id} but ${e.character} is not there`,
+      );
     }
   }
 });
@@ -182,7 +209,10 @@ test('every event is fully specified', () => {
 test('every event actually does something', () => {
   const keys = ['sanityDelta', 'moneyDelta', 'energyDelta', 'reputationDelta', 'insightDelta'];
   for (const e of POOL) {
-    assert.ok(keys.some((k) => e[k] !== 0), `${e.id} has no effect at all`);
+    assert.ok(
+      keys.some((k) => e[k] !== 0),
+      `${e.id} has no effect at all`,
+    );
   }
 });
 
@@ -216,8 +246,10 @@ test('extra gates name real weather and sane minimum days', () => {
 
 test('most events belong to side characters', () => {
   const side = POOL.filter((e) => BY_ID.get(e.character)?.role === Role.SIDE_CHARACTER);
-  assert.ok(side.length * 2 >= POOL.length,
-    `${side.length}/${POOL.length} events are side-character events`);
+  assert.ok(
+    side.length * 2 >= POOL.length,
+    `${side.length}/${POOL.length} events are side-character events`,
+  );
 });
 
 test('the antagonists still have their multi-beat arcs', () => {
@@ -225,7 +257,9 @@ test('the antagonists still have their multi-beat arcs', () => {
     assert.ok(eventsForCharacter(id).length >= 3, `${id} arc is too short`);
   }
   // Kaden's arc escalates on a timer rather than firing all at once.
-  const kadenDays = eventsForCharacter('kaden').map((e) => e.minimumDay).sort((a, b) => a - b);
+  const kadenDays = eventsForCharacter('kaden')
+    .map((e) => e.minimumDay)
+    .sort((a, b) => a - b);
   assert.ok(kadenDays.at(-1) > kadenDays[0], 'the rent pressure should escalate over the run');
 });
 
@@ -238,7 +272,8 @@ test('the event manager only ever fires events belonging to where you are', () =
     const residents = new Set(charactersAtLocation(l.id));
     for (let day = 1; day <= 200; day += 1) {
       const e = em.selectEvent(day, day % 7, l.id, BURNOUT_THRESHOLD, {
-        tags: l.tags, weatherId: 'clear',
+        tags: l.tags,
+        weatherId: 'clear',
       });
       if (!e) continue;
       assert.equal(e.requiredLocation, l.id, `${e.id} fired at ${l.id}`);
@@ -258,7 +293,8 @@ test('every event in the catalogue is reachable in play', () => {
         em.initialize(PROFILES.map((p) => p.name));
         for (let day = 1; day <= 300; day += 1) {
           const e = em.selectEvent(day, day % 7, l.id, BURNOUT_THRESHOLD, {
-            tags: l.tags, weatherId,
+            tags: l.tags,
+            weatherId,
           });
           if (e) seen.add(e.id);
         }
@@ -293,6 +329,28 @@ test('a weather-gated event never fires under the wrong sky', () => {
   }
 });
 
+// ==================================================== character locks
+
+test('groovyphoenix is consistently she/her in profile and event copy', () => {
+  const groovy = BY_ID.get('groovyphoenix');
+  assert.match(groovy.bio, /She insists/);
+  assert.match(groovy.relationship, /She still teases/);
+  const events = eventsForCharacter('groovyphoenix');
+  assert.equal(events.length, 3);
+  assert.match(
+    events.find((event) => event.id === 'groovyphoenix_set').description,
+    /she runs out/i,
+  );
+  assert.match(
+    events.find((event) => event.id === 'groovyphoenix_dance').description,
+    /she tries again/i,
+  );
+  assert.match(
+    events.find((event) => event.id === 'groovyphoenix_same_practice').description,
+    /her wings/i,
+  );
+});
+
 // ==================================================== Seth, "The Hand"
 
 test('Seth is known as The Hand in his profile', () => {
@@ -301,12 +359,17 @@ test('Seth is known as The Hand in his profile', () => {
 
   const text = `${seth.bio} ${seth.relationship}`;
   const mentions = text.match(/The Hand/g) ?? [];
-  assert.ok(mentions.length >= 3,
-    `"The Hand" appears ${mentions.length} time(s); it should read as what people call him`);
+  assert.ok(
+    mentions.length >= 3,
+    `"The Hand" appears ${mentions.length} time(s); it should read as what people call him`,
+  );
 
   // Not just present — established as the name others use for him.
-  assert.match(seth.bio, /call(?:s|ed)? him The Hand|They call him The Hand/,
-    'the bio should say people call him The Hand');
+  assert.match(
+    seth.bio,
+    /call(?:s|ed)? him The Hand|They call him The Hand/,
+    'the bio should say people call him The Hand',
+  );
   assert.match(text, /Seth/, 'his given name should still appear, for contrast');
 });
 
@@ -314,8 +377,7 @@ test('Seth\u2019s events use the name people actually call him', () => {
   const events = eventsForCharacter('seth');
   assert.ok(events.length >= MIN_EVENTS_PER_CHARACTER);
   const hand = events.filter((e) => /The Hand/.test(`${e.title} ${e.description}`));
-  assert.ok(hand.length >= 2,
-    `only ${hand.length} of Seth's events use The Hand`);
+  assert.ok(hand.length >= 2, `only ${hand.length} of Seth's events use The Hand`);
 });
 
 test('Seth is bound to the night market, where the name comes from', () => {

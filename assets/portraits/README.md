@@ -7,7 +7,7 @@
 - **Lightbox popup** displays the clean standardized **square** art.
 - **Hard permanent exceptions** (never regenerate): `brian` and `vanna`. Their current framed masters are frozen forever.
 
-See the full spec: `docs/ART_STANDARDIZATION_SPEC.md`
+See the active policy and regeneration backlog: `../../notes/ART_STANDARD.md`
 
 ## Naming convention
 

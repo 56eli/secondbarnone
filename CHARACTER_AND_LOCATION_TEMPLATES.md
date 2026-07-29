@@ -16,12 +16,12 @@ every entry to a fully custom state.
 The aspiration for this project is that every character template reaches the
 following state:
 
-| Field    | Target        |
-|----------|---------------|
-| **Sex**     | Known (Male / Female / Other) — no entries remain "unknown" |
+| Field       | Target                                                          |
+| ----------- | --------------------------------------------------------------- |
+| **Sex**     | Known (Male / Female / Other) — no entries remain "unknown"     |
 | **Image**   | **Custom** — hand-painted or commissioned art, not AI-generated |
-| **Profile** | **Custom** — written by a human author, not AI-generated |
-| **Events**  | **Custom** — authored dialogue and scenarios, not AI-generated |
+| **Profile** | **Custom** — written by a human author, not AI-generated        |
+| **Events**  | **Custom** — authored dialogue and scenarios, not AI-generated  |
 
 The same aspiration applies to locations: every location should reach custom
 image, custom description, and a verified location reference.
@@ -167,7 +167,7 @@ Events: AI-generated
 ```
 Name: Brian
 Sex: Male
-Image: custom
+Image: Frozen exception — preserve the existing portrait exactly; never regenerate or reframe
 Profile: AI-generated
 Events: AI-generated
 ```
@@ -270,8 +270,8 @@ Events: AI-generated
 
 ```
 Name: Vanna
-Sex: Female
-Image: AI-generated
+Sex: Female / bunny-woman ambiguity is intentional in writing
+Image: Frozen exception — preserve the existing bunny portrait exactly; never regenerate or reframe
 Profile: AI-generated
 Events: AI-generated
 ```
@@ -334,7 +334,7 @@ Events: AI-generated
 
 ```
 Name: groovyphoenix
-Sex: Other (firebird)
+Sex: Female (firebird; she/her)
 Image: AI-generated
 Profile: AI-generated
 Events: AI-generated
@@ -854,9 +854,9 @@ Location reference: Brian's chapel at the outskirts — spiritual community outd
 
 ## Portrait generation reference
 
-The standard prompt template for regenerating portraits lives at
-[docs/PORTRAIT_REFERENCE.md](docs/PORTRAIT_REFERENCE.md). Edit it freely — it is
-the single source of truth for the house style.
+The active art policy and reviewed regeneration queue live in
+[notes/ART_STANDARD.md](notes/ART_STANDARD.md). It is the single source of truth
+for frame-less production and frozen exceptions.
 
 ---
 
@@ -865,41 +865,41 @@ the single source of truth for the house style.
 Characters whose recorded sex does not match their current portrait. These are
 flagged for regeneration using the reference above.
 
-| # | Character | Sex | Current portrait shows | Reason |
-|---|-----------|-----|------------------------|--------|
-| 1 | Cheezl | Male | Woman | Wrong sex |
-| 2 | Lou | Female | Elderly man | Wrong sex |
-| 3 | Sato | Male | Woman | Wrong sex |
-| 4 | Yume | Male | Woman | Wrong sex |
-| 5 | Qusтoge | Male | Woman | Wrong sex |
-| 6 | Self | Male | Woman | Wrong sex |
-| 7 | diamndsdancin | Male | Woman | Wrong sex |
-| 8 | Kopung (고풍) | Male | Elderly woman | Wrong sex |
-| 9 | Isra | Male | Woman | Wrong sex |
-| 10 | Scatmandu | Male | Black woman | Wrong sex |
-| 11 | Cat | Male | Actual cat (animal) | Should be human male — **RESOLVED 2026-07-29** |
-| 12 | HawkinsTV | Other (robot) | Human male | Should be robot — **RESOLVED 2026-07-29** |
+| #   | Character     | Sex           | Current portrait shows | Reason                                         |
+| --- | ------------- | ------------- | ---------------------- | ---------------------------------------------- |
+| 1   | Cheezl        | Male          | Woman                  | Wrong sex                                      |
+| 2   | Lou           | Female        | Elderly man            | Wrong sex                                      |
+| 3   | Sato          | Male          | Woman                  | Wrong sex                                      |
+| 4   | Yume          | Male          | Woman                  | Wrong sex                                      |
+| 5   | Qusтoge       | Male          | Woman                  | Wrong sex                                      |
+| 6   | Self          | Male          | Woman                  | Wrong sex                                      |
+| 7   | diamndsdancin | Male          | Woman                  | Wrong sex                                      |
+| 8   | Kopung (고풍) | Male          | Elderly woman          | Wrong sex                                      |
+| 9   | Isra          | Male          | Woman                  | Wrong sex                                      |
+| 10  | Scatmandu     | Male          | Black woman            | Wrong sex                                      |
+| 11  | Cat           | Male          | Actual cat (animal)    | Should be human male — **RESOLVED 2026-07-29** |
+| 12  | HawkinsTV     | Other (robot) | Human male             | Should be robot — **RESOLVED 2026-07-29**      |
 
 When a portrait is regenerated to match, move the row into the "Resolved" table
 below.
 
 ### Resolved
 
-| Character | Sex | Regenerated to | Date |
-|-----------|-----|----------------|------|
-| Cheezl | Male | Male at night market food stall | 2026-07-29 |
-| Lou | Female | Elderly woman at Bibliothèque Forney | 2026-07-29 |
-| Sato | Male | Japanese man at breathwork studio | 2026-07-29 |
-| Yume | Male | Japanese man on Paris rooftop at dusk | 2026-07-29 |
-| Qusтoge | Male | Man reading at Bibliothèque Forney | 2026-07-29 |
-| Self | Male | Man meditating at House of Middleway | 2026-07-29 |
-| diamndsdancin | Male | Man at dance studio in Saint-Germain | 2026-07-29 |
-| Kopung (고풍) | Male | Elderly Korean man at pottery wheel | 2026-07-29 |
-| Isra | Male | Man at pawn shop counter | 2026-07-29 |
-| Scatmandu | Male | Black man at pirate radio station | 2026-07-29 |
-| Cat | Male | Human male meditating at spiritual community | 2026-07-29 |
-| HawkinsTV | Other (robot) | Robot with camera head at radio station | 2026-07-29 |
-| Léon | Male | Middle-long brunette hair, orthodox beard | 2026-07-29 (Issue #32) |
+| Character     | Sex           | Regenerated to                               | Date                   |
+| ------------- | ------------- | -------------------------------------------- | ---------------------- |
+| Cheezl        | Male          | Male at night market food stall              | 2026-07-29             |
+| Lou           | Female        | Elderly woman at Bibliothèque Forney         | 2026-07-29             |
+| Sato          | Male          | Japanese man at breathwork studio            | 2026-07-29             |
+| Yume          | Male          | Japanese man on Paris rooftop at dusk        | 2026-07-29             |
+| Qusтoge       | Male          | Man reading at Bibliothèque Forney           | 2026-07-29             |
+| Self          | Male          | Man meditating at House of Middleway         | 2026-07-29             |
+| diamndsdancin | Male          | Man at dance studio in Saint-Germain         | 2026-07-29             |
+| Kopung (고풍) | Male          | Elderly Korean man at pottery wheel          | 2026-07-29             |
+| Isra          | Male          | Man at pawn shop counter                     | 2026-07-29             |
+| Scatmandu     | Male          | Black man at pirate radio station            | 2026-07-29             |
+| Cat           | Male          | Human male meditating at spiritual community | 2026-07-29             |
+| HawkinsTV     | Other (robot) | Robot with camera head at radio station      | 2026-07-29             |
+| Léon          | Male          | Middle-long brunette hair, orthodox beard    | 2026-07-29 (Issue #32) |
 
 ### Still pending
 
@@ -909,24 +909,24 @@ None — all 12 sex/portrait mismatches have been resolved.
 
 ## Summary counts
 
-| Metric | Value |
-|--------|-------|
-| Total characters | 78 |
-| Characters with known sex | 75 / 78 (55 Male, 16 Female, 4 Other, 2 unknown, 1 flagged for removal) |
-| Characters with custom image | 1 / 78 (Brian) |
-| Characters with custom profile | 0 / 78 |
-| Characters with custom events | 0 / 78 |
-| **Portrait/sex mismatches** | **0 / 78** — all 12 resolved |
-| Total locations | 23 |
-| Locations with custom image | 0 / 23 |
-| Locations with custom description | 0 / 23 |
+| Metric                            | Value                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| Total characters                  | 78                                                                      |
+| Characters with known sex         | 75 / 78 (55 Male, 16 Female, 4 Other, 2 unknown, 1 flagged for removal) |
+| Characters with custom image      | 1 / 78 (Brian)                                                          |
+| Characters with custom profile    | 0 / 78                                                                  |
+| Characters with custom events     | 0 / 78                                                                  |
+| **Portrait/sex mismatches**       | **0 / 78** — all 12 resolved                                            |
+| Total locations                   | 23                                                                      |
+| Locations with custom image       | 0 / 23                                                                  |
+| Locations with custom description | 0 / 23                                                                  |
 
 ### Sex breakdown
 
-| Sex | Count | Characters |
-|-----|-------|------------|
-| Male | 55 | Léon, Kaden, Sato, Alex, Geo, Lakshay, Arian, Simon, Kaj, Dorian, Barret, Ethan, Matt, Artem, Brian, RicoLewis, Yume, Brock Lee, Tarrasqu, Kaschem, Mateo, Luca, Friend, Cheezl, Sir Cruds, Qusтoge, Cary, Self, Baris, Fraghis, Mrone, 𝕽𝖆𝖚𝖑, Stephen, diamndsdancin, Seth, SiekamCebulę, Kopung, Isra, Kobideh, stijn12d, Andre Watson, Air-Vaisselle, Crveni, blokely, Jits, Gordon, Jared, RicardoEA, SpeedFire, Iulian, Brendan, Scatmandu, yungnosaj, Joar, Cat |
-| Female | 16 | Klaudia, Susan, Marlies, Hanans, Vanna, Daniela, Aril Stellar☯, Alvigunilla, Marlène xoxo, Kate, Ahyeon Oh, emily, Orshi, Renata 🦥, Hazel, Lou |
-| Other | 4 | HawkinsTV (robot), Carl-bot (robot), DocBot (robot), groovyphoenix (firebird) |
-| unknown | 2 | Yun, nestomalt |
-| Flagged for removal | 1 | Oh (misparse of "Ahyeon Oh") |
+| Sex                 | Count | Characters                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Male                | 55    | Léon, Kaden, Sato, Alex, Geo, Lakshay, Arian, Simon, Kaj, Dorian, Barret, Ethan, Matt, Artem, Brian, RicoLewis, Yume, Brock Lee, Tarrasqu, Kaschem, Mateo, Luca, Friend, Cheezl, Sir Cruds, Qusтoge, Cary, Self, Baris, Fraghis, Mrone, 𝕽𝖆𝖚𝖑, Stephen, diamndsdancin, Seth, SiekamCebulę, Kopung, Isra, Kobideh, stijn12d, Andre Watson, Air-Vaisselle, Crveni, blokely, Jits, Gordon, Jared, RicardoEA, SpeedFire, Iulian, Brendan, Scatmandu, yungnosaj, Joar, Cat |
+| Female              | 17    | Klaudia, Susan, Marlies, Hanans, Vanna, Daniela, Aril Stellar☯, Alvigunilla, Marlène xoxo, Kate, Ahyeon Oh, emily, Orshi, Renata 🦥, Hazel, Lou, groovyphoenix (firebird; she/her)                                                                                                                                                                                                                                                                                   |
+| Other               | 3     | HawkinsTV (robot), Carl-bot (robot), DocBot (robot)                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| unknown             | 2     | Yun, nestomalt                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Flagged for removal | 1     | Oh (misparse of "Ahyeon Oh")                                                                                                                                                                                                                                                                                                                                                                                                                                         |

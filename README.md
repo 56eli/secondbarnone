@@ -5,8 +5,8 @@ by day and tends bar by night. Every day you pick one place to be. The community
 restores your sanity but costs money; the bar pays but grinds you down. Rent hits
 every Sunday. Let sanity or money reach zero and the run ends.
 
-Those two places are where you start. There are **22 locations across five
-districts**, and they open up as the run goes on — a rooftop, a bathhouse, a
+Those two places are where you start. There are **23 locations across five
+districts**, and they reveal through the six main hub cards as the run goes on — a rooftop, a bathhouse, a
 night market, a pirate radio station, a temple ruin an hour out on the bus.
 Every location has a **host** from the cast; every event belongs to someone you
 know. Every portrait — HUD, host banners, the People screen, event cards — is
@@ -30,12 +30,12 @@ For design details and internals, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 Shipping a Godot web build required a binary the agent sandbox could not reach.
 The game was rewritten as vanilla ES modules so the source **is** the build:
 
-| | Godot version | This version |
-|---|---|---|
-| Deploy payload | 39.5 MB | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
-| Build step | Godot binary + export templates | none |
-| Automated tests | 0 | **360** |
-| Coverage | — | **~99.7%** |
+|                 | Godot version                   | This version                                                                   |
+| --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
+| Deploy payload  | 39.5 MB                         | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
+| Build step      | Godot binary + export templates | none                                                                           |
+| Automated tests | 0                               | **360**                                                                        |
+| Coverage        | —                               | **~99.7%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -57,7 +57,7 @@ are subject to CORS.
 ## Tests
 
 ```bash
-npm test                # 360 tests
+npm test                # complete rule, asset and jsdom UI suite
 npm run coverage        # with a coverage table
 npm run coverage:check  # enforce the 80% floor, non-zero exit if below
 npm run check           # tests + asset integrity
@@ -94,11 +94,11 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       rng.js               seedable RNG
     data/
       characters.js        78 characters
-      locations.js         22 locations (each with a host)
+      locations.js         23 locations (each with a host)
       events.js            235 events, keyed by location (3+ per character)
       weather.js / perks.js
       festivals.js / achievements.js
-    ui/screens.js          hub, map, location, practice, portrait lightbox
+    ui/screens.js          six-card hub, location, practice, portrait lightbox
   assets/
     portraits/             288px thumbnails, one per character
     portraits/hi/          896px sheets for the enlarge-on-tap lightbox
@@ -122,28 +122,27 @@ Léon's portrait and name sit in the HUD on every screen.
 
 ## Resources
 
-| | Start | Cap | Notes |
-|---|---|---|---|
-| **Sanity** | 50 | 100% | Gauge. 0 ends the run. |
-| **Energy** | 100 | 100% | Gauge. Recovers ~14/night — a full week from empty to full. Exhaustion costs sanity, steeply. |
-| **Reputation** | 10 | 100% | Gauge. Gates places. |
-| **Money** | 50 | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100. |
-| **Insight** | 0 | uncapped | Spent on perks. |
+|                | Start | Cap          | Notes                                                                                         |
+| -------------- | ----- | ------------ | --------------------------------------------------------------------------------------------- |
+| **Sanity**     | 50    | 100%         | Gauge. 0 ends the run.                                                                        |
+| **Energy**     | 100   | 100%         | Gauge. Recovers ~14/night — a full week from empty to full. Exhaustion costs sanity, steeply. |
+| **Reputation** | 10    | 100%         | Gauge. Gates places.                                                                          |
+| **Money**      | 50    | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100.                      |
+| **Insight**    | 0     | uncapped     | Spent on perks.                                                                               |
 
 ## Game rules
 
 - Start Thursday 1 January 2026.
 - Spiritual Community: **+15 sanity, −10 money**.
 - The Bar: **+12 money, −12 sanity**.
-- Rent: **−18 money** every Sunday, charged once.
+- Rent: starts at **−18 money** every Sunday, rises by 3 every 24 journey days, and caps at 42 before modest discounts.
 - A random event fires every 2–5 days. Weights are 10 for Common and 2 for each
   Rare, so roughly one event in six is rare.
 - Burnout unlocks only after 3 consecutive bar days.
 - The same event never fires twice in a row.
 - Reaching 0 sanity or 0 money ends the run.
 - Reaching journey day **60** awards a soft win without ending the run.
-- Energy recovers **1/7 of the bar each night**, so a full week of rest takes you
-  from empty to full. Most working days cost more than a night returns.
+- Energy recovers **14 points each night**: seven nights restore 98 points and an eighth tops off an empty bar. Rest remains valuable but costly.
 - Below 25 energy every action costs extra sanity, on a curve that is nearly
   free at the threshold and **−10 a day** at empty. One hard day is fine; a
   fortnight of them is not.
@@ -159,20 +158,22 @@ Eleven things that make the city feel like a home:
 1. **Léon is always on screen** — portrait + name in the HUD.
 2. **Day one begins with a friend.** Brian keeps a place for Léon at the
    House of Middleway, pinned to the fourth card of the hub (row 2, column 1)
-   and playable straight away. From day two the chapel goes back behind its
-   ordinary gate.
+   and playable straight away under every sky. The invitation bypasses its
+   progression gates and weather closure on day one only; from day two the
+   chapel goes back behind its ordinary gate.
 3. **Every location has a host** you will likely see there.
 4. **Most events belong to side characters** — 222 of 235 — with their face on the result.
 5. **Daily greetings** that change with weekday and season.
 6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
-7. **Dedicated backgrounds for all 22 locations**, including the five newest environmental scenes.
+7. **Dedicated backgrounds for all 23 locations**, including the newest environmental scenes.
 8. **A gentle daily focus cue** surfaces low resources or upcoming rent without taking control away.
 9. **Soft 60-day endurance goal** — long enough to see the whole arc, short enough to finish.
 10. **Uncapped money** — tips stack; broke still kills the run.
 11. **Percent gauges** for sanity, energy and reputation; money shows a real wallet total.
-12. **Cards 3-6 keep their positions.** Every location is assigned to one of four
-    hub slots and rotates *through* it, never *between* them — the third card is
-    always somewhere quiet, the sixth is always night work or an errand.
+12. **The six cards are the complete city route.** Cards 3-6 keep their
+    positions, and each slot cycles through every assigned location—locked
+    cards included—so requirements are visible before they unlock. There is no
+    separate City or Map navigation screen.
 
 ## Accessibility
 
@@ -181,7 +182,12 @@ on the character list, `role="dialog"` with `aria-modal` on the result modal,
 `role="meter"` on the stat bars, and full keyboard operability.
 `prefers-reduced-motion` disables particles and collapses transitions.
 
-## Known gaps
+## Art policy and known gaps
+
+All new portrait art is frame-less and square; CSS supplies round inline
+avatars. Brian and Vanna are frozen exceptions—Vanna's bunny portrait must
+never be changed. The current regeneration queue lives in
+[`notes/ART_STANDARD.md`](notes/ART_STANDARD.md).
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - No audio.

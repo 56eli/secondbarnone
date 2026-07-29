@@ -20,10 +20,20 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  LOCATIONS, HUB_SLOTS, HUB_FIXED_CHOICES, CORE_LOCATION_IDS,
-  WELCOME_SLOT, WELCOME_SLOT_INDEX, WELCOME_LOCATION_ID,
-  locationsInSlot, locationForSlot, dailySlotLineup,
-  slotToIndex, indexToSlot, evaluateUnlock, getLocation,
+  LOCATIONS,
+  HUB_SLOTS,
+  HUB_FIXED_CHOICES,
+  CORE_LOCATION_IDS,
+  WELCOME_SLOT,
+  WELCOME_SLOT_INDEX,
+  WELCOME_LOCATION_ID,
+  locationsInSlot,
+  locationForSlot,
+  dailySlotLineup,
+  slotToIndex,
+  indexToSlot,
+  evaluateUnlock,
+  getLocation,
 } from '../docs/js/data/locations.js';
 import { GameState } from '../docs/js/core/game-state.js';
 
@@ -79,8 +89,10 @@ test('the slots carry roughly the same number of locations', () => {
   const lowest = Math.min(...counts);
   const highest = Math.max(...counts);
   assert.ok(lowest >= 4, `a slot has only ${lowest} locations to rotate through`);
-  assert.ok(highest - lowest <= 1,
-    `slot sizes are ${counts.join('/')} — the spread should be at most one`);
+  assert.ok(
+    highest - lowest <= 1,
+    `slot sizes are ${counts.join('/')} — the spread should be at most one`,
+  );
 });
 
 test('each slot has a coherent character', () => {
@@ -166,7 +178,10 @@ test('the lineup is stable for a given day, seed and state', () => {
   gs.reputation = 60;
   const first = dailySlotLineup(snapshot(gs), gs.weatherSeed).map((l) => l?.id);
   for (let i = 0; i < 5; i += 1) {
-    assert.deepEqual(dailySlotLineup(snapshot(gs), gs.weatherSeed).map((l) => l?.id), first);
+    assert.deepEqual(
+      dailySlotLineup(snapshot(gs), gs.weatherSeed).map((l) => l?.id),
+      first,
+    );
   }
 });
 
@@ -196,21 +211,25 @@ test('the lineup always offers one location per slot', () => {
   }
 });
 
-test('an open location is always preferred over a locked one', () => {
+test('the six hub cards reveal every location, including locked future places', () => {
   const gs = new GameState({ seed: 5 });
-  for (let day = 1; day <= 120; day += 1) {
+  const seen = new Set(['spiritual_community', 'bar']);
+  // The largest slot has six places, but use two weeks to make the discovery
+  // promise legible and robust to the day-one welcome override.
+  for (let day = 1; day <= 14; day += 1) {
     gs.journeyDay = day;
-    gs.reputation = Math.min(100, day);
-    const snap = snapshot(gs);
-    for (const slot of HUB_SLOTS) {
-      const chosen = locationForSlot(slot, snap, gs.weatherSeed);
-      if (evaluateUnlock(chosen, snap).unlocked) continue;
-      // A locked card is only acceptable when the slot has nothing open.
-      const anyOpen = locationsInSlot(slot).some((l) => evaluateUnlock(l, snap).unlocked);
-      assert.equal(anyOpen, false,
-        `slot ${slot} showed a locked ${chosen.id} on day ${day} with an open option available`);
-    }
+    for (const location of dailySlotLineup(snapshot(gs), gs.weatherSeed)) seen.add(location.id);
   }
+  assert.deepEqual(seen, new Set(LOCATIONS.map((location) => location.id)));
+
+  const mines = getLocation('temple_ruins');
+  const locked = locationForSlot(4, { journeyDay: 1, reputation: 0, weekday: 3 }, gs.weatherSeed);
+  assert.ok(locked, 'slot four always still has a reveal card');
+  assert.equal(
+    evaluateUnlock(mines, { journeyDay: 12, reputation: 0, weekday: 0 }).unlocked,
+    false,
+    'the hub must be able to show a place before its reputation gate opens',
+  );
 });
 
 test('a slot with no locations at all yields null rather than throwing', () => {
@@ -221,8 +240,11 @@ test('a slot with no locations at all yields null rather than throwing', () => {
 
 test('the welcome location owns the slot it is pinned to', () => {
   assert.equal(WELCOME_SLOT, indexToSlot(WELCOME_SLOT_INDEX));
-  assert.equal(getLocation(WELCOME_LOCATION_ID).slot, WELCOME_SLOT,
-    'the chapel must live in the slot it is pinned to, or day two would move it');
+  assert.equal(
+    getLocation(WELCOME_LOCATION_ID).slot,
+    WELCOME_SLOT,
+    'the chapel must live in the slot it is pinned to, or day two would move it',
+  );
 });
 
 test('day one pins the welcome into its slot, and day two lets it rotate', () => {
@@ -235,8 +257,11 @@ test('day one pins the welcome into its slot, and day two lets it rotate', () =>
 
   gs.journeyDay = 2;
   const dayTwo = dailySlotLineup(snapshot(gs), gs.weatherSeed);
-  assert.notEqual(dayTwo[WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES].id, WELCOME_LOCATION_ID,
-    'the chapel goes back behind its ordinary gate on day two');
+  assert.notEqual(
+    dayTwo[WELCOME_SLOT_INDEX - HUB_FIXED_CHOICES].id,
+    WELCOME_LOCATION_ID,
+    'the chapel goes back behind its ordinary gate on day two',
+  );
 });
 
 // ==================================================================== DOM
@@ -246,8 +271,12 @@ function fakeStorage() {
   const map = new Map();
   return {
     getItem: (k) => (map.has(k) ? map.get(k) : null),
-    setItem: (k, v) => { map.set(k, String(v)); },
-    removeItem: (k) => { map.delete(k); },
+    setItem: (k, v) => {
+      map.set(k, String(v));
+    },
+    removeItem: (k) => {
+      map.delete(k);
+    },
   };
 }
 
@@ -261,10 +290,13 @@ async function boot(opts = {}) {
   global.window = window;
   global.document = window.document;
   global.HTMLElement = window.HTMLElement;
-  global.requestAnimationFrame = window.requestAnimationFrame?.bind(window)
-    ?? ((cb) => setTimeout(cb, 0));
+  global.requestAnimationFrame =
+    window.requestAnimationFrame?.bind(window) ?? ((cb) => setTimeout(cb, 0));
   window.matchMedia = (query) => ({
-    matches: false, media: query, addEventListener() {}, removeEventListener() {},
+    matches: false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
   });
 
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
@@ -277,7 +309,11 @@ async function boot(opts = {}) {
 }
 
 function cleanup(window) {
-  try { window?.close(); } catch { /* already closed */ }
+  try {
+    window?.close();
+  } catch {
+    /* already closed */
+  }
   delete global.window;
   delete global.document;
   delete global.HTMLElement;
@@ -291,8 +327,13 @@ maybe('the hub renders six cards, each tagged with its slot', async () => {
   try {
     const shown = cards(window.document);
     assert.equal(shown.length, 6);
-    assert.deepEqual(shown.map((c) => c.dataset.slot), ['1', '2', '3', '4', '5', '6']);
-  } finally { cleanup(window); }
+    assert.deepEqual(
+      shown.map((c) => c.dataset.slot),
+      ['1', '2', '3', '4', '5', '6'],
+    );
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the founding pair hold cards one and two', async () => {
@@ -301,7 +342,9 @@ maybe('the founding pair hold cards one and two', async () => {
     const shown = cards(window.document);
     assert.equal(shown[0].dataset.location, 'spiritual_community');
     assert.equal(shown[1].dataset.location, 'bar');
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('a card\u2019s slot attribute matches its location\u2019s declared slot', async () => {
@@ -312,11 +355,16 @@ maybe('a card\u2019s slot attribute matches its location\u2019s declared slot', 
       assert.ok(location, `card has unknown location ${card.dataset.location}`);
       const expected = location.slot ?? indexToSlot([...cards(window.document)].indexOf(card));
       if (location.slot !== null) {
-        assert.equal(card.dataset.slot, String(expected),
-          `${location.id} rendered in slot ${card.dataset.slot}`);
+        assert.equal(
+          card.dataset.slot,
+          String(expected),
+          `${location.id} rendered in slot ${card.dataset.slot}`,
+        );
       }
     }
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('positions hold across a played run — card four is always slot four', async () => {
@@ -334,8 +382,11 @@ maybe('positions hold across a played run — card four is always slot four', as
       assert.equal(shown.length, 6, `day ${day} did not render six cards`);
       for (let index = HUB_FIXED_CHOICES; index < 6; index += 1) {
         const slot = indexToSlot(index);
-        assert.equal(shown[index].dataset.slot, String(slot),
-          `card ${index + 1} claimed slot ${shown[index].dataset.slot} on day ${day}`);
+        assert.equal(
+          shown[index].dataset.slot,
+          String(slot),
+          `card ${index + 1} claimed slot ${shown[index].dataset.slot} on day ${day}`,
+        );
         seenAtPosition.get(slot).add(shown[index].dataset.location);
       }
     }
@@ -343,12 +394,17 @@ maybe('positions hold across a played run — card four is always slot four', as
     // Everything that ever appeared at a position belongs to that slot.
     for (const [slot, ids] of seenAtPosition) {
       for (const id of ids) {
-        assert.equal(getLocation(id).slot, slot,
-          `${id} appeared at position ${slot} but belongs to slot ${getLocation(id).slot}`);
+        assert.equal(
+          getLocation(id).slot,
+          slot,
+          `${id} appeared at position ${slot} but belongs to slot ${getLocation(id).slot}`,
+        );
       }
       assert.ok(ids.size >= 2, `position ${slot} never rotated across forty days`);
     }
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('the hub does not reshuffle when it rerenders', async () => {
@@ -362,7 +418,9 @@ maybe('the hub does not reshuffle when it rerenders', async () => {
       api.goto.hub();
       assert.deepEqual(read(), first, 'the board moved without the day changing');
     }
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });
 
 maybe('day one still pins Brian to card four', async () => {
@@ -373,5 +431,7 @@ maybe('day one still pins Brian to card four', async () => {
     assert.equal(fourth.dataset.slot, String(WELCOME_SLOT));
     assert.equal(fourth.dataset.location, WELCOME_LOCATION_ID);
     assert.equal(shown.filter((c) => c.dataset.location === WELCOME_LOCATION_ID).length, 1);
-  } finally { cleanup(window); }
+  } finally {
+    cleanup(window);
+  }
 });

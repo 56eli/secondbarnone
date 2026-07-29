@@ -31,7 +31,6 @@ export const LOCATION_COPY = Object.fromEntries(
   ]),
 );
 
-
 const KEYS = ['sanity', 'money', 'energy', 'reputation', 'insight'];
 
 const zero = () => ({ sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0 });
@@ -126,7 +125,6 @@ export function computeDayEffects(gs, locationId) {
     reasons.push('Perks');
   }
 
-
   return { base, total, reasons: [...new Set(reasons)] };
 }
 
@@ -156,9 +154,36 @@ export function scaleEventDeltas(event, perks) {
  *            festival:object|null}}
  */
 export function resolveTurn(gs, eventManager, locationId) {
+  if (gs.isTurnResolved) {
+    return {
+      actionDesc: '',
+      event: null,
+      rentCharged: 0,
+      rentAmount: 0,
+      gameOver: gs.gameOver,
+      justWon: false,
+      masteryWon: false,
+      masteryMessage: '',
+      winMessage: '',
+      deltas: zero(),
+      reasons: [],
+      achievements: [],
+      exhaustion: 0,
+      weather: gs.getWeather(),
+      festival: gs.getFestival(),
+      prevSanity: gs.sanity,
+      prevMoney: gs.money,
+      sanityDelta: 0,
+      moneyDelta: 0,
+      alreadyResolved: true,
+    };
+  }
   const prev = {
-    sanity: gs.sanity, money: gs.money, energy: gs.energy,
-    reputation: gs.reputation, insight: gs.insight,
+    sanity: gs.sanity,
+    money: gs.money,
+    energy: gs.energy,
+    reputation: gs.reputation,
+    insight: gs.insight,
   };
   const location = getLocation(locationId);
   const weather = gs.getWeather();
@@ -166,6 +191,7 @@ export function resolveTurn(gs, eventManager, locationId) {
 
   // 1 — the day itself
   const { total, reasons } = computeDayEffects(gs, locationId);
+  gs.markTurnResolved();
   gs.applyDeltas(total);
   gs.noteVisit(locationId);
   const actionDesc = location?.actionDesc ?? getLocation(locationId)?.actionDesc ?? '';

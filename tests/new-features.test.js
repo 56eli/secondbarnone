@@ -40,7 +40,7 @@ describe('new gameplay loop improvements', () => {
     gs.consecutiveBarDays = 0;
     // Force a Sunday where rent is due
     const rent = gs.rentDue();
-    assert.strictEqual(rent, 14); // 18 - 4 (high rep discount)
+    assert.strictEqual(rent, 16); // 18 - 2 (high-reputation discount)
   });
 
   it('energy forecast returns a string', () => {

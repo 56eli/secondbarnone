@@ -71,10 +71,7 @@ magickTest('the hi-res sheet is never smaller than the thumbnail', () => {
   for (const c of profiles) {
     const thumb = dimensions(join(DOCS, c.portrait));
     const hi = dimensions(join(DOCS, c.portraitHi));
-    assert.ok(
-      hi.w >= thumb.w,
-      `${c.id}: hi sheet ${hi.w}px is not larger than thumb ${thumb.w}px`,
-    );
+    assert.ok(hi.w >= thumb.w, `${c.id}: hi sheet ${hi.w}px is not larger than thumb ${thumb.w}px`);
   }
 });
 
@@ -143,11 +140,13 @@ const sha256 = (file) => createHash('sha256').update(readFileSync(file)).digest(
 test('the four off-style portraits stay retired', () => {
   for (const [id, hashes] of Object.entries(RETIRED_ART)) {
     assert.notEqual(
-      sha256(join(PORTRAITS, `${id}.webp`)), hashes.thumb,
+      sha256(join(PORTRAITS, `${id}.webp`)),
+      hashes.thumb,
       `${id}: the retired off-style thumbnail is deployed again`,
     );
     assert.notEqual(
-      sha256(join(HI, `${id}.webp`)), hashes.hi,
+      sha256(join(HI, `${id}.webp`)),
+      hashes.hi,
       `${id}: the retired off-style hi sheet is deployed again`,
     );
   }
@@ -184,8 +183,14 @@ magickTest('the repainted four are painted at full lightbox resolution', () => {
 test('the eager payload stays well under the lazy one', () => {
   // The tier split only pays off if the thumbnails really are the small ones.
   const sum = (dir, files) => files.reduce((n, f) => n + statSync(join(dir, f)).size, 0);
-  const thumbs = sum(PORTRAITS, profiles.map((c) => `${c.id}.webp`));
-  const his = sum(HI, profiles.map((c) => `${c.id}.webp`));
+  const thumbs = sum(
+    PORTRAITS,
+    profiles.map((c) => `${c.id}.webp`),
+  );
+  const his = sum(
+    HI,
+    profiles.map((c) => `${c.id}.webp`),
+  );
   assert.ok(thumbs < his, `thumbnails (${thumbs}) should weigh less than hi sheets (${his})`);
 });
 
@@ -223,20 +228,32 @@ test('v2.0: non-exception characters prefer clean PNG masters (no baked frame so
     // (this will become a hard assert once the 16 missing masters are added)
     if (existsSync(webpPath) && !existsSync(pngPath)) {
       // Soft warning in test output — real enforcement lives in build + CI
-      console.warn(`  ⚠ v2.0 policy: ${c.id} still uses legacy .webp as best source. PNG master required.`);
+      console.warn(
+        `  ⚠ v2.0 policy: ${c.id} still uses legacy .webp as best source. PNG master required.`,
+      );
     }
   }
 });
 
-test('v2.0: hard exceptions (brian, vanna) are allowed to use their preserved framed masters', () => {
-  for (const id of FRAME_EXCEPTIONS) {
-    const png = join(ROOT, 'assets', 'portraits', `${id}.png`);
-    const hasPng = existsSync(png);
-    // They are allowed either their PNG (if they ever get a clean version) or their original
-    assert.ok(
-      hasPng || existsSync(join(ROOT, 'assets', 'portraits', `${id}.webp`)),
-      `${id} exception must have at least one source master preserved`
-    );
+test('Brian and Vanna are immutable art exceptions', () => {
+  // These are content locks, not a permission to regenerate them later.
+  const frozen = {
+    vanna: {
+      master: 'b9d655e35b2cd2b08f62e5834445aa02b7198e4091d4152ec086e3fea73fbd85',
+      thumb: 'a95ce9eb3143de764436241709505b388faa332ff10f9da8ad0c1e6008a3e82c',
+      hi: 'd9bfb140844bfb7588830d79f3280d5b56e19c02fbb768645f2e7da009225672',
+    },
+    brian: {
+      master: '1b9dd2db4119319da950753e8ada9ddc23e7b3d532106b3ed7f9dcbceb017a6f',
+      thumb: '1e9fa7428d581ea42456a1b8a5790e69751ec608aa03f1e655453d1919b699d1',
+      hi: '6de3faa89b7ae54bef770bb033027f68eba3d60b2d3332f2a44e21edbd912fd5',
+    },
+  };
+  assert.deepEqual(new Set(Object.keys(frozen)), FRAME_EXCEPTIONS);
+  for (const [id, hashes] of Object.entries(frozen)) {
+    assert.equal(sha256(join(ROOT, 'assets', 'portraits', `${id}.png`)), hashes.master);
+    assert.equal(sha256(join(PORTRAITS, `${id}.webp`)), hashes.thumb);
+    assert.equal(sha256(join(HI, `${id}.webp`)), hashes.hi);
   }
 });
 
@@ -283,7 +300,8 @@ test('the off-theme backgrounds stay repainted for Paris', () => {
   const bgDir = join(DOCS, 'assets', 'backgrounds');
   for (const [name, hash] of Object.entries(RETIRED_BACKGROUNDS)) {
     assert.notEqual(
-      sha256(join(bgDir, `${name}.webp`)), hash,
+      sha256(join(bgDir, `${name}.webp`)),
+      hash,
       `${name}.webp: the retired non-Paris background is deployed again`,
     );
   }
@@ -317,10 +335,12 @@ test('retired pre-Paris backgrounds stay retired', () => {
 });
 
 /** Mean luminance 0..1 of an image, via ImageMagick. */
-const luminance = (file) => Number(
-  execFileSync('convert', [file, '-colorspace', 'gray', '-format', '%[fx:mean]', 'info:'])
-    .toString().trim(),
-);
+const luminance = (file) =>
+  Number(
+    execFileSync('convert', [file, '-colorspace', 'gray', '-format', '%[fx:mean]', 'info:'])
+      .toString()
+      .trim(),
+  );
 
 magickTest('the House of Middleway background is sunny, not the old night scene', () => {
   // The first version of this art was a dusk-lit chapel under a storm-grey
@@ -331,7 +351,10 @@ magickTest('the House of Middleway background is sunny, not the old night scene'
   assert.ok(existsSync(bg), 'the chapel background should ship');
 
   const mean = luminance(bg);
-  assert.ok(mean > 0.35, `the chapel should read as daylight, got mean luminance ${mean.toFixed(3)}`);
+  assert.ok(
+    mean > 0.35,
+    `the chapel should read as daylight, got mean luminance ${mean.toFixed(3)}`,
+  );
 });
 
 magickTest('every deployed background is a daytime scene', () => {

@@ -47,7 +47,8 @@ const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
  * avatar the game ever renders inline is 84 CSS px.
  */
 const MAX_EAGER_BYTES = 4 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
+// Hi-res portraits are lazy; keep a tight eager budget and a realistic total gallery budget.
+const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
 const HI_DIR = join('assets', 'portraits', 'hi');
 
 let failures = 0;
