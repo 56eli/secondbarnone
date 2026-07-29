@@ -34,7 +34,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | Deploy payload  | 39.5 MB                         | **~2.9 MB** to play (+4.4 MB of full-size portraits, fetched only when tapped) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **360**                                                                        |
+| Automated tests | 0                               | **374**                                                                        |
 | Coverage        | —                               | **~99.7%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -190,4 +190,6 @@ never be changed. The current regeneration queue lives in
 [`notes/ART_STANDARD.md`](notes/ART_STANDARD.md).
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
-- No audio.
+- Background music is off by default and lazy-loaded from the Settings screen
+  the first time you turn it on (a ~800 KB warm piano loop; autoplay policies
+  are respected).

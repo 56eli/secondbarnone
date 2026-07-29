@@ -5,12 +5,20 @@ import { GameState, migrateSave } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 
 describe('new gameplay loop improvements', () => {
-  it('migrates v3 saves to v4', () => {
+  it('migrates v3 saves to v5 (current)', () => {
     const v3 = { v: 3, sanity: 50, money: 50, journeyDay: 5 };
     const migrated = migrateSave(v3);
-    assert.strictEqual(migrated.v, 4);
+    assert.strictEqual(migrated.v, 5);
     assert.strictEqual(migrated.reputation, 10);
     assert.strictEqual(migrated.energy, 100);
+    assert.strictEqual(migrated.masteryWon, false);
+  });
+
+  it('migrates v4 saves forward to v5', () => {
+    const v4 = { v: 4, sanity: 70, money: 20, journeyDay: 9 };
+    const migrated = migrateSave(v4);
+    assert.strictEqual(migrated.v, 5);
+    assert.strictEqual(migrated.masteryWon, false);
   });
 
   it('checks second win requires reputation and exploration', () => {
@@ -30,6 +38,45 @@ describe('new gameplay loop improvements', () => {
     gs.money = 250;
     gs.visitedLocations = new Set(new Array(18).fill('bar'));
     assert.strictEqual(gs.checkSecondWin(), false);
+  });
+
+  it('second win only fires once (idempotent)', () => {
+    const gs = new GameState();
+    gs.journeyDay = 100;
+    gs.reputation = 90;
+    gs.money = 300;
+    gs.visitedLocations = new Set([
+      'spiritual_community', 'bar', 'home_loft', 'rooftop', 'free_clinic',
+      'river_walk', 'community_garden', 'farmers_market', 'bathhouse',
+      'night_market', 'flea_market', 'public_library', 'pawn_shop',
+      'radio_station', 'open_mic', 'landlord_office', 'sato_studio',
+      'alex_cocktail_bar',
+    ]);
+    gs.consecutiveBarDays = 1;
+    assert.strictEqual(gs.checkSecondWin(), true);
+    assert.strictEqual(gs.masteryWon, true);
+    // Second call should not fire again
+    assert.strictEqual(gs.checkSecondWin(), false);
+  });
+
+  it('prepaying rent on a Sunday does NOT skip today\u2019s rent (exploit fixed)', () => {
+    const gs = new GameState();
+    // Advance to first Sunday
+    while (gs.getWeekdayIndex() !== 6) gs.advanceDay();
+    gs.money = 200;
+    const sunday = gs.journeyDay;
+    assert.ok(gs.isRentDue(), 'rent should be due on Sunday');
+    // Prepay while rent is due today: must not erase today's rent
+    const prepaid = gs.prepayRent(1);
+    assert.strictEqual(prepaid, true, 'prepay should succeed');
+    // After prepaying today is still due
+    assert.ok(gs.isRentDue(), 'today\u2019s rent must still be due after prepay');
+    const charged = gs.applyRentIfSunday();
+    assert.ok(charged > 0, 'today\u2019s rent must actually be charged');
+    // Next Sunday (7 days on) should be covered
+    for (let i = 0; i < 7; i++) gs.advanceDay();
+    assert.strictEqual(gs.getWeekdayIndex(), 6);
+    assert.strictEqual(gs.isRentDue(), false, 'next Sunday should be prepaid');
   });
 
   it('reputation discount reduces rent', () => {

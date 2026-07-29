@@ -12,6 +12,9 @@
  * Fixed vs. the GDScript original: friend-event `{friend}` substitution used to
  * write back into the shared event object, permanently baking one character's
  * name into the pool for the rest of the session. We return a shallow copy.
+ *
+ * The scheduler state is JSON-serialisable so it can be persisted with the
+ * rest of the run — event timing and recent-event memory survive reloads.
  */
 
 import { buildEventPool, Category } from '../data/events.js';
@@ -41,18 +44,13 @@ export class EventManager {
     this._characterNames = [...characterNames];
     this._allEvents = buildEventPool();
     this._recentIds = [];
+    this._previousEventId = null;
+    this._consecutiveBarDays = 0;
     this._scheduleNextEvent(1);
   }
 
   /**
    * Return an event if the scheduled day has arrived, else null.
-   *
-   * @param {number} journeyDay
-   * @param {number} weekday 0=Mon … 6=Sun
-   * @param {string} currentLocation location id
-   * @param {number} consecutiveBar
-   * @param {{tags?:string[], weatherId?:string}} [context]
-   * @returns {object|null} a copy of the chosen event, safe to mutate.
    */
   selectEvent(journeyDay, weekday, currentLocation, consecutiveBar, context = {}) {
     this._consecutiveBarDays = consecutiveBar;
@@ -144,5 +142,31 @@ export class EventManager {
     this._consecutiveBarDays = 0;
     this._nextEventDay = 1;
     this._scheduleNextEvent(0);
+  }
+
+  // ------------------------------------------------ persistence
+  /** Plain JSON snapshot. */
+  toJSON() {
+    return {
+      nextEventDay: this._nextEventDay,
+      previousEventId: this._previousEventId,
+      recentIds: [...this._recentIds],
+      consecutiveBarDays: this._consecutiveBarDays,
+      rng: this.rng.getState ? this.rng.getState() : null,
+    };
+  }
+
+  /** Restore from a snapshot produced by toJSON(). Safe against malformed input. */
+  loadFrom(data) {
+    if (!data || typeof data !== 'object') return false;
+    const n = (v, fb) => (typeof v === 'number' && Number.isFinite(v) ? v : fb);
+    this._nextEventDay = Math.max(1, n(data.nextEventDay, 1));
+    this._previousEventId = typeof data.previousEventId === 'string' ? data.previousEventId : null;
+    this._recentIds = Array.isArray(data.recentIds)
+      ? data.recentIds.filter((x) => typeof x === 'string').slice(-RECENT_MEMORY)
+      : [];
+    this._consecutiveBarDays = Math.max(0, n(data.consecutiveBarDays, 0));
+    if (this.rng.setState && data.rng) this.rng.setState(data.rng);
+    return true;
   }
 }

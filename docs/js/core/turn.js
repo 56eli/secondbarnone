@@ -16,7 +16,7 @@
  * Pure with respect to the DOM; every input is state or data.
  */
 
-import { RENT_AMOUNT } from './game-state.js';
+import { RENT_AMOUNT, MAX_STAT, MAX_ENERGY, MAX_REPUTATION } from './game-state.js';
 import { getLocation, Tag, varianceForDay, LOCATIONS } from '../data/locations.js';
 
 /**
@@ -224,8 +224,10 @@ export function resolveTurn(gs, eventManager, locationId) {
   // 5b — soft win (does not end the run)
   const justWon = typeof gs.checkWin === 'function' ? gs.checkWin() : false;
 
-  // 5c — mastery layer (does not end the run)
+  // 5c — mastery layer (fires once, does not end the run)
   const masteryWon = typeof gs.checkSecondWin === 'function' ? gs.checkSecondWin() : false;
+  const masteryMessage = masteryWon ? gs.masteryMessage : '';
+  if (masteryWon) gs.winMessage = gs.masteryMessage;
 
   // 6 — game over
   const gameOver = gs.checkGameOver();
@@ -247,16 +249,59 @@ export function resolveTurn(gs, eventManager, locationId) {
     insight: gs.insight - prev.insight,
   };
 
+  // 8 — long-trip locations (e.g. mountain retreat): resolve two additional
+  //     days of *recovery only*, charging rent on any Sundays that land in the
+  //     window. No further events fire, no further actions are taken — the
+  //     fiction is that you are off-grid, silent, unreachable. These days are
+  //     advanced on the calendar here (not in app.js) so that deltas and
+  //     stats are correct before the result modal is rendered.
+  const longTrip = location?.special === 'long_trip';
+  let extraDays = 0;
+  let extraRent = 0;
+  if (longTrip) {
+    const addNight = () => {
+      gs.journeyDay += 1;
+      gs._advanceCalendarDay();
+      gs.recoverEnergy();
+      extraDays += 1;
+      const r = gs.applyRentIfSunday();
+      if (r) extraRent += r;
+      gs.visitedLocations.add(location.id);
+    };
+    // Two extra silent nights; the day of travel itself has already been
+    // resolved as the action day (step 1). Total calendar movement is three
+    // days, matching the "three days, counted as one turn" fiction.
+    addNight();
+    addNight();
+    // Clamp stats after recovery
+    gs.sanity = Math.max(0, Math.min(MAX_STAT, gs.sanity));
+    gs.energy = Math.max(0, Math.min(MAX_ENERGY, gs.energy));
+    gs.money = Math.max(0, gs.money);
+    gs.reputation = Math.max(0, Math.min(MAX_REPUTATION, gs.reputation));
+    gs.emit(
+      'day_changed',
+      gs.journeyDay,
+      gs.getWeekdayName(),
+      gs.getMonthName(),
+      gs.year,
+      gs.dayOfMonth,
+    );
+    gs._statsChanged();
+  }
+
   return {
     actionDesc,
     event,
     rentCharged,
     rentAmount: rentCharged || RENT_AMOUNT,
+    extraRent,
+    extraDays,
+    longTrip,
     gameOver,
     justWon,
     masteryWon,
-    masteryMessage: masteryWon ? gs.winMessage : '',
-    winMessage: justWon ? gs.winMessage : '',
+    masteryMessage,
+    winMessage: masteryWon ? masteryMessage : justWon ? gs.winMessage : '',
     deltas,
     reasons,
     achievements,

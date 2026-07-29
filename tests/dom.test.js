@@ -347,22 +347,29 @@ maybe('the hub shows history after a completed turn', async () => {
   } finally { cleanup(window); }
 });
 
-maybe('clicking the modal backdrop dismisses it like Continue', async () => {
+maybe('clicking the modal backdrop does NOT advance time — a stray tap must not roll the calendar', async () => {
   const window = await boot();
   try {
     const doc = window.document;
+    const { gs } = window.__game;
+    const dayBefore = gs.journeyDay;
     [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
-    doc.querySelector('.btn-primary').click();
+    doc.querySelector('.location .btn-primary').click();
     await settle();
-
+    // Modal is showing, day 1 resolved but not yet advanced
     const backdrop = doc.querySelector('.modal-backdrop');
-    assert.ok(backdrop);
+    assert.ok(backdrop, 'modal backdrop should be visible');
     backdrop.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     await settle();
-
-    assert.equal(doc.querySelector('.modal-backdrop'), null, 'modal should close');
-    assert.ok(doc.querySelector('.hub'), 'should land back on the hub');
+    // Backdrop click should leave the modal up and must not advance the day
+    assert.ok(doc.querySelector('.modal-backdrop'), 'modal must remain open on backdrop click');
+    assert.equal(gs.journeyDay, dayBefore, 'journey day must not advance from a backdrop tap');
+    // Continue button still works
+    doc.querySelector('.modal .btn-primary').click();
+    await settle();
+    assert.equal(doc.querySelector('.modal-backdrop'), null, 'Continue dismisses the modal');
+    assert.equal(gs.journeyDay, dayBefore + 1, 'Continue advances the day');
   } finally { cleanup(window); }
 });
 

@@ -9,17 +9,22 @@
 /** mulberry32 — small, fast, good enough distribution for a game like this. */
 export function createRng(seed) {
   if (seed === undefined || seed === null) {
-    return {
+    // Unseeded path — uses Math.random. Cannot be serialised meaningfully;
+    // getState() returns null so callers can detect that.
+    const rng = {
       random: () => Math.random(),
-      /** Inclusive integer range, matching Godot's randi_range(). */
       randInt: (min, max) => min + Math.floor(Math.random() * (max - min + 1)),
-      /** Float in [min, max). */
       randFloat: (min, max) => min + Math.random() * (max - min),
       pick: (arr) => arr[Math.floor(Math.random() * arr.length)],
+      getState: () => null,
+      setState: () => {},
+      isSeeded: false,
     };
+    return rng;
   }
 
   let state = seed >>> 0;
+  const initialSeed = state;
   const random = () => {
     state |= 0;
     state = (state + 0x6d2b79f5) | 0;
@@ -33,6 +38,12 @@ export function createRng(seed) {
     randInt: (min, max) => min + Math.floor(random() * (max - min + 1)),
     randFloat: (min, max) => min + random() * (max - min),
     pick: (arr) => arr[Math.floor(random() * arr.length)],
+    /** Serialise state so saves can restore the exact RNG sequence. */
+    getState: () => ({ seed: initialSeed, state }),
+    setState: (s) => {
+      if (s && Number.isFinite(s.state)) state = s.state >>> 0;
+    },
+    isSeeded: true,
   };
 }
 
