@@ -41,8 +41,8 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | Deploy payload  | 39.5 MB                         | **3.83 MB** eager (+5.37 MB of full-size portraits fetched only when tapped; 0.78 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **427**                                                                        |
-| Coverage        | —                               | **~98.1%**                                                                     |
+| Automated tests | 0                               | **435**                                                                        |
+| Coverage        | —                               | **~97.5%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -73,7 +73,7 @@ npm run check           # lint + format + typecheck + tests + asset integrity
 Current measured coverage (30 July 2026) — `npm run coverage:check`:
 
 ```
-all files    98.12 line | 86.10 branch | 92.56 funcs
+all files    97.53 line | 86.00 branch | 91.09 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
@@ -266,8 +266,9 @@ never be changed. The current regeneration policy lives in
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - Background music is off by default and lazy-loaded from the Settings screen
-  the first time you turn it on (an ~795 KiB warm, slow felt-piano loop, synthesized by
-  `scripts/gen-comfy-piano.py`; autoplay policies are respected).
+  the first time you turn it on (an ~803 KiB warm, slow piano loop, the original
+  track synthesized by `scripts/gen-piano.py` and downsampled for the web by
+  `scripts/downsample.py`; autoplay policies are respected).
 - Navigating between locations never flashes black: the incoming screen is
   fully ready underneath before the outgoing one dissolves (backgrounds are
   pre-loaded, and the dissolve honours `prefers-reduced-motion`).

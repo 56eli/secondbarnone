@@ -505,7 +505,7 @@ Missing portraits fall back to an initials chip, which is exercised by test.
 Source art in `assets/` is ~250 MB (plain blobs — the LFS attribute exists
 but the migration is a recorded open decision; see README → "Repository size
 and history"); the deployed payload in
-`docs/assets/` is 3.83 MB eager plus 5.37 MB of on-demand portrait sheets; music is a separate 0.78 MB lazy asset (`comfy_piano.wav`, synthesized by `scripts/gen-comfy-piano.py`).
+`docs/assets/` is 3.83 MB eager plus 5.37 MB of on-demand portrait sheets; music is a separate 0.78 MB lazy asset (`warm_piano.wav`, synthesized by `scripts/gen-piano.py` and downsampled for the web by `scripts/downsample.py`).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 

@@ -316,6 +316,19 @@ h2.screen-title {
   letter-spacing: 0.3px;
 }
 
+/* Headings are programmatically focused on every screen change (for
+   screen-reader announcement and scroll-restoration) via `tabindex="-1"`.
+   They are not in the Tab order, so the focus is never reached by keyboard
+   navigation — which means the browser's default focus ring shows up for no
+   good reason (e.g. "Where will you spend today?" glowing on every hub load).
+   Suppress just that programmatic ring; real interactive controls keep their
+   `:focus-visible` outlines. */
+h1[tabindex='-1']:focus,
+h2[tabindex='-1']:focus,
+h3[tabindex='-1']:focus {
+  outline: none;
+}
+
 .screen-sub {
   margin: 0 0 18px;
   color: var(--text-dim);
@@ -1859,10 +1872,43 @@ footer a {
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
+}
+/* The [hidden] attribute must always win. The rule above sets `display: block`
+   at author origin, which would otherwise override the browser's user-agent
+   `[hidden] { display: none }` — that made the slur leak onto day 1. This rule
+   restores the user-agent guarantee with higher specificity. */
+.fragile-fraud[hidden] {
+  display: none;
 }
 .story-modal {
   max-width: 39rem;
+}
+/* A portrait lead at the top of a story interlude — e.g. Kaden's face on the
+   opening smear. Reuses the round avatar + name block so it reads the same as
+   the event popups do. */
+.story-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.story-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-color: rgba(201, 162, 39, 0.4);
+}
+.story-lead .story-who {
+  margin: 0;
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+.story-lead .story-role {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 .story-modal h2 {
   color: var(--gold, #f3c969);

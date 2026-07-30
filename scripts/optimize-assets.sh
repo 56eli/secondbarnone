@@ -12,6 +12,18 @@ set -euo pipefail
 
 cd "$(cd "$(dirname "$0")" && pwd)/.."
 
+# Background music: regenerate the warm-piano master (44.1 kHz additive
+# synthesis) and downsample the deployed copy to 11.025 kHz so the lazy asset
+# stays well under its 1 MiB budget. Stdlib Python only — no ffmpeg — so this
+# runs independently of the ImageMagick requirement below.
+if command -v python3 &>/dev/null; then
+  echo "Synthesizing background music…"
+  python3 scripts/gen-piano.py assets/music/warm_piano.wav
+  python3 scripts/downsample.py assets/music/warm_piano.wav docs/assets/music/warm_piano.wav 11025 16
+else
+  echo "  ! python3 not found — skipping music regeneration" >&2
+fi
+
 if ! command -v convert &>/dev/null; then
   echo "ERROR: ImageMagick 'convert' not found." >&2
   echo "  Debian/Ubuntu: sudo apt install imagemagick" >&2

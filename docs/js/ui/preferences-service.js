@@ -14,7 +14,7 @@ export class PreferencesService {
       volume: 0.25,
     };
     this.musicEl = null;
-    this.musicUrl = 'assets/music/comfy_piano.wav';
+    this.musicUrl = 'assets/music/warm_piano.wav';
     this.load();
   }
 
