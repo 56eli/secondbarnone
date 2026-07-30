@@ -4,17 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>secondbarnone</title>
-    <meta
-      name="description"
-      content="A narrative balance game. Split your days between a spiritual community and a bar, and keep both your sanity and your wallet alive."
-    />
+    <meta name="description" content="WIN GAME = GAIN LOC" />
     <meta name="theme-color" content="#0a0a12" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
 
     <meta property="og:title" content="secondbarnone" />
-    <meta
-      property="og:description"
-      content="Split your days between a spiritual community and a bar. Keep both your sanity and your wallet alive."
-    />
+    <meta property="og:description" content="WIN GAME = GAIN LOC" />
     <meta property="og:type" content="website" />
 
     <link rel="icon" href="assets/portraits/leon.webp" />
@@ -42,6 +40,7 @@
             </button>
             <div class="hud-identity-text">
               <span class="hud-name" id="hud-name">Léon</span>
+              <span class="fragile-fraud" id="fragile-fraud" hidden>fragile fraud</span>
             </div>
           </div>
           <div class="hud-actions">
@@ -135,7 +134,6 @@
     </div>
 
     <div id="toasts" aria-live="polite"></div>
-    <div id="fade"></div>
 
     <script type="module" src="js/main.js"></script>
   </body>

@@ -16,10 +16,6 @@ import {
   START_SANITY,
   START_MONEY,
   RENT_AMOUNT,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   ENDURANCE_GOAL_DAYS,
 } from '../docs/js/core/game-state.js';
 import {
@@ -100,38 +96,40 @@ test('starting stats are 50/50', () => {
 
 test('spiritual community trades money for sanity', () => {
   const gs = new GameState();
-  gs.applyLocationAction('spiritual_community');
-  assert.equal(gs.sanity, START_SANITY + SANITY_GAIN);
-  assert.equal(gs.money, START_MONEY - MONEY_LOSS);
+  gs.noteVisit('spiritual_community');
+  gs.applyDeltas({ sanity: 15, money: -10 });
+  assert.equal(gs.sanity, START_SANITY + 15);
+  assert.equal(gs.money, START_MONEY - 10);
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('bar trades sanity for money and counts consecutive days', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  assert.equal(gs.money, START_MONEY + MONEY_GAIN);
-  assert.equal(gs.sanity, START_SANITY - SANITY_LOSS);
+  gs.noteVisit('bar');
+  gs.applyDeltas({ sanity: -12, money: 12 });
+  assert.equal(gs.money, START_MONEY + 12);
+  assert.equal(gs.sanity, START_SANITY - 12);
   assert.equal(gs.consecutiveBarDays, 1);
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
 });
 
 test('visiting the community resets the consecutive bar counter', () => {
   const gs = new GameState();
-  gs.applyLocationAction('bar');
-  gs.applyLocationAction('bar');
+  gs.noteVisit('bar');
+  gs.noteVisit('bar');
   assert.equal(gs.consecutiveBarDays, 2);
-  gs.applyLocationAction('spiritual_community');
+  gs.noteVisit('spiritual_community');
   assert.equal(gs.consecutiveBarDays, 0);
 });
 
 test('sanity is capped; money is uncapped but floors at zero', () => {
   const gs = new GameState();
-  gs.applyEventDeltas(999, 999);
+  gs.applyDeltas({ sanity: 999, money: 999 });
   assert.equal(gs.sanity, MAX_STAT);
   assert.equal(gs.money, 999 + START_MONEY); // wallet has no soft ceiling
   assert.ok(gs.money > MAX_STAT);
-  gs.applyEventDeltas(-99999, -99999);
+  gs.applyDeltas({ sanity: -99999, money: -99999 });
   assert.equal(gs.sanity, 0);
   assert.equal(gs.money, 0);
 });
@@ -139,7 +137,7 @@ test('sanity is capped; money is uncapped but floors at zero', () => {
 test('money can grow well past 100 without being clamped', () => {
   const gs = new GameState();
   gs.money = 95;
-  gs.applyLocationAction('bar');
+  gs.applyDeltas({ money: 12 });
   assert.ok(gs.money > 100, `expected >100, got ${gs.money}`);
   gs.applyDeltas({ money: 500 });
   assert.ok(gs.money >= 500);
@@ -260,8 +258,8 @@ test('daily focus cue reflects combined stat pressure without prescribing a dest
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  // Three events per character across a cast of 78, plus Kaden's fourth beat.
-  assert.equal(pool.length, 235);
+  // Three events per character across a cast of 77, plus Kaden's fourth beat.
+  assert.equal(pool.length, 232);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
@@ -531,18 +529,16 @@ test('a long random playthrough never produces invalid state', () => {
   }
 });
 
-test('always alternating locations is a survivable strategy', () => {
-  // Sanity check on balance: alternating should not die almost immediately.
-  const gs = new GameState();
-  const em = new EventManager(seeded());
-  em.initialize(gs.getCharacterNames());
-  let turns = 0;
-  while (!gs.gameOver && turns < 100) {
-    resolveTurn(gs, em, turns % 2 ? 'bar' : 'spiritual_community');
+test('always alternating founding locations now collapses from exhaustion', () => {
+  const gs = new GameState({ seed: 1 });
+  const events = new EventManager(createRng(1));
+  events.initialize(gs.getCharacterNames());
+  for (let i = 0; i < 20 && !gs.gameOver; i += 1) {
+    resolveTurn(gs, events, i % 2 === 0 ? 'spiritual_community' : 'bar');
     if (!gs.gameOver) gs.advanceDay();
-    turns += 1;
   }
-  assert.ok(turns > 10, `alternating died after only ${turns} turns`);
+  assert.equal(gs.gameOver, true);
+  assert.match(gs.gameOverMessage, /exhaustion/);
 });
 
 test('only ever visiting the bar eventually breaks you', () => {
@@ -579,7 +575,7 @@ test('reset restores a clean starting state', () => {
 
 test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   const chars = createAllProfiles();
-  assert.equal(chars.length, 78);
+  assert.equal(chars.length, 77);
   assert.equal(chars.filter((c) => c.role === Role.PROTAGONIST).length, 1);
   assert.equal(chars.find((c) => c.role === Role.PROTAGONIST).id, 'leon');
 
@@ -641,7 +637,7 @@ test('every character has full biography text', () => {
 test('the friend-name pool excludes the protagonist', () => {
   const gs = new GameState();
   const names = gs.getCharacterNames();
-  assert.equal(names.length, 77);
+  assert.equal(names.length, 76);
   assert.ok(!names.includes('Léon'));
 });
 
@@ -665,4 +661,81 @@ test('randInt stays within its inclusive bounds', () => {
     const v = rng.randInt(2, 5);
     assert.ok(v >= 2 && v <= 5 && Number.isInteger(v));
   }
+});
+
+// ----------------------------------------------------- determinism across save/load
+
+test('a mid-day reload replays the same event draw instead of re-rolling it', () => {
+  // Production wiring (app.js) seeds the event RNG from the run's
+  // weatherSeed, and the save persists the RNG state. Closing the tab on a
+  // bad result and reloading must therefore replay the *same* scheduled
+  // event — this test reproduces that flow below the DOM.
+  const boot = (snapshot) => {
+    const gs = new GameState({ seed: 4242 });
+    if (snapshot) gs.loadFrom(snapshot.gs);
+    const em = new EventManager(createRng(gs.weatherSeed));
+    em.initialize(gs.getCharacterNames());
+    if (snapshot?.events) em.loadFrom(snapshot.events);
+    return { gs, em };
+  };
+
+  // Uninterrupted timeline: play a survivable mix until the first event
+  // actually fires, keeping the morning's autosave snapshot at each step —
+  // exactly what a player sees before clicking a location.
+  const live = boot(null);
+  const mix = ['spiritual_community', 'bar', 'spiritual_community', 'bar', 'home_loft'];
+  let morningSnapshot = null;
+  let eventDay = null;
+  let eventLocation = null;
+  while (eventDay === null) {
+    morningSnapshot = { gs: live.gs.toJSON(), events: live.em.toJSON() };
+    const where = mix[(live.gs.journeyDay - 1) % mix.length];
+    resolveTurn(live.gs, live.em, where);
+    if (live.gs.eventsSeen.size > 0) {
+      eventDay = [...live.gs.eventsSeen][live.gs.eventsSeen.size - 1];
+      eventLocation = where;
+      break;
+    }
+    live.gs.advanceDay();
+    assert.ok(!live.gs.gameOver && live.gs.journeyDay < 20, 'an event must fire by day 20');
+  }
+  assert.ok(eventDay, 'baseline run must fire at least one event to be meaningful');
+
+  // The scum: close the tab instead of pressing Continue, reload from the
+  // morning's save, and re-resolve the same day at the same location.
+  const replay = boot(morningSnapshot);
+  resolveTurn(replay.gs, replay.em, eventLocation);
+  const replayIds = [...replay.gs.eventsSeen];
+  assert.equal(
+    replayIds[replayIds.length - 1],
+    eventDay,
+    'reloading and re-resolving the same day must redraw the same event',
+  );
+  assert.equal(replay.gs.money, live.gs.money, 'replayed day must land on the same totals');
+  assert.equal(replay.gs.sanity, live.gs.sanity);
+});
+
+test('event manager restart schedules from day one like a fresh boot', () => {
+  for (const seed of [1, 77, 555, 90210]) {
+    const fresh = new EventManager(createRng(seed));
+    fresh.initialize(['A', 'B', 'C']);
+    const restarted = new EventManager(createRng(seed));
+    restarted.reset();
+    assert.ok(
+      restarted._nextEventDay >= 3 && restarted._nextEventDay <= 6,
+      `reset() scheduled for day ${restarted._nextEventDay}; initialize() would land day 3–6`,
+    );
+    assert.ok(
+      fresh._nextEventDay >= 3 && fresh._nextEventDay <= 6,
+      `initialize() scheduled for day ${fresh._nextEventDay}`,
+    );
+  }
+});
+
+
+test('zero energy ends the run with Léon dropping down from exhaustion', () => {
+  const gs = new GameState({ seed: 1 });
+  gs.energy = 0;
+  assert.equal(gs.checkGameOver(), true);
+  assert.equal(gs.gameOverMessage, 'Léon drops down due to exhaustion.');
 });

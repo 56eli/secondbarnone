@@ -2,15 +2,18 @@
  * Location catalogue.
  *
  * The original game had exactly two places to spend a day. This module turns
- * that into a data-driven network of twenty-two locations spread over five
+ * that into a data-driven network of twenty-three locations spread over five
  * districts, each with its own effects, tags, unlock rule and flavour.
  *
- * The two original locations keep their exact numbers (+15/−10 and +12/−12) so
- * that the balance of an early run is unchanged.
+ * The two founding locations (+18/−8 and +20/−14) anchor the whole economy:
+ * every other place is priced against them and the difficulty suite asserts
+ * the founding loop stays viable but never immortal.
  *
  * Nothing here touches the DOM — locations are pure data plus a couple of
  * predicate helpers, so the whole catalogue is testable headlessly.
  */
+
+import { WEEKDAY_NAMES } from '../core/balance.js';
 
 /** Tag vocabulary. Weather, perks, items and events all key off these. */
 export const Tag = Object.freeze({
@@ -187,10 +190,9 @@ export function varianceForDay(location, journeyDay = 1, seed = 0) {
  * @param {object} cfg
  * @returns {object} a frozen location definition
  */
-function loc(cfg) {
+function loc({ unlock: unlockConfig, ...cfg }) {
   return Object.freeze({
     tags: [],
-    unlock: {},
     special: null,
     bg: '',
     /** Side character who "keeps" this place — shown on the location card. */
@@ -207,7 +209,7 @@ function loc(cfg) {
     effects: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.effects },
     /** Maximum daily swing in each direction. See varianceForDay(). */
     variance: { sanity: 0, money: 0, energy: 0, reputation: 0, insight: 0, ...cfg.variance },
-    unlock: { minDay: 1, minReputation: 0, ...cfg.unlock },
+    unlock: { minDay: 1, minReputation: 0, ...unlockConfig },
   });
 }
 
@@ -234,7 +236,9 @@ export const LOCATIONS = [
       'You spent the day meditating and connecting with your spiritual community. Sanity restored, but donations cost you.',
     historyLabel: 'Visited La Maison Calme',
     tags: [Tag.SPIRITUAL, Tag.COMMUNITY, Tag.INDOOR],
-    effects: eff(15, -10, -12, 2, 1),
+    // The rebalanced core loop (July 2026): the founding pair must stay
+    // sustainable but demanding — see CHANGELOG and the difficulty suite.
+    effects: eff(18, -8, -14, 2, 1),
     variance: vary(3, 2, 4, 1, 1),
     bg: 'assets/backgrounds/paris_spiritual_community.webp',
   }),
@@ -250,7 +254,9 @@ export const LOCATIONS = [
       'You worked a shift at the bar. The tips are good, but the late nights are wearing on your spirit.',
     historyLabel: 'Worked at Le Dernier Verre',
     tags: [Tag.WORK, Tag.NIGHT, Tag.INDOOR, Tag.SOCIAL],
-    effects: eff(-12, 12, -20, 0, 0),
+    // Pays far better than it used to — and costs more of you. The bar is
+    // the wallet's answer and the spirit's problem, at double the old rate.
+    effects: eff(-14, 20, -26, 0, 0),
     variance: vary(3, 4, 5, 0, 0),
     bg: 'assets/backgrounds/paris_bar.webp',
   }),
@@ -269,7 +275,7 @@ export const LOCATIONS = [
     historyLabel: 'Rested at the loft',
     tags: [Tag.REST, Tag.INDOOR, Tag.QUIET],
     // A rest day still costs you: you eat, and you earn nothing.
-    effects: eff(2, -6, 30, 0, 0),
+    effects: eff(2, -6, 28, 0, 0),
     variance: vary(2, 1, 6, 0, 0),
     slot: 3,
     bg: 'assets/backgrounds/home_loft.webp',
@@ -304,7 +310,9 @@ export const LOCATIONS = [
       'You spent the day filing, translating and holding hands in a waiting room. Exhausting, unpaid, and unambiguously good.',
     historyLabel: 'Volunteered at the free clinic',
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR],
-    effects: eff(4, -4, -14, 7, 1),
+    // Rotating-card appeal pass: service should be a credible survival choice,
+    // not a reputation trap no attentive player ever selects.
+    effects: eff(7, -3, -14, 8, 2),
     variance: vary(3, 2, 5, 3, 1),
     slot: 4,
     unlock: { minDay: 8 },
@@ -322,7 +330,7 @@ export const LOCATIONS = [
       'You chopped onions for four hours and served two hundred people. Your back aches. The neighbourhood noticed.',
     historyLabel: 'Cooked at the soup kitchen',
     tags: [Tag.COMMUNITY, Tag.VOLUNTEER, Tag.INDOOR, Tag.SOCIAL],
-    effects: eff(3, -5, -16, 9, 0),
+    effects: eff(7, -4, -16, 10, 1),
     variance: vary(3, 3, 6, 4, 0),
     slot: 4,
     unlock: { minDay: 11, minReputation: 25 },
@@ -350,7 +358,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'community_garden',
-    host: 'brock_lee',
+    host: 'ahyeon',
     name: 'Community Garden',
     emoji: '🌱',
     district: District.RIVERSIDE,
@@ -368,7 +376,7 @@ export const LOCATIONS = [
   }),
   loc({
     id: 'farmers_market',
-    host: 'ahyeon',
+    host: 'brock_lee',
     name: 'Saturday Market',
     emoji: '🥬',
     district: District.RIVERSIDE,
@@ -381,7 +389,8 @@ export const LOCATIONS = [
     effects: eff(-1, 8, -12, 2, 0),
     variance: vary(2, 5, 4, 1, 0),
     slot: 5,
-    unlock: { minDay: 3 },
+    // The name is the contract: Saturday trestle tables, Saturday only.
+    unlock: { minDay: 3, weekdays: [5] },
     bg: 'assets/backgrounds/farmers_market.webp',
   }),
   loc({
@@ -396,7 +405,7 @@ export const LOCATIONS = [
       'Hot, cold, hot again, then twenty minutes flat on a wooden bench. You came out feeling reassembled.',
     historyLabel: 'Soaked at the bathhouse',
     tags: [Tag.REST, Tag.INDOOR, Tag.QUIET],
-    effects: eff(6, -10, 22, 0, 0),
+    effects: eff(6, -10, 18, 0, 0),
     variance: vary(3, 2, 5, 0, 0),
     slot: 3,
     unlock: { minDay: 9 },
@@ -437,7 +446,8 @@ export const LOCATIONS = [
     effects: eff(-4, 11, -12, 0, 0),
     variance: vary(3, 6, 4, 1, 0),
     slot: 5,
-    unlock: { minDay: 6 },
+    // Sunday tarpaulins, as the description says — closed the rest of the week.
+    unlock: { minDay: 6, weekdays: [6] },
     bg: 'assets/backgrounds/flea_market.webp',
   }),
   loc({
@@ -452,7 +462,7 @@ export const LOCATIONS = [
       'You read four chapters, took notes you will actually reread, and dozed once in the good chair.',
     historyLabel: 'Read at the library',
     tags: [Tag.STUDY, Tag.INDOOR, Tag.QUIET],
-    effects: eff(3, -1, -8, 0, 3),
+    effects: eff(5, -1, -8, 0, 3),
     variance: vary(2, 0, 3, 0, 2),
     slot: 3,
     unlock: { minDay: 4 },
@@ -506,7 +516,7 @@ export const LOCATIONS = [
       'You read something you had not meant to read out loud. The room went quiet in the good way.',
     historyLabel: 'Played the open mic',
     tags: [Tag.SOCIAL, Tag.NIGHT, Tag.INDOOR],
-    effects: eff(5, 2, -16, 5, 1),
+    effects: eff(7, 3, -16, 6, 2),
     variance: vary(5, 4, 5, 3, 1),
     slot: 5,
     unlock: { minDay: 10, weekdays: [4, 5] },
@@ -526,7 +536,7 @@ export const LOCATIONS = [
       'You paid ahead, got a stamped receipt, and walked out lighter than the amount you handed over would suggest.',
     historyLabel: 'Settled rent at the letting office',
     tags: [Tag.ADMIN, Tag.INDOOR],
-    effects: eff(3, -1, -8, 0, 0),
+    effects: eff(5, -1, -8, 2, 1),
     variance: vary(3, 2, 3, 0, 0),
     slot: 6,
     unlock: { minDay: 5 },
@@ -672,6 +682,19 @@ export function hasTag(location, tag) {
 }
 
 /**
+ * Lock reason for a weekday-gated place: 'Only on Saturdays', 'Only on
+ * Fridays and Saturdays'. A locked card must read like a promise, not a
+ * shrug — the player should know exactly when to come back.
+ */
+export function weekdayGateReason(weekdays) {
+  const names = [...weekdays]
+    .sort((a, b) => a - b)
+    .map((d) => `${WEEKDAY_NAMES[d] ?? `day ${d}`}s`);
+  if (names.length === 1) return `Only on ${names[0]}`;
+  return `Only on ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
  * Evaluate a location's unlock rule against a state snapshot.
  *
  * @param {object} location
@@ -701,7 +724,7 @@ export function evaluateUnlock(location, snap) {
     return { unlocked: false, reason: `Needs the ${u.requiresPerk} perk` };
   }
   if (Array.isArray(u.weekdays) && u.weekdays.length > 0 && !u.weekdays.includes(weekday)) {
-    return { unlocked: false, reason: 'Not on today of all days' };
+    return { unlocked: false, reason: weekdayGateReason(u.weekdays) };
   }
   for (const tag of closedTags) {
     if (location.tags.includes(tag)) {
@@ -727,6 +750,14 @@ export function availableLocations(snap) {
  * tells the player what it needs; the founding pair ensure the hub always has
  * playable actions while longer-term places are introduced.
  *
+ * The one exception is the *weekday* gate, because it is recurring, not
+ * progression. A 'day 12' card is a promise about the run and stays visible
+ * until it is earned; an 'Only on Saturdays' card left up on Tuesday is a
+ * promise about the *week*, and once you have read it the card is dead wood.
+ * So a weekday-gated place keeps its card on the day it opens and the day
+ * before (the rhythm is worth advertising), and otherwise falls through to
+ * the next place in the cycle.
+ *
  * @param {number} slot 3-6
  * @param {object} snap the unlock snapshot (see evaluateUnlock)
  * @param {number} seed run seed
@@ -737,16 +768,32 @@ export function locationForSlot(slot, snap, seed = 0) {
   if (inSlot.length === 0) return null;
 
   const day = snap?.journeyDay ?? 1;
+  const weekday = snap?.weekday ?? 0;
 
   // Hub discovery is a cycle over the whole slot, not a preference for
-  // currently open cards. Locked places therefore reveal their requirement
+  // currently open cards. Long-term locked places reveal their requirement
   // before they become playable, and every location returns within one cycle.
   const ordered = [...inSlot].sort(
     (a, b) =>
       hashString(`slot:${slot}:${a.id}`, seed >>> 0) -
       hashString(`slot:${slot}:${b.id}`, seed >>> 0),
   );
-  return ordered[(day - 1) % ordered.length];
+  const start = (day - 1) % ordered.length;
+
+  // Weekday gates are the exception above: show the card on its open day and
+  // on the vigil of it, otherwise keep cycling until somewhere relevant.
+  const gateDays = (loc) => loc.unlock?.weekdays ?? null;
+  const worthShowing = (loc) => {
+    const days = gateDays(loc);
+    return !days || days.length === 0 || days.includes(weekday) || days.includes((weekday + 1) % 7);
+  };
+  if (!worthShowing(ordered[start])) {
+    for (let k = 1; k <= ordered.length; k += 1) {
+      const candidate = ordered[(start + k) % ordered.length];
+      if (worthShowing(candidate)) return candidate;
+    }
+  }
+  return ordered[start];
 }
 
 /**

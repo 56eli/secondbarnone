@@ -8,6 +8,20 @@
  *
  * Each type carries flat modifiers keyed by location tag, plus an optional
  * list of tags it closes outright (a storm shuts the outdoor places).
+ *
+ * ## Fringe months
+ *
+ * Some weather belongs *around* its season, not only inside it. Snow stops
+ * being believable the day spring starts on the calendar — but early March
+ * still snows, and November already can. A type may therefore list
+ * `fringeMonths` (0-based month indexes, so 10 = November, 2 = March): on
+ * those months it joins the pool even when its season does not match, at
+ * `fringeWeightFactor` of its normal weight. The pool weight is halved, not
+ * the effect — a November snowfall is every bit as cold as a January one,
+ * just rarer.
+ *
+ * Season-only calls (no month index given) behave exactly as before the
+ * fringe existed; the month only widens the pool, it never narrows it.
  */
 
 import { Tag } from './locations.js';
@@ -18,6 +32,8 @@ const w = (cfg) =>
     tagEffects: {},
     weight: 10,
     seasons: null, // null = any
+    fringeMonths: [], // 0-based month indexes where the type may bleed over
+    fringeWeightFactor: 0.5, // share of the normal weight during fringe months
     ...cfg,
   });
 
@@ -79,6 +95,8 @@ export const WEATHER_TYPES = [
     line: 'Snow settling on the parked cars. The whole district has gone quiet and careful.',
     weight: 12,
     seasons: ['Winter'],
+    fringeMonths: [10, 2], // November snows early, March snows late
+    fringeWeightFactor: 0.5,
     closes: [Tag.PILGRIMAGE],
     tagEffects: {
       [Tag.OUTDOOR]: { energy: -6, sanity: 1 },
@@ -107,6 +125,8 @@ export const WEATHER_TYPES = [
     line: 'Everything metal is white and the pipes have opinions about it.',
     weight: 8,
     seasons: ['Autumn', 'Winter'],
+    fringeMonths: [2], // the late frost of early March
+    fringeWeightFactor: 0.5,
     tagEffects: { [Tag.OUTDOOR]: { energy: -5 }, [Tag.INDOOR]: { sanity: 2 } },
   }),
   w({
@@ -139,20 +159,39 @@ function hash(str) {
   return h >>> 0;
 }
 
-/** Types legal in a given season. */
-export function eligibleWeather(season) {
-  return WEATHER_TYPES.filter((t) => t.seasons === null || t.seasons.includes(season));
+/**
+ * Types legal in a given season, with fringe months widening the pool.
+ *
+ * Fringe entries are returned as shallow copies carrying their reduced
+ * weight, so the frozen catalogue is never mutated and callers can treat
+ * every entry the same.
+ *
+ * @param {string} season
+ * @param {number|null} [monthIndex] 0-based month (0 = January); omit to get
+ *   the strict pre-fringe pool for the season alone
+ */
+export function eligibleWeather(season, monthIndex = null) {
+  const inSeason = (t) => t.seasons === null || t.seasons.includes(season);
+  const inFringe = (t) => monthIndex !== null && t.fringeMonths.includes(monthIndex);
+  return WEATHER_TYPES.filter((t) => inSeason(t) || inFringe(t)).map((t) =>
+    !inSeason(t) && inFringe(t) ? { ...t, weight: t.weight * t.fringeWeightFactor } : t,
+  );
 }
 
 /**
  * The weather for a specific journey day. Pure — same inputs, same answer.
  *
+ * The roll itself is hashed from (day, seed, season) only; a fringe month
+ * widens the pool the roll lands on but does not reshuffle the sequence, so
+ * giving the month for a mid-season day reproduces the pre-fringe weather.
+ *
  * @param {number} day journey day (1-based)
  * @param {number} seed per-run seed
  * @param {string} season 'Winter' | 'Spring' | 'Summer' | 'Autumn'
+ * @param {number|null} [monthIndex] 0-based month, for fringe-month weather
  */
-export function weatherForDay(day, seed = 0, season = 'Winter') {
-  const pool = eligibleWeather(season);
+export function weatherForDay(day, seed = 0, season = 'Winter', monthIndex = null) {
+  const pool = eligibleWeather(season, monthIndex);
   const total = pool.reduce((sum, t) => sum + t.weight, 0);
   let roll = ((hash(`w:${seed}:${day}:${season}`) % 100000) / 100000) * total;
   for (const t of pool) {
@@ -162,12 +201,22 @@ export function weatherForDay(day, seed = 0, season = 'Winter') {
   return pool[pool.length - 1];
 }
 
-/** Three-day outlook used by the almanac panel. */
+/**
+ * Outlook used by the almanac panel. `season` may be a single season string
+ * (every day in the window shares it) or an array with one entry per day —
+ * the almanac passes per-day `{ season, monthIndex }` objects so a forecast
+ * that crosses a season boundary (e.g. late February into March) is honest
+ * about each day's own season, including fringe-month snow. Plain season
+ * strings in the array are still accepted.
+ */
 export function forecast(fromDay, seed, season, count = 3) {
-  return Array.from({ length: count }, (_, i) => ({
-    day: fromDay + i,
-    weather: weatherForDay(fromDay + i, seed, season),
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const entry = Array.isArray(season) ? season[i] : season;
+    const daySeason = typeof entry === 'object' && entry !== null ? entry.season : entry;
+    const monthIndex =
+      typeof entry === 'object' && entry !== null ? (entry.monthIndex ?? null) : null;
+    return { day: fromDay + i, weather: weatherForDay(fromDay + i, seed, daySeason, monthIndex) };
+  });
 }
 
 /** Tags a weather type closes down for the day. */

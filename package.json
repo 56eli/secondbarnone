@@ -1,6 +1,6 @@
 {
   "name": "secondbarnone",
-  "version": "2.2.0",
+  "version": "2.6.0",
   "description": "A narrative balance game — Léon, a spiritual community, a bar, and a city full of people.",
   "type": "module",
   "private": true,
@@ -13,13 +13,18 @@
     "coverage:check": "node scripts/coverage-gate.js",
     "serve": "node scripts/serve.js",
     "assets": "./scripts/optimize-assets.sh",
-    "check": "npm test && node scripts/check-assets.js",
-    "typecheck": "tsc --noEmit --allowJs --checkJs docs/js/core/ docs/js/data/ docs/js/ui/ 2>&1 || echo 'Type check completed (no emit) - review output above'"
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test && node scripts/check-assets.js",
+    "typecheck": "tsc --project jsconfig.json",
+    "simulate": "node scripts/simulate.js"
   },
   "devDependencies": {
-    "jsdom": "^24.0.0",
     "eslint": "^10.8.0",
-    "prettier": "^3.0.0"
+    "jsdom": "^30.0.1",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.3"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
 }

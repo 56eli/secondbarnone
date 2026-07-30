@@ -32,10 +32,10 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current             |
 | --------------- | ------------------------------- | ------------------- |
-| Deploy payload  | 39.5 MB                         | **~2.9 MB** to play |
+| Deploy payload  | 39.5 MB                         | **3.83 MB** eager to play (+5.37 MB portrait lightbox tier; 0.78 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **360**             |
-| Coverage        | —                               | **~99.7%**          |
+| Automated tests | 0                               | **425**             |
+| Coverage        | —                               | **~98.1%**          |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -51,7 +51,9 @@ the document lives in `ui/` and `app.js`.
 ```
 docs/js/
   main.js            entry point — calls initGame() and nothing else
-  app.js             wiring: HUD, screens, modal, toasts, autosave, game over
+  app.js             wiring: HUD, screens, modal, toasts, autosave, game over;
+                     seamless screen swaps (preloaded backgrounds, cross-dissolve
+                     — navigation never passes through black)
   core/
     balance.js       every tuning number, with the reasoning attached
     game-state.js    stats, calendar, practices, save/load
@@ -59,13 +61,13 @@ docs/js/
     turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
-    characters.js    78 profiles, each bound to one location
+    characters.js    77 profiles, each bound to one location
     locations.js     23 locations, 5 districts, 4 hub slots
-    events.js        235 events, keyed by location
+    events.js        232 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     festivals.js      9 fixed calendar events
-    achievements.js  22 predicates over a state snapshot
+    achievements.js  20 predicates over a state snapshot
   ui/
     screens.js       six-card hub, location, practice, almanac,
                      characters, modal, game over
@@ -124,42 +126,52 @@ list, so a handler may safely unsubscribe mid-dispatch.
 | -------------- | ----- | -------- | ------------------------------------------------------------------------ |
 | **Sanity**     | 50    | 100      | Reaching 0 ends the run                                                  |
 | **Money**      | 50    | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100               |
-| **Energy**     | 100   | 100      | Recovers ~14/night — a week from empty to full; running low costs sanity |
+| **Energy**     | 100   | 100      | Recovers 12/night — eight nights from empty to 96; running low costs sanity **and money** |
 | **Reputation** | 10    | 100      | Gates locations                                                          |
 | **Insight**    | 0     | —        | A currency, not a gauge. Spent on perks                                  |
 
-The two founding locations keep their original numbers exactly — Spiritual
-Community is still +15/−10 and the Bar is still +12/−12 — so the opening of a
-run plays as it always did. Everything else is layered on top.
+The two founding locations anchor the whole economy at their 30 July 2026
+rebalanced numbers — Spiritual Community is **+18/−8/−14** (sanity/money/
+energy), the Bar is **+20/−14/−26** (money/sanity/energy). Sustainable but
+demanding; every other place is priced against them, and the difficulty suite
+guards the gradient they produce.
 
 #### Energy
 
 Energy is the resource the run is actually tuned around, so its numbers are
 derived from one readable rule rather than picked individually:
 
-> **A full week of rest takes you from empty to full.**
+> **A week of pushing empties the tank.**
 
-`ENERGY_RECOVERY` is deliberately 14 a night: seven nights restore 98 energy
-and an eighth tops off a fully empty bar. Every location's energy cost is
-priced _against_ that figure — a bar shift is −20, the community is −12, and
-rest is a costly recovery decision rather than a free reset. That is
-the whole pressure: you cannot simply keep working, and the game will not stop
-you from trying.
+`ENERGY_RECOVERY` is deliberately **12 a night** (Hard Winter, 30 July 2026):
+eight nights restore 96 energy and a ninth tops off. Seven back-to-back bar
+shifts flatline a full tank exactly. Every location's energy cost is priced
+_against_ that figure — a bar shift is −26, the community is −14, and rest
+(+28 at the loft, +18 at the bathhouse, always minus money and a day) is a
+costly recovery decision rather than a free reset.
 
-**Exhaustion.** Below 25 energy every action costs extra sanity, on a
-**quadratic** curve rather than a linear one: −1 a day just under the
-threshold, −10 a day at empty. The shape is the point. A single hard day is
-nearly free, so pushing through once is a legitimate move and does not need
-punishing; the cost then climbs steeply, so _ignoring_ energy drains a full
-sanity bar in ten days. Forgivable once, fatal as a habit.
+**Exhaustion.** Below 25 energy every day costs extra, on **quadratic**
+curves rather than linear ones: −1 a day just under the threshold, for sanity
+**and** money alike, scaling to −12 sanity and −9 money a day at empty. The
+shape is the point. A single hard day is nearly free, so pushing through once
+is a legitimate move; the cost then climbs steeply, so _ignoring_ energy is
+what actually kills runs — by sanity at first, then by wallet. The money burn
+(`EXHAUSTION_MONEY_BURN_MAX`, added 30 July 2026) is what prices total energy
+neglect into the rent race: takeaway instead of cooking, cabs instead of
+walking, tips you were too tired to earn.
 
-`Second Wind` widens the threshold — you get warned sooner — and softens the
-fall, but empty still hurts.
+`Second Wind` does what its text promises — exhaustion arrives **later**
+(threshold 25→17) and both curves soften; empty still hurts. (Before 30 July
+2026 the implementation did the opposite of its description: higher threshold,
+harsher penalties at every level. The audit caught it; the flip is covered by
+test.)
 
-The balance suite asserts this as behaviour rather than arithmetic: the same
-reference strategy wins 15 runs out of 20 when it watches its energy bar and 0
-out of 20 when it does not, which is the strongest statement available that
-energy is a real consideration and not decoration.
+The balance suite asserts this as behaviour rather than arithmetic: the
+difficulty contract in `tests/difficulty.test.js` measures seven player models
+over 300 seeded runs each (v2.6 60-day goal: inattentive 0%, random/naive
+greedy 27%, reference average 42%, fully engaged 61–66%), and bands in
+`balance.test.js` pin the 200-day horizon (inattentive styles ~always die;
+even the best styles fail 3–13%).
 
 #### Variance
 
@@ -169,9 +181,11 @@ and the day you actually get lands somewhere inside it.
 
 The swing is **derived, never rolled**. `varianceForDay(location, day, seed)`
 is a pure FNV-1a hash, exactly like the weather, and that matters twice over:
-the hub preview and the turn resolution call the same function so the numbers
-on the card are the numbers you get, and reloading a save shows the same day
-rather than re-rolling it in the player's favour.
+reloading a save shows the same day rather than re-rolling it in the player's
+favour, and the preview never shows the swing at all — since 30 July 2026 the
+cards show the honest average (base + weather + festival + perks) and the dice
+land only at resolution, so exact-answer play is impossible while planning
+around what a place *is for* stays reliable.
 
 Two invariants keep it from becoming noise. Variance never flips the **sign**
 of a resource a location is built around — the bar always pays, the retreat
@@ -214,7 +228,13 @@ renderer, so it is testable headlessly — and the rendered cards carry a
 `data-slot` attribute so the DOM tests can assert the same rule the data tests
 assert.
 
-Locations unlock on journey day, reputation, weekday, or a required perk/item.
+Locations currently unlock on journey day, reputation, or weekday. The schema can add a required perk later, but no shipped location uses that gate.
+Weekday gates are recurring, not progression: the Saturday Market (Saturdays
+only), the Puces (Sundays only) and the open mic (Fridays–Saturdays) hold
+their hub card on their day and the vigil of it, then the slot falls through
+to the next place in its cycle, so the weekday board never shows a dead card.
+Long-term locks keep holding their cards — that visibility is discovery.
+Locked-card reasons name the day ("Only on Saturdays") via `weekdayGateReason`.
 The four rotating hub cards cycle through every assigned location—including
 locked ones—so requirements are revealed through the six-card hub rather than
 hidden behind a separate navigation screen. A long, well-regarded run can
@@ -241,13 +261,30 @@ one, because a free location would collapse the decision.
 
 ### Weather
 
-**9 types, derived not rolled.** `weatherForDay(day, seed, season)` is a pure
-function of an FNV-1a hash, so the forecast can be read four days ahead in the
-almanac without rolling anything, and a save restores the exact same sky.
+**9 types, derived not rolled.** `weatherForDay(day, seed, season, monthIndex)`
+is a pure function of an FNV-1a hash, so the forecast can be read four days
+ahead in the almanac without rolling anything, and a save restores the exact
+same sky. The month argument is optional; omitting it reproduces the strict
+season-only pools.
+
+**Fringe months.** Snow and hard frost declare `fringeMonths` plus a
+`fringeWeightFactor` (half weight): snow belongs to December–February but
+visits November and early March at half rate, and the last frost reaches
+March. The month widens the pool a given day's roll lands on; it never
+reshuffles the sequence (the hash is over day+seed+season only), so weather
+in the heart of a season is bit-identical with or without the month passed.
+The almanac passes per-day `{season, monthIndex}` pairs from
+`GameState.peekDay()`, so a forecast crossing February→March computes each
+day against its real calendar slot.
 
 Weather modifies effects by tag and can close tags outright — a storm shuts
-every outdoor location unless you are carrying the rain shell. Snow is
-winter-only, heatwaves are summer-only, blossom wind is spring-only.
+every outdoor location. The day-one House of Middleway invitation is the one narrative exception. Heatwaves are
+summer-only, blossom wind is spring-only.
+
+**Weather also edits the preview, not only the numbers.** `previewMode()` in
+`ui/screens.js`: fog hides arithmetic and reasons, leaving only the location’s strongest positive focus icon(s); rain and snow blur chips into `+`/`++`/`-`/`--` bands (`BAND_STRONG = 6`); other days are exact.
+This is an information rule, applied to all six hub cards and the location
+page, never a change to the resolution.
 
 ### Rent
 
@@ -270,7 +307,7 @@ history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**235 events.** **222 (94.5%)** belong to side characters.
+**232 events.** **219 (94.4%)** belong to side characters.
 
 The catalogue has one rule, and it is structural:
 
@@ -299,8 +336,7 @@ A test walks every location under four skies and 300 days to prove that every
 single event in the catalogue is actually reachable in play — dead copy fails
 the build.
 
-Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
-the last four events filtered out of the pool to avoid repetition.
+Scheduling stays deterministic at 2–5 journey-days apart. Authored encounters are one-shot per run, and Sato/Alex/Kaden beats declare prerequisite event ids so their arcs resolve in narrative order. The recent-four memory remains a fallback for any future event explicitly marked repeatable.
 
 ### Turn order
 
@@ -317,23 +353,24 @@ the last four events filtered out of the pool to avoid repetition.
 Order still matters: rent lands before the event, so an event can pull a player
 back from the brink that rent pushed them toward.
 
-Step 1 is factored out as `computeDayEffects()`, which is also what the UI
-calls to show the exact numbers a location is offering _before_ the player
-commits. The preview and the resolution cannot drift, because they are the
-same function.
+Step 1 is factored out as `computeDayEffects()`, which the UI calls with
+`{ preview: true }` to show the honest average a location offers _before_ the
+player commits — weather, festival and perks included; the deterministic
+variance swing is only added when null (i.e. at resolution). One function, two
+modes; they cannot drift because preview is strictly resolution-minus-dice.
 
 ---
 
 ## Cast
 
-**78 characters.**
+**77 characters.**
 
 | Role           | Count          |
 | -------------- | -------------- |
 | Protagonist    | 1 — Léon       |
 | Arch Nemesis   | 1 — Kaden      |
 | Rival          | 2 — Sato, Alex |
-| Side Character | 74             |
+| Side Character | 73             |
 
 **Kaden** is a developer circling the community's land — never threatening,
 just refiling paperwork while the rent notices do the work. **Sato** runs a
@@ -341,7 +378,7 @@ polished rival wellness studio; **Alex** runs the craft cocktail bar two streets
 over. Each has a full profile in the same shape as everyone else.
 
 The character screen groups by role (antagonists first) and filters on name,
-role, location or biography text. A flat list of 78 was unusable.
+role, location or biography text. A flat list of 77 was unusable.
 
 ### Everyone lives somewhere
 
@@ -385,7 +422,7 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**78 portrait masters — the whole cast.** Procedural SVG placeholders are gone.
+**77 portrait masters — the whole cast.** Procedural SVG placeholders are gone.
 All new art must be clean, square and frame-less; CSS makes inline avatars
 round. Brian and Vanna are permanent frozen exceptions: Vanna retains the bunny
 portrait, and neither asset may be regenerated or reframed. The active visual
@@ -409,7 +446,7 @@ rack, Arian mid-story over a glass, Dorian immovable in his armchair.
 | Thumbnail | `assets/portraits/<id>.webp`    | 288px | every inline avatar     |
 | Hi-res    | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
 
-The largest avatar the game renders inline is **84 CSS px**, so the previous
+The largest side-character avatar renders at **96 CSS px** (Léon remains 110px in the HUD), so the previous
 single 512px sheet was ~6x oversized on every page load — while being too
 _small_ for the enlarged view, which renders up to 560 CSS px. Splitting the
 tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
@@ -418,6 +455,13 @@ picks the largest available source rather than the first matching format, and
 never upscales.
 
 ### The portrait lightbox
+
+All 77 portraits are additionally **content-pinned**: `assets/portraits/manifest.json`
+holds the SHA-256 of every master and both tiers, asserted in
+`tests/portrait-assets.test.js`, so old art can never silently come back
+(the 30 July regression: a text-recorded replacement whose binaries never
+landed). Approved replacements re-pin via `scripts/build-portrait-manifest.js`
+in the same commit.
 
 Every portrait — HUD, host banner, People screen and day-result event card —
 is a clickable/tappable button. It opens **the artwork and nothing else**: no
@@ -432,8 +476,8 @@ The lightbox fetches the hi-res sheet lazily and falls back once to the
 thumbnail if it is missing, so a broken hi file degrades to "slightly soft"
 rather than an empty frame.
 
-**22 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
-playable location. Background paths are derived from the location catalogue by
+**23 location backgrounds**, WebP at 1000px behind a dark scrim, covering every
+playable location including the hub. Background paths are derived from the location catalogue by
 `scripts/check-assets.js`, so adding a location cannot silently ship a broken
 image path, and an _unreferenced_ background now fails a test rather than
 quietly adding weight.
@@ -458,8 +502,10 @@ asserts every repainted background keeps its master.
 
 Missing portraits fall back to an initials chip, which is exercised by test.
 
-Source art in `assets/` is well over 100 MB; the deployed payload in
-`docs/assets/` is ~2.9 MB eager plus ~4.4 MB of on-demand portrait sheets.
+Source art in `assets/` is ~250 MB (plain blobs — the LFS attribute exists
+but the migration is a recorded open decision; see README → "Repository size
+and history"); the deployed payload in
+`docs/assets/` is 3.83 MB eager plus 5.37 MB of on-demand portrait sheets; music is a separate 0.78 MB lazy asset (`comfy_piano.wav`, synthesized by `scripts/gen-comfy-piano.py`).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -468,16 +514,24 @@ one pass.
 ## Testing
 
 The test suite spans rule, catalogue, asset, balance and jsdom UI coverage.
+**425 tests across 19 files** (30 July 2026, night; `npm test` prints the live count).
 
-| File                 | Tests   | Scope                                                                                                                                                      |
-| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `balance.test.js`    | 34      | Energy rate and pressure, the exhaustion curve, variance, and whether the endurance goal is reachable — asserted over seeded playthroughs, not single runs |
-| `cast.test.js`       | 28      | Character↔location binding, the three-events-each floor, and event reachability                                                                            |
-| `slots.test.js`      | 22      | Hub slot assignment and rotation, in data and in the rendered DOM                                                                                          |
-| Eight existing files | **276** | Rules, catalogues, systems, DOM, UI, coverage edges, the portrait lightbox, and portrait/background asset invariants                                       |
+The suites that carry the most weight:
 
-`tests/portrait-assets.test.js` is new and checks the art itself rather than
-the code that renders it: both tiers exist for all 78 characters, thumbnails
+- `tests/balance.test.js` — energy rate and pressure, the exhaustion curves
+  (sanity and money), variance semantics, preview-vs-resolution honesty, and
+  200-day survival bands — asserted over seeded playthroughs.
+- `tests/difficulty.test.js` — the seven-model skill gradient through the real
+  six-card hub; the difficulty contract (see README) with measured numbers.
+- `tests/cast.test.js` / `tests/world.test.js` — character↔location binding,
+  the three-events-each floor, event reachability, catalogue invariants.
+- `tests/slots.test.js` — hub slot assignment and rotation, in data and in the
+  rendered DOM.
+- `tests/ui.test.js` / `tests/dom.test.js` / `tests/portrait-popup.test.js` —
+  the real DOM driven by real clicks in jsdom, including accessibility paths.
+
+`tests/portrait-assets.test.js` checks the art itself rather than
+the code that renders it: both tiers exist for all 77 characters, thumbnails
 never exceed 288px, a hi-res sheet is never _smaller_ than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
 background is referenced by a location. It skips cleanly if ImageMagick is
@@ -519,12 +573,9 @@ zero just below its own threshold.
 Coverage on shipped code:
 
 ```
-app.js             ~99-100 across the board
-core/*            ~99-100 across the board
-data/*            ~99-100 across the board
-ui/screens.js      99.72 line | 84.06 branch |  97.10 funcs
-────────────────────────────────────────────────────────────
-all files          99.46 line | 90.38 branch |  96.03 funcs
+Measured 30 July 2026 (run `npm run coverage:check` for the current figure):
+
+all files          98.12 line | 86.10 branch | 92.56 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -538,7 +589,7 @@ that state never goes invalid.
 
 ## Accessibility
 
-Semantic buttons and headings, visible focus rings, `aria-selected` on the
+Semantic buttons and headings, visible focus rings, `aria-pressed` on the
 character list, `role="dialog"` with `aria-modal` on the result modal, labelled
 search input, and full keyboard operability.
 
@@ -551,5 +602,5 @@ by a dedicated test that boots the app with the media query forced on.
 
 - **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
   a real phone is still worthwhile (HUD identity row + six-card hub grid).
-- **No audio.**
+- **Music is optional and off by default.** A lazy-loaded PCM WAV loop is enabled only through Settings.
   has not bitten yet.

@@ -7,6 +7,7 @@
  */
 
 import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.js';
+import { eventsForCharacter } from '../data/events.js';
 import { MAX_STAT, MAX_ENERGY, MAX_REPUTATION, ENDURANCE_GOAL_DAYS } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
 import {
@@ -30,7 +31,6 @@ export function el(tag, attrs = {}, ...children) {
     if (v === false || v === null || v === undefined) continue;
     if (k === 'class') node.className = v;
     else if (k === 'text') node.textContent = v;
-    else if (k === 'html') node.innerHTML = v;
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
     else node.setAttribute(k, v === true ? '' : v);
   }
@@ -68,7 +68,102 @@ export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
     },
   );
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
-  return el('div', { class: cls }, ...chips);
+  return el('div', { class: cls, 'data-preview-mode': 'exact' }, ...chips);
+}
+
+/**
+ * How much of the day's numbers the weather lets you see.
+ *
+ * - `'exact'`  — the full adjusted preview (most days);
+ * - `'banded'` — rain and snow blur the details: every delta collapses to a
+ *   rough `+` / `++` / `-` / `--` estimate, so you keep direction and a
+ *   sense of scale but lose the arithmetic;
+ * - `'veiled'` — fog hides arithmetic/reasons and keeps only positive focus icons.
+ */
+export function previewMode(weather) {
+  if (weather?.id === 'fog') return 'veiled';
+  if (weather?.id === 'rain' || weather?.id === 'snow') return 'banded';
+  return 'exact';
+}
+
+/** |delta| at or above this renders as the double band. */
+export const BAND_STRONG = 6;
+
+export function effectBandedChips(bundle, cls = 'chips', weatherEmoji = '') {
+  const chips = STAT_META.filter(([key]) => Math.round(bundle[key] ?? 0) !== 0).map(
+    ([key, emoji]) => {
+      const v = Math.round(bundle[key]);
+      const band = Math.abs(v) >= BAND_STRONG ? (v > 0 ? '++' : '--') : v > 0 ? '+' : '-';
+      const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${band}` : `${emoji} ${band}`;
+      return el('span', { class: `chip banded ${v > 0 ? 'pos' : 'neg'}` }, label);
+    },
+  );
+  if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
+  return el('div', { class: cls, 'data-preview-mode': 'banded' }, ...chips);
+}
+
+/**
+ * A location's clearest positive purpose, derived from its base contract.
+ * Resources within two points of the strongest gain are peers; fog reveals
+ * only these icons, never sign or magnitude. This keeps place identity legible
+ * without leaking the day's hidden arithmetic.
+ */
+export function locationFocusResources(locationOrId) {
+  const location = typeof locationOrId === 'string' ? getLocation(locationOrId) : locationOrId;
+  if (!location) return [];
+  const positive = STAT_META.map(([key, emoji, label]) => ({
+    key,
+    emoji,
+    label,
+    value: location.effects[key] ?? 0,
+  })).filter((entry) => entry.value > 0);
+  if (positive.length === 0) return [];
+  const strongest = Math.max(...positive.map((entry) => entry.value));
+  return positive.filter((entry) => entry.value >= strongest - 2);
+}
+
+/** Fog shows only the location's positive focus icon(s), with no +/- markers. */
+export function effectFocusChips(location, cls = 'chips') {
+  const focus = locationFocusResources(location);
+  const accessible = focus.map((entry) => entry.label).join(' and ') || 'Place';
+  const icons = focus.length ? focus : [{ key: 'place', emoji: '📍', label: 'Place' }];
+  return el(
+    'div',
+    {
+      class: `${cls} focus-chips`,
+      'data-preview-mode': 'veiled',
+      'data-focus': focus.map((entry) => entry.key).join(','),
+      'aria-label': `Main focus: ${accessible}`,
+    },
+    ...icons.map((entry) =>
+      el('span', {
+        class: 'chip focus',
+        text: entry.emoji,
+        title: `${entry.label} focus`,
+        'aria-hidden': 'true',
+      }),
+    ),
+  );
+}
+
+/**
+ * The preview chips a card is allowed to show today, honouring `previewMode`.
+ * `weatherEmoji` marks weather-adjusted numbers on exact days.
+ */
+function chipsFor(gs, total, weatherEmoji, cls, location) {
+  const mode = previewMode(gs.getWeather?.());
+  if (mode === 'veiled') return effectFocusChips(location, cls);
+  if (mode === 'banded') return effectBandedChips(total, cls, weatherEmoji);
+  return effectChips(total, cls, weatherEmoji);
+}
+
+/**
+ * The weather emoji, but only when the weather actually adjusted this
+ * location's numbers — a sunny day that touches nothing gets no decoration.
+ */
+function weatherEmojiIfAdjusted(gs, reasons) {
+  const w = gs.getWeather?.();
+  return w && reasons.some((r) => r.includes(w.emoji)) ? w.emoji : '';
 }
 
 /**
@@ -91,6 +186,8 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
     loading: 'lazy',
     decoding: 'async',
     draggable: 'false',
+    width: '60',
+    height: '60',
   });
   // A broken portrait must not leave a clickable button that opens an empty
   // lightbox, so the fallback replaces the whole control, button included.
@@ -147,6 +244,7 @@ function avatar(profile, cls = 'avatar', { clickable = true } = {}) {
  *
  * Closing never touches game state.
  */
+/** @param {object} profile @param {{onClose?:()=>void}} [options] */
 export function renderPortraitPopup(profile, { onClose } = {}) {
   const thumb = profile.portrait || `assets/portraits/${profile.id}.webp`;
   const full = profile.portraitHi || `assets/portraits/hi/${profile.id}.webp`;
@@ -203,6 +301,9 @@ export function renderPortraitPopup(profile, { onClose } = {}) {
   return backdrop;
 }
 
+/** The close handler of the currently open lightbox, if any. */
+let closeOpenPopup = null;
+
 /**
  * Opens (or replaces) the portrait popup for a character, appended straight
  * to <body> like the day-result modal. Self-contained so any screen can call
@@ -212,16 +313,26 @@ export function renderPortraitPopup(profile, { onClose } = {}) {
  */
 export function openCharacterPopup(profile) {
   if (!profile) return;
-  document.querySelector('.portrait-popup-backdrop')?.remove();
+  // Close via the previous popup's own cleanup: removing the backdrop from
+  // the DOM alone would orphan its document keydown listener, one per open.
+  closeOpenPopup?.();
 
   const previouslyFocused = document.activeElement;
   const close = () => {
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
-    if (previouslyFocused?.focus) previouslyFocused.focus();
+    if (closeOpenPopup === close) closeOpenPopup = null;
+    if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
   };
+  closeOpenPopup = close;
   const onKey = (e) => {
     if (e.key === 'Escape') close();
+    // The close affordance is the lightbox's sole control. Keep keyboard focus
+    // inside the aria-modal dialog instead of tabbing into the obscured game.
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      backdrop.querySelector('.portrait-close')?.focus();
+    }
   };
 
   const backdrop = renderPortraitPopup(profile, { onClose: close });
@@ -266,21 +377,8 @@ export function renderHub(gs, handlers) {
   // The two founding places are the primary choices.
   const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
-    const { total, reasons } = computeDayEffects(gs, id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, reasons } = computeDayEffects(gs, id, { preview: true });
+    const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
     return el(
       'button',
       {
@@ -291,7 +389,7 @@ export function renderHub(gs, handlers) {
       },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      effectChips(total, 'chips choice-eff', weatherEmoji),
+      chipsFor(gs, total, weatherEmoji, 'chips choice-eff', location),
     );
   });
 
@@ -312,21 +410,8 @@ export function renderHub(gs, handlers) {
 
   const otherChoices = selected.map((location, offset) => {
     const slot = HUB_SLOTS[offset];
-    const { total, reasons } = computeDayEffects(gs, location.id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, reasons } = computeDayEffects(gs, location.id, { preview: true });
+    const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
@@ -350,7 +435,7 @@ export function renderHub(gs, handlers) {
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-        effectChips(total, 'chips choice-eff', weatherEmoji),
+        chipsFor(gs, total, weatherEmoji, 'chips choice-eff', location),
       );
     } else {
       return el(
@@ -374,6 +459,7 @@ export function renderHub(gs, handlers) {
     {
       class: 'screen hub',
       style: "background-image:url('assets/backgrounds/hub_background.webp')",
+      'data-bg': 'assets/backgrounds/hub_background.webp',
     },
     el(
       'div',
@@ -430,23 +516,11 @@ export function renderHub(gs, handlers) {
 
 // ------------------------------------------------------------- location
 
-export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) {
+export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, onBuyRenovation }) {
   const location = getLocation(locationId);
-  const { total, reasons } = computeDayEffects(gs, locationId);
-  const weatherEmojiForLocation = reasons.some(
-    (r) =>
-      r.includes('☀️') ||
-      r.includes('☁️') ||
-      r.includes('🌧️') ||
-      r.includes('⛈️') ||
-      r.includes('🌫️') ||
-      r.includes('❄️') ||
-      r.includes('🔥') ||
-      r.includes('🧊') ||
-      r.includes('🌸'),
-  )
-    ? (gs.getWeather()?.emoji ?? '')
-    : '';
+  const { total, reasons } = computeDayEffects(gs, locationId, { preview: true });
+  const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
+  const mode = previewMode(gs.getWeather?.());
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -491,6 +565,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
     {
       class: 'screen location',
       style: location.bg ? `background-image:url('${location.bg}')` : '',
+      'data-bg': location.bg || '',
     },
     particles,
     el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
@@ -499,15 +574,45 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial }) 
 
     el(
       'div',
-      { class: 'preview' },
+      { class: 'preview', 'data-preview-mode': mode },
       el('h3', { text: 'Today, here' }),
-      effectChips(total, 'chips preview-chips', weatherEmojiForLocation),
-      reasons.length > 0
+      chipsFor(gs, total, weatherEmoji, 'chips preview-chips', location),
+      mode !== 'veiled' && reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
         : null,
     ),
 
     special,
+    locationId === 'house_of_middleway' && gs.isRenovationUnlocked?.()
+      ? el(
+          'div',
+          { class: 'community-projects preview' },
+          el('h3', { text: 'Community Projects: House of Middleway Renovation' }),
+          el('p', {
+            class: 'preview-why',
+            text: 'Use your insight and community resources to restore the sanctuary.',
+          }),
+          el(
+            'div',
+            { class: 'renovation-list' },
+            ...gs.getRenovations().map((r) => {
+              if (r.owned) {
+                return el('div', {
+                  class: 'renovation-item owned',
+                  text: `✓ ${r.name} — Completed (+${r.reward.reputation} Rep, +${r.reward.sanity} Sanity)`,
+                });
+              }
+              return el('button', {
+                class: 'btn btn-small project-btn',
+                disabled: !r.canBuy,
+                text: `Fund: ${r.name} (${r.cost.insight} Insight, ${r.cost.money} Money)`,
+                title: r.desc,
+                onclick: () => onBuyRenovation?.(r.id),
+              });
+            }),
+          ),
+        )
+      : null,
     el('div', { class: 'action-row' }, actionBtn, backBtn),
   );
 
@@ -530,7 +635,7 @@ function renderSpecial(gs, location, onSpecial) {
       }),
       el('button', {
         class: 'btn btn-small',
-        disabled: gs.money < cost,
+        disabled: gs.money <= cost,
         text: `Pay a week ahead (${cost} money)`,
         onclick: () => onSpecial('prepay_rent'),
       }),
@@ -548,7 +653,10 @@ function renderSpecial(gs, location, onSpecial) {
 
 /** Floating motes. */
 function startParticles(container) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
+  const settingDisablesMotion = document.documentElement.classList.contains('reduce-motion');
+  if (settingDisablesMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return () => {};
+  }
   const spawn = () => {
     if (!container.isConnected) return;
     const size = 2 + Math.random() * 3;
@@ -622,15 +730,26 @@ export function renderPerks(gs, { onBuy, onBack }) {
 // --------------------------------------------------------------- almanac
 
 export function renderAlmanac(gs, { onBack }) {
-  const days = forecast(gs.journeyDay, gs.weatherSeed, gs.getSeason(), 4);
+  const LOOKAHEAD = 4;
+  // Per-day season *and* month: a forecast that crosses a month boundary can
+  // also cross a season boundary, and each day's weather is computed with its
+  // own pair — that is what lets fringe snow (November / early March) appear
+  // in the almanac instead of being smeared into season-only weather.
+  const calendar = Array.from({ length: LOOKAHEAD }, (_, i) => ({
+    season: gs.peekSeason(i),
+    monthIndex: gs.peekDay(i).monthIndex,
+  }));
+  const days = forecast(gs.journeyDay, gs.weatherSeed, calendar, LOOKAHEAD);
   const festivals = upcomingFestivals(gs.monthIndex, gs.dayOfMonth, 3);
   const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
   const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
 
-  // Energy forecast: predict trajectory based on current energy level
+  // Energy outlook, banded against the *effective* exhaustion threshold so
+  // the prose and the HUD bar's warning never disagree.
+  const threshold = gs.exhaustionThreshold;
   const energyNow = gs.energy;
   const forecastEnergy =
-    energyNow < 25
+    energyNow < threshold
       ? 'Low — rest will restore quickly.'
       : energyNow > 75
         ? 'Strong — you can push a little.'
@@ -708,7 +827,16 @@ export function renderAlmanac(gs, { onBack }) {
 
 export function renderSettings(
   preferences,
-  { onToggleContrast, onToggleMotion, onToggleSound, onChangeVolume, onBack, onAbandon },
+  {
+    onToggleContrast,
+    onToggleMotion,
+    onToggleSound,
+    onChangeVolume,
+    onCopyShare,
+    onBack,
+    onAbandon,
+  },
+  share = null,
 ) {
   const toggle = (label, enabled, handler, desc) =>
     el(
@@ -725,7 +853,7 @@ export function renderSettings(
     );
 
   const soundOn = preferences.sound !== false;
-  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.35;
+  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.25;
 
   const volumeInput = el('input', {
     type: 'range',
@@ -772,10 +900,40 @@ export function renderSettings(
         'Background music',
         soundOn,
         onToggleSound,
-        'A quiet warm piano loop — off until you turn it on, per autoplay rules.',
+        'A warm, slow felt-piano loop — off until you turn it on, per autoplay rules.',
       ),
       el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
     ),
+
+    share?.url
+      ? el(
+          'section',
+          { class: 'settings-group' },
+          el('h3', { text: 'Share this city' }),
+          el('p', {
+            class: 'settings-desc',
+            text: `This run's seed is ${share.seed}. Anyone opening the link below gets the same Paris — same weather, same event timing — in a fresh run of their own.`,
+          }),
+          el(
+            'div',
+            { class: 'share-controls' },
+            el('input', {
+              class: 'share-url',
+              type: 'text',
+              readonly: true,
+              value: share.url,
+              'aria-label': 'Shareable run-seed link',
+              onclick: (e) => e.target.select(),
+            }),
+            el('button', {
+              class: 'btn btn-small',
+              type: 'button',
+              text: 'Copy link',
+              onclick: () => onCopyShare?.(share.url),
+            }),
+          ),
+        )
+      : null,
 
     el(
       'section',
@@ -812,7 +970,26 @@ const GROUP_TITLES = {
   [Role.SIDE_CHARACTER]: 'Side Characters',
 };
 
-export function renderCharacters(profiles, { onBack }) {
+export function getRelationshipMarker(gs, profile) {
+  if (!gs || !profile) return '';
+  const seen = gs.eventsSeen || new Set();
+  const id = profile.id;
+  const charEvents = eventsForCharacter(id);
+  const count = charEvents.filter((e) => seen.has(e.id)).length;
+
+  if (['sato', 'alex', 'kaden', 'brian'].includes(id)) {
+    if (count === 0) return 'First meeting pending';
+    if (count === 1) return 'Acquainted · First conversation';
+    if (count === 2) return 'Arc deepening · Second beat fired';
+    return 'Long-standing acquaintance · Late arc';
+  }
+
+  if (count === 0) return 'Unmet in conversation';
+  if (count === 1) return 'First conversation had';
+  return `Familiar (${count} encounters)`;
+}
+
+export function renderCharacters(profiles, { onBack, gs }) {
   const detail = el(
     'div',
     { class: 'detail' },
@@ -838,6 +1015,8 @@ export function renderCharacters(profiles, { onBack }) {
         {},
         el('dt', { text: 'Relationship to Léon' }),
         el('dd', { text: p.relationship }),
+        gs ? el('dt', { text: 'Arc status' }) : null,
+        gs ? el('dd', { text: getRelationshipMarker(gs, p) }) : null,
         el('dt', { text: 'Usually found at' }),
         el('dd', { text: p.location }),
       ),
@@ -846,12 +1025,12 @@ export function renderCharacters(profiles, { onBack }) {
 
   const allRows = [];
   const makeRow = (p) => {
+    const marker = gs ? getRelationshipMarker(gs, p) : null;
     const row = el(
       'button',
       {
         class: `char-row role-${p.role}`,
-        role: 'option',
-        'aria-selected': 'false',
+        'aria-pressed': 'false',
       },
       avatar(p, 'avatar', { clickable: false }),
       el(
@@ -860,12 +1039,13 @@ export function renderCharacters(profiles, { onBack }) {
         el('div', { class: 'char-name', text: p.name }),
         el('div', { class: 'char-relationship', text: `↳ ${p.relationship}` }),
         el('div', { class: 'char-role', text: `${roleLabel(p.role)} · ${p.location}` }),
+        marker ? el('div', { class: 'char-marker', text: `❖ ${marker}` }) : null,
       ),
     );
 
     row.addEventListener('click', () => {
-      for (const r of allRows) r.setAttribute('aria-selected', 'false');
-      row.setAttribute('aria-selected', 'true');
+      for (const r of allRows) r.setAttribute('aria-pressed', 'false');
+      row.setAttribute('aria-pressed', 'true');
       showDetail(p);
     });
     row._profile = p;
@@ -873,7 +1053,10 @@ export function renderCharacters(profiles, { onBack }) {
     return row;
   };
 
-  const list = el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' });
+  // These are ordinary buttons, deliberately not an ARIA listbox: native Tab
+  // and activation behavior is more predictable than claiming an arrow-key
+  // widget we do not implement.
+  const list = el('div', { class: 'char-list', 'aria-label': 'Characters' });
   const groups = [];
   for (const role of ROLE_ORDER) {
     const members = profiles.filter((p) => p.role === role);
@@ -1009,8 +1192,12 @@ export function renderResultModal(result, gs, { onContinue }) {
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
   if (result.extraRent)
     notes.push(`📅 Rent came due while you were away — ${result.extraRent} money.`);
-  if (exhaustion)
-    notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
+  if (exhaustion || result.exhaustionBurn) {
+    const parts = [];
+    if (exhaustion) parts.push(`${Math.abs(exhaustion)} sanity`);
+    if (result.exhaustionBurn) parts.push(`${Math.abs(result.exhaustionBurn)} money`);
+    notes.push(`😵 Running on empty cost you another ${parts.join(' and ')}.`);
+  }
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
   if (result.longTrip) notes.push(`🏔 Three days pass in silence. The calendar has moved.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);
@@ -1068,7 +1255,7 @@ export function renderResultModal(result, gs, { onContinue }) {
   document.addEventListener('keydown', onKey);
   backdrop._cleanup = () => {
     document.removeEventListener('keydown', onKey);
-    if (prevFocus?.focus) prevFocus.focus();
+    if (prevFocus instanceof HTMLElement) prevFocus.focus();
   };
   return backdrop;
 }
@@ -1084,4 +1271,58 @@ function rarityLabel(rarity) {
 /** Small transient toast, used for achievements and saves. */
 export function renderToast(text) {
   return el('div', { class: 'toast', role: 'status', text });
+}
+
+/** A non-dismissable narrative interlude; the explicit button is the only exit. */
+function renderStoryModal(title, lines, actions, className = '') {
+  const modal = el(
+    'div',
+    {
+      class: `modal story-modal ${className}`,
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': title,
+    },
+    el('h2', { text: title }),
+    ...lines.map((line) => el('p', { text: line })),
+    el('div', { class: 'modal-actions' }, ...actions),
+  );
+  const backdrop = el('div', { class: 'modal-backdrop' }, modal);
+  const previous = document.activeElement;
+  const first = modal.querySelector('button');
+  setTimeout(() => first?.focus(), 0);
+  backdrop._cleanup = () => {
+    if (previous instanceof HTMLElement) previous.focus();
+  };
+  return backdrop;
+}
+
+/** Kaden's fixed opening story beat, shown once when day two begins. */
+export function renderKadenSmearModal({ onContinue }) {
+  return renderStoryModal(
+    'A Rumour Finds Its Feet',
+    [
+      'By breakfast, Kaden has already been busy. A clipped recording, a few planted quotes, and the city has a version of Léon that is easier to repeat than to know.',
+      '“Fragile fraud,” the posts call him — a man with a fragile ego playing at wisdom. Friends avoid his eyes. A regular cancels. The House suddenly feels very quiet.',
+      'The lie has travelled faster than any answer can. For now, Léon has to let his work speak.',
+    ],
+    [el('button', { class: 'btn btn-primary', text: 'Face the day →', onclick: onContinue })],
+    'kaden-smear-modal',
+  );
+}
+
+/** The optional late-game ending: it celebrates without ending the ongoing run. */
+export function renderVictoryModal(gs, { onRestart, onContinue }) {
+  return renderStoryModal(
+    'You are enlightened!',
+    [
+      'One hundred and fifty days have passed. The House of Middleway stands restored: roof, kitchen, garden, and library all carrying the people who found their way here.',
+      'You did not escape the city. You learned how to belong to it.',
+    ],
+    [
+      el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue }),
+      el('button', { class: 'btn', text: 'Restart', onclick: onRestart }),
+    ],
+    'victory-modal',
+  );
 }

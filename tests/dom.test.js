@@ -59,7 +59,7 @@ async function boot(opts = {}) {
   // cache-busting query instead would give each boot its own module instance,
   // which fragments coverage reporting and leaks state between tests.
   const { initGame } = await import(pathToFileURL(join(DOCS, 'js', 'app.js')).href);
-  window.__game = initGame();
+  window.__game = initGame({ fadeMs: 0, toastMs: 50 });
   return window;
 }
 
@@ -75,8 +75,8 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (350ms) plus a little slack. */
-const settle = () => new Promise((r) => setTimeout(r, 480));
+/** Advance past a fade transition (0ms in test) plus microtask slack. */
+const settle = () => new Promise((r) => setTimeout(r, 10));
 
 maybe('game boots and renders the hub', async () => {
   const window = await boot();
@@ -166,7 +166,7 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
-    assert.equal(rows.length, 78, 'all characters listed');
+    assert.equal(rows.length, 77, 'all live characters listed');
     assert.match(doc.querySelector('.detail').textContent, /Select a character/);
 
     rows[0].click();
@@ -202,7 +202,7 @@ maybe('searching filters the character list', async () => {
     const search = doc.querySelector('.char-search');
     const visible = () => [...doc.querySelectorAll('.char-row')].filter((r) => !r.hidden).length;
 
-    assert.equal(visible(), 78);
+    assert.equal(visible(), 77);
 
     search.value = 'Kaden';
     search.dispatchEvent(new window.Event('input'));
@@ -216,7 +216,7 @@ maybe('searching filters the character list', async () => {
 
     search.value = '';
     search.dispatchEvent(new window.Event('input'));
-    assert.equal(visible(), 78);
+    assert.equal(visible(), 77);
   } finally { cleanup(window); }
 });
 
@@ -466,7 +466,7 @@ maybe('particles spawn when motion is allowed', async () => {
     const doc = window.document;
     [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('Le Dernier Verre')).click();
     await settle();
-    await new Promise((r) => setTimeout(r, 900));
+    await new Promise((r) => setTimeout(r, 50));
 
     const container = doc.querySelector('.particles');
     assert.ok(container.children.length > 0, 'motes should appear over time');
@@ -495,5 +495,37 @@ maybe('a ten-turn playthrough never throws', async () => {
     }
     // Reaching here without an exception is the assertion.
     assert.ok(true);
+  } finally { cleanup(window); }
+});
+
+maybe('fragile fraud label is hidden on day 1 and visible after Kaden smear on day 2', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const fraudEl = doc.getElementById('fragile-fraud');
+    assert.ok(fraudEl, 'fragile fraud element exists in DOM');
+    assert.equal(fraudEl.hasAttribute('hidden'), true, 'hidden attribute present on day 1');
+    assert.equal(window.getComputedStyle(fraudEl).display, 'none', 'visually hidden on day 1');
+
+    // Advance day 1 to day 2 (visit La Maison Calme)
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    // Dismiss day 1 result modal to trigger day 2 morning and Kaden smear
+    const cont = [...doc.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Continue'));
+    cont.click();
+    await settle();
+
+    // If Kaden smear modal is showing, dismiss it
+    const kadenBtn = doc.querySelector('.modal .btn-primary');
+    if (kadenBtn && kadenBtn.textContent.includes('Face the day')) {
+      kadenBtn.click();
+      await settle();
+    }
+
+    assert.equal(fraudEl.hasAttribute('hidden'), false, 'hidden attribute removed on day 2 after Kaden smear');
+    assert.notEqual(window.getComputedStyle(fraudEl).display, 'none', 'visually visible on day 2');
   } finally { cleanup(window); }
 });

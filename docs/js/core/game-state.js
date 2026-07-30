@@ -13,23 +13,23 @@ import { aggregatePerks, canBuyPerk, getPerk } from '../data/perks.js';
 import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
 import { evaluateAchievements } from '../data/achievements.js';
+import { RENOVATIONS, getRenovation } from '../data/renovations.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
   MAX_STAT,
   START_SANITY,
   START_MONEY,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_RECOVERY,
   EXHAUSTION_THRESHOLD,
   EXHAUSTION_MAX_PENALTY,
+  EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
+  KADEN_SMEAR_REPUTATION,
+  ENLIGHTENMENT_GOAL_DAYS,
   START_INSIGHT,
   ENDURANCE_GOAL_DAYS,
   RENT_AMOUNT,
@@ -41,6 +41,7 @@ import {
   RENT_DISCOUNT_REP_BONUS,
   RENT_DISCOUNT_REP_HIGH,
   RENT_DISCOUNT_REP_HIGH_BONUS,
+  WEEKDAY_NAMES,
 } from './balance.js';
 
 /**
@@ -55,18 +56,17 @@ export {
   START_MONEY,
   MONEY_SOFT_CAP,
   MONEY_HARD_CEILING,
-  SANITY_GAIN,
-  SANITY_LOSS,
-  MONEY_GAIN,
-  MONEY_LOSS,
   MAX_ENERGY,
   START_ENERGY,
   ENERGY_FULL_RECOVERY_DAYS,
   ENERGY_RECOVERY,
   EXHAUSTION_THRESHOLD,
   EXHAUSTION_MAX_PENALTY,
+  EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
+  KADEN_SMEAR_REPUTATION,
+  ENLIGHTENMENT_GOAL_DAYS,
   START_INSIGHT,
   ENDURANCE_GOAL_DAYS,
   RENT_AMOUNT,
@@ -78,17 +78,8 @@ export {
   RENT_DISCOUNT_REP_BONUS,
   RENT_DISCOUNT_REP_HIGH,
   RENT_DISCOUNT_REP_HIGH_BONUS,
+  WEEKDAY_NAMES,
 } from './balance.js';
-
-export const WEEKDAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
 
 export const MONTH_NAMES = [
   'January',
@@ -108,9 +99,9 @@ export const MONTH_NAMES = [
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** localStorage key for the save slot. */
-export const SAVE_VERSION = 5;
-export const SAVE_KEY = 'secondbarnone.save.v5';
-const LEGACY_KEYS = ['secondbarnone.save.v4', 'secondbarnone.save.v3'];
+export const SAVE_VERSION = 6;
+export const SAVE_KEY = 'secondbarnone.save.v6';
+const LEGACY_KEYS = ['secondbarnone.save.v5', 'secondbarnone.save.v4', 'secondbarnone.save.v3'];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -139,14 +130,17 @@ export class GameState {
     /** Set when the player reaches the endurance goal without dying. */
     this.won = false;
     this.winMessage = '';
-    /** Set once when the second (100-day) mastery ending fires. */
+    /** Set once when the day-150 House of Middleway enlightenment ending fires. */
     this.masteryWon = false;
     this.masteryMessage = '';
+    // The day-two Kaden story beat is stateful so reload cannot evade or repeat it.
+    this.kadenSmearSeen = false;
+    this.kadenSmearAcknowledged = false;
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
     this._turnResolvedOnDay = -1;
-    this._lastRentJourneyDay = -1;
+    this._rentChargedOnDay = -1;
     /** Set of journeyDay values for Sundays that have been pre-paid.
      *  Prepaying on a due Sunday never adds today to this set. */
     this.rentPrepaidDays = new Set();
@@ -154,11 +148,12 @@ export class GameState {
     this.recentHistory = [];
 
     this.perks = new Set();
+    this.renovations = new Set();
+    this.eventsSeen = new Set();
     this.achievements = new Set();
     this.visitedLocations = new Set();
     this.nightDays = 0;
     this.festivalsSeen = 0;
-    this.pendingAchievements = [];
 
     /** Per-run seed driving the (deterministic) weather. */
     this.weatherSeed = this._seedOption ?? Math.floor(Math.random() * 1e9);
@@ -193,7 +188,6 @@ export class GameState {
 
   resetGame() {
     this._initStats();
-    this.pendingAchievements = [];
     this._statsChanged();
     this.emit(
       'day_changed',
@@ -228,6 +222,7 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
+    const kadenSmear = this.triggerKadenSmearIfDue();
     this.emit(
       'day_changed',
       this.journeyDay,
@@ -237,6 +232,22 @@ export class GameState {
       this.dayOfMonth,
     );
     this._statsChanged();
+    return kadenSmear;
+  }
+
+  /** Kaden's opening move lands on the second playable morning, exactly once. */
+  triggerKadenSmearIfDue() {
+    if (this.kadenSmearSeen || this.journeyDay !== 2) return false;
+    this.kadenSmearSeen = true;
+    this.reputation = KADEN_SMEAR_REPUTATION;
+    this.emit('kaden_smear_triggered');
+    return true;
+  }
+
+  acknowledgeKadenSmear() {
+    if (!this.kadenSmearSeen || this.kadenSmearAcknowledged) return false;
+    this.kadenSmearAcknowledged = true;
+    return true;
   }
 
   _advanceCalendarDay() {
@@ -259,9 +270,13 @@ export class GameState {
 
   // ---------------- weather & festivals ----------------
 
-  /** Today's weather. Derived, never stored. */
+  /**
+   * Today's weather. Derived, never stored. The month index is passed so
+   * fringe-month weather (snow in November, frost in March) can appear even
+   * when the calendar season disagrees.
+   */
   getWeather() {
-    return weatherForDay(this.journeyDay, this.weatherSeed, this.getSeason());
+    return weatherForDay(this.journeyDay, this.weatherSeed, this.getSeason(), this.monthIndex);
   }
 
   /** Tags shut down by today's weather. */
@@ -299,6 +314,43 @@ export class GameState {
     return true;
   }
 
+  isRenovationUnlocked() {
+    return this.journeyDay >= ENDURANCE_GOAL_DAYS || this.perks.size >= 10;
+  }
+
+  getRenovations() {
+    return RENOVATIONS.map((r) => {
+      const owned = this.renovations.has(r.id);
+      const canBuy =
+        !owned &&
+        this.isRenovationUnlocked() &&
+        this.insight >= r.cost.insight &&
+        // Money reaching zero ends a run; a project may not spend the last coin.
+        this.money > r.cost.money;
+      return { ...r, owned, canBuy };
+    });
+  }
+
+  buyRenovation(id) {
+    if (!this.isRenovationUnlocked()) return false;
+    const ren = getRenovation(id);
+    if (!ren || this.renovations.has(id)) return false;
+    if (this.insight < ren.cost.insight || this.money <= ren.cost.money) return false;
+
+    this.insight = Math.max(0, this.insight - ren.cost.insight);
+    this.money = Math.max(0, this.money - ren.cost.money);
+    this.renovations.add(id);
+
+    this.applyDeltas({
+      reputation: ren.reward.reputation,
+      sanity: ren.reward.sanity,
+    });
+
+    this.emit('renovations_changed', id);
+    this._statsChanged();
+    return true;
+  }
+
   // ---------------- stat mutation ----------------
 
   /**
@@ -316,23 +368,6 @@ export class GameState {
     this._statsChanged();
   }
 
-  /** Back-compat shim for the original two-stat signature. */
-  applyEventDeltas(
-    sanityDelta,
-    moneyDelta,
-    energyDelta = 0,
-    reputationDelta = 0,
-    insightDelta = 0,
-  ) {
-    this.applyDeltas({
-      sanity: sanityDelta,
-      money: moneyDelta,
-      energy: energyDelta,
-      reputation: reputationDelta,
-      insight: insightDelta,
-    });
-  }
-
   /** Overnight energy recovery, boosted by Second Wind. */
   recoverEnergy() {
     const perks = this.getPerkEffects();
@@ -342,8 +377,16 @@ export class GameState {
   }
 
   /**
+   * The energy level below which exhaustion bites. Second Wind's
+   * `exhaustionResist` lowers this: exhaustion really does arrive later.
+   */
+  get exhaustionThreshold() {
+    return Math.max(5, EXHAUSTION_THRESHOLD - this.getPerkEffects().exhaustionResist);
+  }
+
+  /**
    * Extra sanity cost when running on empty. Zero above the threshold,
-   * scaling to −EXHAUSTION_MAX_PENALTY at zero energy, reduced by Second Wind.
+   * scaling to −EXHAUSTION_MAX_PENALTY at zero energy, postponed by Second Wind.
    *
    * The curve is quadratic rather than linear on purpose. A shallow dip below
    * the threshold costs almost nothing, so a single hard day is survivable
@@ -353,8 +396,7 @@ export class GameState {
    * rather than a panic at the bottom.
    */
   exhaustionPenalty() {
-    const resist = this.getPerkEffects().exhaustionResist;
-    const threshold = EXHAUSTION_THRESHOLD + resist;
+    const threshold = this.exhaustionThreshold;
     if (this.energy >= threshold) return 0;
     const depth = (threshold - this.energy) / threshold;
     // Ceil, not round: being below the threshold at all must cost at least 1,
@@ -362,8 +404,21 @@ export class GameState {
     return -Math.max(1, Math.ceil(depth * depth * EXHAUSTION_MAX_PENALTY));
   }
 
+  /**
+   * Money cost of running on empty — takeaway instead of cooking, cabs
+   * instead of walking. Same quadratic shape as the sanity penalty, scaling
+   * to −EXHAUSTION_MONEY_BURN_MAX at zero energy, postponed by Second Wind
+   * with the same shifted threshold.
+   */
+  exhaustionBurn() {
+    const threshold = this.exhaustionThreshold;
+    if (this.energy >= threshold) return 0;
+    const depth = (threshold - this.energy) / threshold;
+    return -Math.max(1, Math.ceil(depth * depth * EXHAUSTION_MONEY_BURN_MAX));
+  }
+
   get isExhausted() {
-    return this.energy < EXHAUSTION_THRESHOLD + this.getPerkEffects().exhaustionResist;
+    return this.energy < this.exhaustionThreshold;
   }
 
   /**
@@ -375,7 +430,7 @@ export class GameState {
    */
   isRentDue() {
     if (this.getWeekdayIndex() !== 6) return false;
-    if (this._lastRentJourneyDay === this.journeyDay) return false;
+    if (this._rentChargedOnDay === this.journeyDay) return false;
     if (this.rentPrepaidDays.has(this.journeyDay)) return false;
     if (this.getFestival()?.waivesRent) return false;
     return true;
@@ -403,9 +458,9 @@ export class GameState {
    */
   applyRentIfSunday() {
     if (this.getWeekdayIndex() !== 6) return 0;
-    if (this._lastRentJourneyDay === this.journeyDay) return 0;
+    if (this._rentChargedOnDay === this.journeyDay) return 0;
     if (this.getFestival()?.waivesRent) return 0;
-    this._lastRentJourneyDay = this.journeyDay;
+    this._rentChargedOnDay = this.journeyDay;
     const amount = this.rentPrepaidDays.has(this.journeyDay) ? 0 : this.rentDue();
     this.rentPrepaidDays.delete(this.journeyDay);
     if (amount > 0) {
@@ -433,16 +488,25 @@ export class GameState {
    * where a single Sunday payment erased both today and the next Sunday.
    */
   prepayRent(weeks = 1) {
+    if (!Number.isInteger(weeks) || weeks < 1) return false;
     const cost = this.rentDue() * weeks;
-    if (this.money < cost) return false;
+    // The last coin is not spendable: reaching zero is the run's loss state,
+    // and an out-of-turn transaction must never create a recoverable zero.
+    if (this.money <= cost) return false;
+
     // First Sunday covered by the payment. If rent is due today, today is
     // explicitly excluded (you can't buy your way out of the morning's
     // notice with the same payment that covers next week) — cover starts in
     // seven days. Otherwise cover starts at the next upcoming Sunday.
     const wi = this.getWeekdayIndex();
     const daysUntilNextSunday = this.isRentDue() ? 7 : (6 - wi + 7) % 7 || 7;
+    let sunday = this.journeyDay + daysUntilNextSunday;
     for (let w = 0; w < weeks; w += 1) {
-      this.rentPrepaidDays.add(this.journeyDay + daysUntilNextSunday + w * 7);
+      // Repeated payments extend cover instead of charging for the same Set
+      // entry again.
+      while (this.rentPrepaidDays.has(sunday)) sunday += 7;
+      this.rentPrepaidDays.add(sunday);
+      sunday += 7;
     }
     this.money -= cost;
     this._statsChanged();
@@ -458,22 +522,6 @@ export class GameState {
     this._turnResolvedOnDay = this.journeyDay;
   }
 
-  /** Legacy two-location action, retained so old callers keep working. */
-  applyLocationAction(location) {
-    if (location === 'spiritual_community') {
-      this.sanity = Math.min(this.sanity + SANITY_GAIN, MAX_STAT);
-      this.money = Math.max(this.money - MONEY_LOSS, 0);
-      this.consecutiveBarDays = 0;
-    } else if (location === 'bar') {
-      // Money is uncapped — bar tips keep stacking past the old 100 ceiling.
-      this.money = Math.min(this.money + MONEY_GAIN, MONEY_HARD_CEILING);
-      this.sanity = Math.max(this.sanity - SANITY_LOSS, 0);
-      this.consecutiveBarDays += 1;
-    }
-    this.lastLocationVisited = location;
-    this._statsChanged();
-  }
-
   /** Record that a day was spent somewhere. */
   noteVisit(locationId) {
     const location = getLocation(locationId);
@@ -485,18 +533,31 @@ export class GameState {
     if (this.getFestival()) this.festivalsSeen += 1;
   }
 
+  recordEventSeen(event) {
+    if (!event || !event.id) return;
+    this.eventsSeen.add(event.id);
+  }
+
   checkGameOver() {
     if (this.gameOver) return true;
     if (this.sanity <= 0) {
       this.gameOver = true;
-      this.won = false;
+      // `won` records that the endurance milestone was reached. A later death
+      // ends the run but cannot un-earn sixty days of survival.
       this.gameOverMessage = 'Your sanity has crumbled. The spiritual path was neglected too long.';
+      this.emit('game_over_triggered', this.gameOverMessage);
+      return true;
+    }
+    if (this.energy <= 0) {
+      this.gameOver = true;
+      this.gameOverMessage = 'Léon drops down due to exhaustion.';
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
     }
     if (this.money <= 0) {
       this.gameOver = true;
-      this.won = false;
+      // Preserve the monotonic endurance milestone; game-over state is tracked
+      // separately from what the player already achieved.
       this.gameOverMessage = "You're broke. The bills pile up and you can't sustain the community.";
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
@@ -504,18 +565,13 @@ export class GameState {
     return false;
   }
 
-  /** Second mastery layer: survive 100 days with reputation, exploration and stability. */
+  /** Enlightenment: carry the fully restored House of Middleway through day 150. */
   checkSecondWin() {
-    if (this.masteryWon) return false;
-    if (this.gameOver || this.journeyDay < 100) return false;
-    if (this.reputation < 80) return false;
-    if (this.money < 200) return false;
-    if (this.visitedLocations.size < 18) return false;
-    // No more than 5 consecutive bar days when the threshold is crossed.
-    if (this.consecutiveBarDays > 5) return false;
+    if (this.masteryWon || this.gameOver || this.journeyDay < ENLIGHTENMENT_GOAL_DAYS) return false;
+    if (this.renovations.size !== RENOVATIONS.length) return false;
     this.masteryWon = true;
     this.masteryMessage =
-      "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
+      'You are enlightened! The House of Middleway is whole, and so is the life you built around it.';
     this.emit('mastery_triggered', this.masteryMessage);
     return true;
   }
@@ -579,6 +635,8 @@ export class GameState {
       perks: this.perks,
       visitedLocations: this.visitedLocations,
       totalLocations: LOCATIONS.length,
+      renovations: this.renovations.size,
+      totalRenovations: RENOVATIONS.length,
       rentPaidCount: this.rentPaidCount,
       nightDays: this.nightDays,
       festivalsSeen: this.festivalsSeen,
@@ -593,7 +651,6 @@ export class GameState {
     const earned = evaluateAchievements(this.achievementSnapshot(extra), this.achievements);
     for (const a of earned) {
       this.achievements.add(a.id);
-      this.pendingAchievements.push(a);
       this.emit('achievement_earned', a);
     }
     return earned;
@@ -608,7 +665,38 @@ export class GameState {
   }
 
   getSeason() {
-    const m = this.monthIndex;
+    return GameState.seasonForMonth(this.monthIndex);
+  }
+
+  /**
+   * The calendar date `daysAhead` days from today, without mutating state.
+   * Used by the almanac so a forecast that crosses a month boundary computes
+   * each day with its own season *and* its own fringe-month eligibility.
+   */
+  peekDay(daysAhead = 0) {
+    let { dayOfMonth, monthIndex, year } = this;
+    for (let i = 0; i < daysAhead; i += 1) {
+      dayOfMonth += 1;
+      let maxDay = DAYS_IN_MONTH[monthIndex];
+      if (monthIndex === 1 && this._isLeapYear(year)) maxDay = 29;
+      if (dayOfMonth > maxDay) {
+        dayOfMonth = 1;
+        monthIndex += 1;
+        if (monthIndex >= 12) {
+          monthIndex = 0;
+          year += 1;
+        }
+      }
+    }
+    return { dayOfMonth, monthIndex, year };
+  }
+
+  /** The season `daysAhead` calendar days from today — see `peekDay`. */
+  peekSeason(daysAhead = 0) {
+    return GameState.seasonForMonth(this.peekDay(daysAhead).monthIndex);
+  }
+
+  static seasonForMonth(m) {
     if (m === 11 || m === 0 || m === 1) return 'Winter';
     if (m >= 2 && m <= 4) return 'Spring';
     if (m >= 5 && m <= 7) return 'Summer';
@@ -635,7 +723,7 @@ export class GameState {
         text: 'Your sanity is low. A quieter plan may help you come back to yourself.',
       };
     }
-    if (this.energy < EXHAUSTION_THRESHOLD) {
+    if (this.isExhausted) {
       const predictive =
         this.consecutiveBarDays >= 2
           ? 'A bar night will put you near empty quickly. Consider rest tomorrow.'
@@ -704,14 +792,17 @@ export class GameState {
       winMessage: this.winMessage,
       masteryWon: this.masteryWon,
       masteryMessage: this.masteryMessage,
+      kadenSmearSeen: this.kadenSmearSeen,
+      kadenSmearAcknowledged: this.kadenSmearAcknowledged,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       turnResolvedOnDay: this._turnResolvedOnDay,
-      lastRentJourneyDay: this._lastRentJourneyDay,
       rentPrepaidDays: [...this.rentPrepaidDays],
       rentPaidCount: this.rentPaidCount,
       recentHistory: [...this.recentHistory],
       perks: [...this.perks],
+      renovations: [...this.renovations],
+      eventsSeen: [...this.eventsSeen],
       achievements: [...this.achievements],
       visitedLocations: [...this.visitedLocations],
       nightDays: this.nightDays,
@@ -723,7 +814,8 @@ export class GameState {
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
     const migrated = migrateSave(data);
-    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5].includes(migrated.v)) return false;
+    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5, 6].includes(migrated.v))
+      return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
@@ -745,12 +837,13 @@ export class GameState {
     this.masteryWon = Boolean(migrated.masteryWon);
     this.masteryMessage =
       typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
+    this.kadenSmearSeen = Boolean(migrated.kadenSmearSeen);
+    this.kadenSmearAcknowledged = Boolean(migrated.kadenSmearAcknowledged);
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
     this.lastLocationVisited =
       typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
     this._turnResolvedOnDay = num(migrated.turnResolvedOnDay, -1);
-    this._lastRentJourneyDay = num(migrated.lastRentJourneyDay, -1);
     this.rentPaidCount = num(migrated.rentPaidCount, 0);
     // Rent prepayments: v5 stores an explicit set of Sundays; older saves
     // used a single "prepaidUntilDay" number. Import both.
@@ -775,12 +868,13 @@ export class GameState {
     this.recentHistory = arr(migrated.recentHistory).slice(0, 5);
 
     this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
+    this.renovations = new Set(arr(migrated.renovations).filter((id) => getRenovation(id)));
+    this.eventsSeen = new Set(arr(migrated.eventsSeen).filter((id) => typeof id === 'string'));
     this.achievements = new Set(arr(migrated.achievements));
     this.visitedLocations = new Set(arr(migrated.visitedLocations));
     this.nightDays = num(migrated.nightDays, 0);
     this.festivalsSeen = num(migrated.festivalsSeen, 0);
     this.weatherSeed = num(migrated.weatherSeed, 0);
-    this.pendingAchievements = [];
 
     this._statsChanged();
     this.emit(
@@ -818,6 +912,12 @@ export function migrateSave(data) {
     if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
     if (typeof migrated.weatherSeed !== 'number')
       migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+  }
+
+  // v5 -> v6: existing runs have already passed Kaden's opening morning.
+  if (v < 6) {
+    migrated.kadenSmearSeen = migrated.journeyDay >= 2;
+    migrated.kadenSmearAcknowledged = migrated.journeyDay >= 2;
   }
 
   // v4 -> v5: add mastery state + event-manager + RNG serialisation slot

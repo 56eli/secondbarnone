@@ -32,12 +32,6 @@ export const MONEY_SOFT_CAP = 100.0;
 /** Practical upper bound so a corrupted save cannot overflow display maths. */
 export const MONEY_HARD_CEILING = 99999.0;
 
-/** Legacy two-stat constants, kept because the parity tests read them. */
-export const SANITY_GAIN = 15.0;
-export const SANITY_LOSS = 12.0;
-export const MONEY_GAIN = 12.0;
-export const MONEY_LOSS = 10.0;
-
 // ---------------------------------------------------------------- energy
 
 export const MAX_ENERGY = 100.0;
@@ -47,21 +41,21 @@ export const START_ENERGY = 100.0;
  * How many nights of ordinary sleep take you from empty back to full.
  *
  * This is the anchor of the energy economy, and it is stated as a *duration*
- * rather than a rate on purpose: "a week of rest puts you right" is a rule a
- * player can hold in their head, and every other energy number is derived
- * from it.
+ * rather than a rate on purpose: "a full week of rest still isn't quite a
+ * full tank" is a rule a player can hold in their head, and every other
+ * energy number is derived from it. (Hard Winter tuning, July 2026: 12 a
+ * night — sleep helps, but you cannot out-sleep a bad week.)
  */
-export const ENERGY_FULL_RECOVERY_DAYS = 7;
+export const ENERGY_FULL_RECOVERY_DAYS = 8;
 
 /**
  * Energy recovered automatically at the start of each new day.
  *
- * Derived so that `ENERGY_FULL_RECOVERY_DAYS` nights carry you from 0 to
- * `MAX_ENERGY` exactly. Every location's energy cost is priced against this:
- * most working days cost more than one night returns, which is precisely what
- * makes topping up a decision rather than a formality.
+ * Every location's energy cost is priced against this: most working days
+ * cost more than one night returns, which is precisely what makes topping up
+ * a decision rather than a formality.
  */
-export const ENERGY_RECOVERY = 14.0;
+export const ENERGY_RECOVERY = 12.0;
 
 /** Below this, actions bite harder (see `GameState.exhaustionPenalty`). */
 export const EXHAUSTION_THRESHOLD = 25.0;
@@ -69,16 +63,32 @@ export const EXHAUSTION_THRESHOLD = 25.0;
 /**
  * Sanity lost per day at zero energy.
  *
- * At this rate an ignored energy bar drains a full sanity bar in ten days:
- * long enough to notice and recover from, short enough to respect. The old
- * value of 6 made exhaustion an inconvenience you could simply pay for.
+ * At this rate an ignored energy bar drains a full sanity bar in about eight
+ * days: long enough to notice and recover from, short enough to respect. The
+ * old value of 6 made exhaustion an inconvenience you could simply pay for,
+ * and 10 still let a preview-reading zombie alternate its way out.
  */
-export const EXHAUSTION_MAX_PENALTY = 10;
+export const EXHAUSTION_MAX_PENALTY = 12;
+
+/**
+ * Money lost per day at zero energy, on a quadratic curve like the sanity
+ * cost: below the effective threshold, being broke follows being drained.
+ * Running on empty is expensive — takeaway instead of cooking, cabs instead
+ * of walking, tips you were too tired to earn. This is what prices total
+ * energy neglect into the wallet economy; players who rest proactively never
+ * feel it.
+ */
+export const EXHAUSTION_MONEY_BURN_MAX = 9;
 
 // ----------------------------------------------------------- reputation
 
 export const MAX_REPUTATION = 100.0;
-export const START_REPUTATION = 10.0;
+/** Léon begins with public goodwill; Kaden's day-two smear resets it to 15. */
+export const START_REPUTATION = 80.0;
+/** Reputation after Kaden's opening smear campaign. */
+export const KADEN_SMEAR_REPUTATION = 15.0;
+/** The community's full restoration unlocks the enlightenment ending on this day. */
+export const ENLIGHTENMENT_GOAL_DAYS = 150;
 
 /** Currency of the perk tree. Uncapped, spent not lost. */
 export const START_INSIGHT = 0;
@@ -100,8 +110,8 @@ export const ENDURANCE_GOAL_DAYS = 60;
 export const RENT_AMOUNT = 18.0;
 /** A long-run sink that stops the early economy becoming permanently safe. */
 export const RENT_ESCALATION = 3.0;
-export const RENT_ESCALATION_PERIOD_DAYS = 24;
-export const RENT_MAX = 42.0;
+export const RENT_ESCALATION_PERIOD_DAYS = 14;
+export const RENT_MAX = 48.0;
 
 /** Reputation-based rent discount thresholds. */
 export const RENT_DISCOUNT_REP_THRESHOLD = 50;
@@ -111,3 +121,18 @@ export const RENT_DISCOUNT_REP_HIGH_BONUS = 2;
 
 /** Offset so journey day 1 maps to Thursday (Jan 1, 2026). Mon=0 … Sun=6. */
 export const START_WEEKDAY_OFFSET = 3;
+
+/**
+ * Weekday display names, Monday-first. Lives here (not in game-state.js) so
+ * `data/locations.js` can word its weekday-gated unlock reasons without
+ * importing game-state and forming a cycle.
+ */
+export const WEEKDAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];

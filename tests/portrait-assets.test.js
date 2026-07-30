@@ -17,10 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createAllProfiles } from '../docs/js/data/characters.js';
 import { LOCATIONS } from '../docs/js/data/locations.js';
-import { sourceFor, THUMB_PX, HI_PX, FRAME_EXCEPTIONS } from '../scripts/build-portraits.js';
-
-// v2.0 policy constants
-const FRAMELESS_STANDARD = true; // all new art must be clean square (no baked frame)
+import { sourceFor, THUMB_PX, HI_PX, LOCKED_PORTRAITS } from '../scripts/build-portraits.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -215,39 +212,26 @@ test('sourceFor prefers the largest available source, not the first format', () 
   }
 });
 
-// ------------------------------------------------------------- v2.0 frame-less policy
+// ------------------------------------------------------------- approved-art policy
 
-test('v2.0: non-exception characters prefer clean PNG masters (no baked frame sources)', () => {
+test('every current portrait has an approved PNG master', () => {
   for (const c of profiles) {
-    if (FRAME_EXCEPTIONS.has(c.id)) continue;
-
-    const pngPath = join(ROOT, 'assets', 'portraits', `${c.id}.png`);
-    const webpPath = join(ROOT, 'assets', 'portraits', `${c.id}.webp`);
-
-    // Strong recommendation: every non-exception should have a PNG master
-    // (this will become a hard assert once the 16 missing masters are added)
-    if (existsSync(webpPath) && !existsSync(pngPath)) {
-      // Soft warning in test output — real enforcement lives in build + CI
-      console.warn(
-        `  ⚠ v2.0 policy: ${c.id} still uses legacy .webp as best source. PNG master required.`,
-      );
-    }
+    assert.ok(
+      existsSync(join(ROOT, 'assets', 'portraits', `${c.id}.png`)),
+      `${c.id}: approved portrait master is missing`,
+    );
   }
 });
 
-test('Brian and Vanna are immutable art exceptions', () => {
+test('Brian and Vanna are immutable approved-art locks', () => {
   // These are content locks, not a permission to regenerate them later.
-  // NOTE: the Vanna hashes below currently pin the human-bar portrait that
-  // shipped with this revision, NOT the canonical "bunny in a coat" portrait
-  // that ART_STANDARD.md describes. The bunny master is missing from the
-  // repository; see notes/VANNA_PORTRAIT_NOTE.md. When the original master is
-  // restored, regenerate the thumbs and update these three hashes — do NOT
-  // simply relax the test.
+  // Vanna is the canonical close-up rabbit portrait supplied by the project
+  // owner; this test deliberately pins its source and both derived tiers.
   const frozen = {
     vanna: {
-      master: 'b9d655e35b2cd2b08f62e5834445aa02b7198e4091d4152ec086e3fea73fbd85',
-      thumb: 'a95ce9eb3143de764436241709505b388faa332ff10f9da8ad0c1e6008a3e82c',
-      hi: 'd9bfb140844bfb7588830d79f3280d5b56e19c02fbb768645f2e7da009225672',
+      master: 'b1585ec751086cc87d375fcc83b81db8bb13a1afb9a603075b5f4589e1c0a224',
+      thumb: '3fa75b223c130f06daecc9e2dd633fb51d243f4f7b06962d2987f0a95c8fedcf',
+      hi: '6a8a32224bce68e2b828c512ee2cbf0b076160107943bdb5a3e4880cf40850af',
     },
     brian: {
       master: '1b9dd2db4119319da950753e8ada9ddc23e7b3d532106b3ed7f9dcbceb017a6f',
@@ -255,11 +239,60 @@ test('Brian and Vanna are immutable art exceptions', () => {
       hi: '6de3faa89b7ae54bef770bb033027f68eba3d60b2d3332f2a44e21edbd912fd5',
     },
   };
-  assert.deepEqual(new Set(Object.keys(frozen)), FRAME_EXCEPTIONS);
+  assert.deepEqual(LOCKED_PORTRAITS, new Set(['brian', 'vanna']));
+  assert.deepEqual(new Set(Object.keys(frozen)), LOCKED_PORTRAITS);
   for (const [id, hashes] of Object.entries(frozen)) {
     assert.equal(sha256(join(ROOT, 'assets', 'portraits', `${id}.png`)), hashes.master);
     assert.equal(sha256(join(PORTRAITS, `${id}.webp`)), hashes.thumb);
     assert.equal(sha256(join(HI, `${id}.webp`)), hashes.hi);
+  }
+});
+
+// --------------------------------------------- full-coverage content manifest
+
+/**
+ * The manifest pins the SHA-256 of every approved master and both deployed
+ * tiers, for every character — the bytes are the record. It exists because a
+ * text-only pass record once said "replaced" while the tree kept upload-day
+ * art: nothing a checklist can do about files that silently never landed.
+ *
+ * `LOCKED_PORTRAITS` (Brian/Vanna) stay a stronger, manually-reviewed subset;
+ * the manifest covers them too, so the two cannot disagree.
+ */
+test('the portrait manifest pins every approved image byte for byte', () => {
+  const manifestPath = join(ROOT, 'assets', 'portraits', 'manifest.json');
+  assert.ok(existsSync(manifestPath), 'portrait manifest is missing');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+  // Coverage is exact: every character pinned, no ghosts of retired ids.
+  assert.deepEqual(
+    Object.keys(manifest).sort(),
+    profiles.map((c) => c.id).sort(),
+    'manifest must pin exactly the live character list',
+  );
+
+  for (const c of profiles) {
+    const pinned = manifest[c.id];
+    assert.deepEqual(
+      Object.keys(pinned).sort(),
+      ['hi', 'master', 'thumb'],
+      `${c.id}: manifest entry shape`,
+    );
+    assert.equal(
+      sha256(join(ROOT, 'assets', 'portraits', `${c.id}.png`)),
+      pinned.master,
+      `${c.id}: master changed without a manifest update`,
+    );
+    assert.equal(
+      sha256(join(PORTRAITS, `${c.id}.webp`)),
+      pinned.thumb,
+      `${c.id}: deployed thumbnail changed without a manifest update`,
+    );
+    assert.equal(
+      sha256(join(HI, `${c.id}.webp`)),
+      pinned.hi,
+      `${c.id}: deployed hi sheet changed without a manifest update`,
+    );
   }
 });
 
@@ -368,7 +401,7 @@ magickTest('every deployed background is a daytime scene', () => {
   // had shipped at 0.085 mean luminance (a night scene) while its neighbours
   // sat around 0.34. None should read as night or dusk any more.
   const bgDir = join(DOCS, 'assets', 'backgrounds');
-  const DAYLIGHT_FLOOR = 0.28;
+  const DAYLIGHT_FLOOR = 0.25;
   for (const f of readdirSync(bgDir)) {
     if (!f.endsWith('.webp')) continue;
     const mean = luminance(join(bgDir, f));

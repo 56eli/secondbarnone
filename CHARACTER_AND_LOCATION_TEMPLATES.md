@@ -33,7 +33,7 @@ Progress can be tracked by counting entries that still read "AI-generated" or
 
 ## Character templates
 
-78 characters total. 1 protagonist, 1 arch nemesis, 2 rivals, 74 side
+77 characters total. 1 protagonist, 1 arch nemesis, 2 rivals, 73 side
 characters.
 
 ### Protagonist
@@ -547,19 +547,6 @@ Image: AI-generated
 Profile: AI-generated
 Events: AI-generated
 ```
-
-> **Note:** The character data file has "Oh" listed as a separate entry from
-> "Ahyeon". This is a misparse — the full name is "Ahyeon Oh" and "Oh" is not
-> a separate character. The "Oh" entry should be removed from `characters.js`.
-
-```
-Name: Oh
-Sex: unknown (should be removed — see Ahyeon Oh above)
-Image: AI-generated
-Profile: AI-generated
-Events: AI-generated
-```
-
 ```
 Name: Jared
 Sex: Male
@@ -911,12 +898,12 @@ None — all 12 sex/portrait mismatches have been resolved.
 
 | Metric                            | Value                                                                   |
 | --------------------------------- | ----------------------------------------------------------------------- |
-| Total characters                  | 78                                                                      |
-| Characters with known sex         | 75 / 78 (55 Male, 16 Female, 4 Other, 2 unknown, 1 flagged for removal) |
-| Characters with custom image      | 1 / 78 (Brian)                                                          |
-| Characters with custom profile    | 0 / 78                                                                  |
-| Characters with custom events     | 0 / 78                                                                  |
-| **Portrait/sex mismatches**       | **0 / 78** — all 12 resolved                                            |
+| Total characters                  | 77                                                                      |
+| Characters with known sex         | 75 / 77 (55 Male, 17 Female, 3 Other, 2 unknown)                        |
+| Characters with custom image      | 1 / 77 (Brian)                                                          |
+| Characters with custom profile    | 0 / 77                                                                  |
+| Characters with custom events     | 0 / 77                                                                  |
+| **Portrait/sex mismatches**       | **0 / 77** — all currently recorded mismatches resolved                 |
 | Total locations                   | 23                                                                      |
 | Locations with custom image       | 0 / 23                                                                  |
 | Locations with custom description | 0 / 23                                                                  |
@@ -929,4 +916,3 @@ None — all 12 sex/portrait mismatches have been resolved.
 | Female              | 17    | Klaudia, Susan, Marlies, Hanans, Vanna, Daniela, Aril Stellar☯, Alvigunilla, Marlène xoxo, Kate, Ahyeon Oh, emily, Orshi, Renata 🦥, Hazel, Lou, groovyphoenix (firebird; she/her)                                                                                                                                                                                                                                                                                   |
 | Other               | 3     | HawkinsTV (robot), Carl-bot (robot), DocBot (robot)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | unknown             | 2     | Yun, nestomalt                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Flagged for removal | 1     | Oh (misparse of "Ahyeon Oh")                                                                                                                                                                                                                                                                                                                                                                                                                                         |

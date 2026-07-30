@@ -8,6 +8,7 @@ export default [
       sourceType: 'module',
       globals: {
         document: 'readonly',
+        HTMLElement: 'readonly',
         window: 'readonly',
         globalThis: 'readonly',
         console: 'readonly',
@@ -16,6 +17,9 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         localStorage: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Image: 'readonly',
       },
     },
     rules: {

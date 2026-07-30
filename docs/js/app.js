@@ -5,9 +5,10 @@
  * fresh game against a fresh DOM as many times as they like without
  * re-importing the module.
  *
- * Owns the HUD, screen switching with fade transitions, the result modal,
- * toasts, autosave, audio and the game-over overlay. Game rules live in core/;
- * this file is presentation and wiring only.
+ * Owns the HUD, seamless screen switching (cross-dissolve, never through
+ * black), the result modal, toasts, autosave, audio and the game-over
+ * overlay. Game rules live in core/; this file is presentation and wiring
+ * only.
  */
 
 import { resourceBarClass } from './core/resource-bar.js';
@@ -28,32 +29,45 @@ import {
   renderCharacters,
   renderGameOver,
   renderResultModal,
+  renderVictoryModal,
+  renderKadenSmearModal,
   renderPerks,
   renderAlmanac,
   renderSettings,
   renderToast,
   openCharacterPopup,
 } from './ui/screens.js';
+import { PreferencesService } from './ui/preferences-service.js';
+import { ModalController } from './ui/modal-controller.js';
 
-const FADE_MS = 350;
-const TOAST_MS = 2600;
-const MUSIC_URL = 'assets/music/warm_piano.wav';
+/** Cross-dissolve duration / background decode budget. Never a black pause. */
+export const FADE_MS = 250;
+export const TOAST_MS = 2600;
 
 /**
  * Boot a game into the current document.
- * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean}} [opts]
+ * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean, fadeMs?: number, toastMs?: number}} [opts]
+ * `fadeMs` is the cross-dissolve duration in ms and, on the way to a
+ * background-image screen, the decode budget: the swap happens the moment the
+ * new background is ready, at the latest after `fadeMs`. `0` (tests) swaps
+ * synchronously with no dissolve.
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
+  const fadeMs = opts.fadeMs ?? FADE_MS;
+  const toastMs = opts.toastMs ?? TOAST_MS;
   const gs = new GameState({ seed: opts.seed });
-  const rng = opts.rng ?? createRng();
+  // Seed the event RNG from the run's own seed by default. Persisting the
+  // RNG state in the save (already done) then makes a mid-day reload replay
+  // the *same* scheduled event draw instead of re-rolling it — determinism
+  // here matches the variance/weather promise everywhere else.
+  const rng = opts.rng ?? createRng(gs.weatherSeed);
   const events = new EventManager(rng);
   events.initialize(gs.getCharacterNames());
 
   const storage = 'storage' in opts ? opts.storage : globalThis.localStorage;
 
   const content = document.getElementById('content');
-  const fade = document.getElementById('fade');
   const hud = document.getElementById('hud');
   const toastHost = document.getElementById('toasts');
 
@@ -69,6 +83,7 @@ export function initGame(opts = {}) {
     portraitBtn: document.getElementById('hud-portrait-btn'),
     settingsBtn: document.getElementById('settings-button'),
     name: document.getElementById('hud-name'),
+    fragileFraud: document.getElementById('fragile-fraud'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
     sanityBar: document.getElementById('sanity-bar'),
@@ -87,81 +102,16 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
-  let musicEl = null;
-  let preferences = { highContrast: false, reducedMotion: false, sound: false, volume: 0.35 };
-  try {
-    preferences = {
-      ...preferences,
-      ...JSON.parse(storage?.getItem('secondbarnone.settings.v1') ?? '{}'),
-    };
-    // Older saves stored sound state under musicOn / muted. Be tolerant.
-    if (typeof preferences.sound !== 'boolean') {
-      preferences.sound =
-        preferences.musicOn === true || preferences.muted === false ? true : false;
-    }
-    if (typeof preferences.volume !== 'number') preferences.volume = 0.35;
-  } catch {
-    /* storage is optional */
-  }
-  const applyPreferences = () => {
-    document.documentElement.classList.toggle('high-contrast', Boolean(preferences.highContrast));
-    document.documentElement.classList.toggle('reduce-motion', Boolean(preferences.reducedMotion));
-    applySound();
-    try {
-      storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
-    } catch {
-      /* best effort */
-    }
-  };
+  // A resolved day is persisted before the player dismisses its result. This
+  // closes the morning rollback window while preserving the intentional result
+  // screen across a reload.
+  let pendingResult = null;
+  const prefsService = new PreferencesService(storage, document);
+  const modals = new ModalController(document);
+  const preferences = prefsService.preferences;
+  const applyPreferences = () => prefsService.applyPreferences();
 
   // ---------------------------------------------------------------- audio
-
-  /** Lazily create the music <audio> element — never preloaded, never
-   *  auto-played without user interaction (browsers block that anyway). */
-  function ensureMusic() {
-    if (musicEl) return musicEl;
-    const el = document.createElement('audio');
-    el.id = 'bgm';
-    el.src = MUSIC_URL;
-    el.loop = true;
-    el.preload = 'none';
-    el.setAttribute('aria-hidden', 'true');
-    el.volume = preferences.volume;
-    document.body.append(el);
-    musicEl = el;
-    return el;
-  }
-
-  function applySound() {
-    if (!musicEl) {
-      if (preferences.sound) ensureMusic();
-      else return;
-    }
-    musicEl.volume = preferences.volume;
-    if (preferences.sound) {
-      // play() returns a promise; autoplay policies may reject it, in which
-      // case we stay muted rather than throw. The user can toggle again from
-      // Settings after interacting with the page.
-      const p = musicEl.play();
-      if (p && typeof p.catch === 'function')
-        p.catch(() => {
-          preferences.sound = false;
-          try {
-            storage?.setItem('secondbarnone.settings.v1', JSON.stringify(preferences));
-          } catch {
-            /* noop */
-          }
-        });
-    } else {
-      musicEl.pause();
-    }
-  }
-
-  function toggleSound() {
-    preferences.sound = !preferences.sound;
-    if (preferences.sound) ensureMusic();
-    applyPreferences();
-  }
 
   function setVolume(v) {
     preferences.volume = Math.max(0, Math.min(1, Number(v) || 0));
@@ -197,6 +147,8 @@ export function initGame(opts = {}) {
       }
       setText(dom.name, leon.name);
     }
+    // Kaden's slur is visible only while the campaign still has purchase.
+    dom.fragileFraud?.toggleAttribute('hidden', !gs.kadenSmearSeen || gs.reputation >= 80);
 
     const sLow = gs.sanity < 25;
     const mLow = gs.money < 25;
@@ -250,18 +202,50 @@ export function initGame(opts = {}) {
     if (!toastHost) return null;
     const node = renderToast(text);
     toastHost.append(node);
-    setTimeout(() => node.remove(), TOAST_MS);
+    setTimeout(() => node.remove(), toastMs);
     return node;
   }
 
   // ----------------------------------------------------- screen swapping
 
+  // Backgrounds already fetched this session. Repeat navigation (hub →
+  // location → hub) never waits on the network twice.
+  const readyBackgrounds = new Set();
+
+  /**
+   * Resolve once `url`'s image is decoded, or after `budgetMs` — whichever
+   * comes first. The budget exists so a slow first fetch can stall a
+   * navigation at most once; the cross-dissolve below covers whatever pops
+   * in afterwards, so there is no black frame either way.
+   */
+  function backgroundReady(url, budgetMs) {
+    if (!url || readyBackgrounds.has(url) || budgetMs <= 0 || typeof Image === 'undefined') {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const done = () => {
+        readyBackgrounds.add(url);
+        resolve();
+      };
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done; // a missing background must never block navigation
+      img.src = url;
+      if (img.complete && img.naturalWidth > 0) return done(); // synchronously cached
+      if (typeof img.decode === 'function') img.decode().then(done, () => {});
+      setTimeout(done, budgetMs);
+    });
+  }
+
+  /**
+   * Move to a new screen without ever passing through black: wait for the
+   * background (bounded by `fadeMs`), then dissolve — the outgoing screen
+   * fades out on top of the incoming one, exactly like the popups do.
+   */
   function transitionTo(buildScreen) {
-    fade.classList.add('on');
-    setTimeout(() => {
-      showScreen(buildScreen());
-      fade.classList.remove('on');
-    }, FADE_MS);
+    const node = buildScreen();
+    const swap = () => showScreen(node);
+    backgroundReady(node?.dataset?.bg, fadeMs).then(swap, swap);
   }
 
   function showScreen(node) {
@@ -269,7 +253,26 @@ export function initGame(opts = {}) {
       stopParticles();
       stopParticles = null;
     }
-    content.replaceChildren(node);
+    const leftovers = [...content.children];
+    content.append(node);
+    // Announce navigation and keep keyboard focus out of a screen that is
+    // dissolving away. Headings are programmatically focusable, not added to
+    // the ordinary Tab order.
+    const heading = node.querySelector('h1, h2');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus();
+    }
+    // Only the most recent previous screen gets to dissolve; anything older
+    // (a swap still in flight) leaves now.
+    const old = leftovers.filter((c) => c !== node).pop();
+    for (const stale of leftovers) if (stale !== old && stale !== node) stale.remove();
+    if (old && fadeMs > 0) {
+      old.classList.add('swap-out'); // sits on top, fades out, ignores input
+      setTimeout(() => old.remove(), fadeMs);
+    } else {
+      old?.remove();
+    }
     if (typeof node._startParticles === 'function') stopParticles = node._startParticles();
   }
 
@@ -289,12 +292,21 @@ export function initGame(opts = {}) {
       onAction: handleAction,
       onBack: () => transitionTo(hubScreen),
       onSpecial: (kind, arg) => handleSpecial(kind, arg, locationId),
+      onBuyRenovation: (id) => {
+        if (gs.buyRenovation(id)) {
+          toast('Sanctuary restored.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
+        updateHud();
+        showScreen(locationScreen(locationId));
+      },
     });
   }
 
   function charactersScreen() {
     return renderCharacters(gs.getAllCharacters(), {
       onBack: () => transitionTo(hubScreen),
+      gs,
     });
   }
 
@@ -302,7 +314,10 @@ export function initGame(opts = {}) {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
       onBuy: (id) => {
-        if (gs.buyPerk(id)) toast('Learned.');
+        if (gs.buyPerk(id)) {
+          toast('Learned.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
         updateHud();
         showScreen(perksScreen());
       },
@@ -313,38 +328,60 @@ export function initGame(opts = {}) {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
   }
 
+  function shareUrl() {
+    try {
+      const u = new URL(window.location.href);
+      u.search = `?seed=${gs.weatherSeed}`;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  }
+
   function settingsScreen() {
-    return renderSettings(preferences, {
-      onBack: () => transitionTo(hubScreen),
-      onToggleContrast: () => {
-        preferences.highContrast = !preferences.highContrast;
-        applyPreferences();
-        showScreen(settingsScreen());
+    return renderSettings(
+      preferences,
+      {
+        onBack: () => transitionTo(hubScreen),
+        onToggleContrast: () => {
+          prefsService.toggleContrast();
+          showScreen(settingsScreen());
+        },
+        onToggleMotion: () => {
+          prefsService.toggleMotion();
+          showScreen(settingsScreen());
+        },
+        onToggleSound: () => {
+          prefsService.toggleSound();
+          showScreen(settingsScreen());
+        },
+        onChangeVolume: (v) => {
+          setVolume(v);
+        },
+        onCopyShare: async (url) => {
+          try {
+            await globalThis.navigator?.clipboard?.writeText(url);
+            toast('City link copied.');
+          } catch {
+            toast('Select the link and copy it manually.');
+          }
+        },
+        onAbandon: () => {
+          restart();
+          toast('New run started.');
+        },
       },
-      onToggleMotion: () => {
-        preferences.reducedMotion = !preferences.reducedMotion;
-        applyPreferences();
-        showScreen(settingsScreen());
-      },
-      onToggleSound: () => {
-        toggleSound();
-        showScreen(settingsScreen());
-      },
-      onChangeVolume: (v) => {
-        setVolume(v);
-      },
-      onAbandon: () => {
-        restart();
-        toast('New run started.');
-      },
-    });
+      { seed: gs.weatherSeed, url: shareUrl() },
+    );
   }
 
   // -------------------------------------------------------------- extras
 
   function handleSpecial(kind, arg, locationId) {
     if (kind === 'prepay_rent') {
-      toast(gs.prepayRent(1) ? 'Paid a week ahead.' : 'Not enough money.');
+      const paid = gs.prepayRent(1);
+      toast(paid ? 'Paid the next uncovered Sunday.' : 'Keep at least one money after paying.');
+      if (paid) saveStore.save(gs, storage, { events: events.toJSON() });
     }
     updateHud();
     showScreen(locationScreen(locationId));
@@ -352,69 +389,102 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- turn
 
-  function handleAction(locationId) {
-    const result = resolveTurn(gs, events, locationId);
-
+  function presentResolvedTurn(result, { announce = true, persist = true } = {}) {
     updateHud();
-    flashDelta(dom.sanityDelta, result.deltas.sanity);
-    flashDelta(dom.moneyDelta, result.deltas.money);
-    for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
-    if (result.justWon && !result.masteryWon)
-      toast(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
-    if (result.masteryWon) toast(`🌟 ${result.masteryMessage || result.winMessage}`);
-    if (result.extraRent) {
-      toast(`📅 Rent came due while you were away (${result.extraRent} money).`);
+    if (announce) {
+      flashDelta(dom.sanityDelta, result.deltas.sanity);
+      flashDelta(dom.moneyDelta, result.deltas.money);
+      for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
+      if (result.justWon && !result.masteryWon)
+        toast(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
+      if (result.masteryWon) toast(`🌟 ${result.masteryMessage || result.winMessage}`);
+      if (result.extraRent) {
+        toast(`📅 Rent came due while you were away (${result.extraRent} money).`);
+      }
     }
 
     if (result.gameOver) {
+      pendingResult = null;
       saveStore.clear(storage);
       showGameOver(lastGameOverMessage || gs.gameOverMessage);
       return;
     }
 
+    pendingResult = result;
+    if (persist) {
+      saveStore.save(gs, storage, {
+        events: events.toJSON(),
+        pendingResult,
+      });
+    }
+
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
-        modal._cleanup?.();
-        modal.remove();
-        if (!result.longTrip) gs.advanceDay();
-        else {
-          gs.emit(
-            'day_changed',
-            gs.journeyDay,
-            gs.getWeekdayName(),
-            gs.getMonthName(),
-            gs.year,
-            gs.dayOfMonth,
-          );
-          gs._statsChanged();
+        modals.dismissActive();
+        pendingResult = null;
+        // Every completed action enters the next playable morning. A long trip
+        // has already consumed its two silent interior days in resolveTurn;
+        // this final advance moves N+2 → N+3 just as an ordinary day moves
+        // N → N+1. The simulator uses the same lifecycle.
+        const showKadenSmear = () => {
+          const story = renderKadenSmearModal({
+            onContinue: () => {
+              gs.acknowledgeKadenSmear();
+              saveStore.save(gs, storage, { events: events.toJSON() });
+              modals.dismissActive();
+              transitionTo(hubScreen);
+            },
+          });
+          modals.showModal(story);
+        };
+        const advanceToMorning = () => {
+          const kadenSmear = gs.advanceDay();
+          updateHud();
+          saveStore.save(gs, storage, { events: events.toJSON() });
+          if (kadenSmear || (gs.kadenSmearSeen && !gs.kadenSmearAcknowledged)) {
+            // Zero-duration transitions are the headless test harness; a real player
+            // gets the day-two interlude after the hub transition settles.
+            if (fadeMs > 0) setTimeout(showKadenSmear, 0);
+            else transitionTo(hubScreen);
+          } else transitionTo(hubScreen);
+        };
+        if (result.masteryWon) {
+          const victory = renderVictoryModal(gs, {
+            onRestart: () => {
+              modals.dismissActive();
+              restart();
+            },
+            onContinue: () => {
+              modals.dismissActive();
+              advanceToMorning();
+            },
+          });
+          modals.showModal(victory);
+        } else {
+          advanceToMorning();
         }
-        updateHud();
-        saveStore.save(gs, storage, { events: events.toJSON() });
-        transitionTo(hubScreen);
       },
     });
-    document.body.append(modal);
-    modal.querySelector('button')?.focus();
+    modals.showModal(modal);
+  }
+
+  function handleAction(locationId) {
+    presentResolvedTurn(resolveTurn(gs, events, locationId));
   }
 
   // ----------------------------------------------------------- game over
 
   function showGameOver(message) {
-    document.querySelector('.modal-backdrop')?.remove();
+    pendingResult = null;
+    modals.dismissActive();
     hud.hidden = true;
     showScreen(renderGameOver(gs, message, { onRestart: restart }));
   }
 
   function restart() {
+    pendingResult = null;
     gs.resetGame();
-    events.reset();
-    // Re-seed the RNG used by the event manager so the new run has fresh
-    // event timing rather than replaying the last one.
-    if (typeof rng.setState === 'function' && rng.isSeeded) {
-      // seeded RNGs keep state; nothing to do, events.reset() already advanced it
-    } else if (rng !== createRng) {
-      // unseeded Math.random path: nothing to reset
-    }
+    events.reset(gs.weatherSeed);
     saveStore.clear(storage);
     hud.hidden = false;
     updateHud();
@@ -429,12 +499,23 @@ export function initGame(opts = {}) {
   gs.on('stats_changed', updateHud);
   gs.on('day_changed', updateHud);
 
+  let resumedPending = null;
   if (opts.autoload !== false && saveStore.has(storage)) {
     if (saveStore.load(gs, storage)) {
       toast('Run resumed.');
-      // Restore event manager state (next event day, recent ids, RNG) if saved.
+      // Restore event manager state (next event day, recent ids, RNG) and a
+      // resolved-but-not-dismissed result if saved.
       const blob = saveStore.loadExtra(storage);
       if (blob && blob.events) events.loadFrom(blob.events);
+      if (
+        blob?.pendingResult &&
+        gs.isTurnResolved &&
+        blob.pendingResult.deltas &&
+        blob.pendingResult.weather &&
+        Array.isArray(blob.pendingResult.achievements)
+      ) {
+        resumedPending = blob.pendingResult;
+      }
     }
   }
 
@@ -446,11 +527,32 @@ export function initGame(opts = {}) {
   applyPreferences();
   updateHud();
   showScreen(hubScreen());
+  if (resumedPending) presentResolvedTurn(resumedPending, { announce: false, persist: false });
+  else if (fadeMs > 0 && gs.kadenSmearSeen && !gs.kadenSmearAcknowledged) {
+    setTimeout(
+      () =>
+        modals.showModal(
+          renderKadenSmearModal({
+            onContinue: () => {
+              gs.acknowledgeKadenSmear();
+              saveStore.save(gs, storage, { events: events.toJSON() });
+              modals.dismissActive();
+              transitionTo(hubScreen);
+            },
+          }),
+        ),
+      0,
+    );
+  }
 
   const api = {
     toast,
     updateHud,
-    save: () => saveStore.save(gs, storage, { events: events.toJSON() }),
+    save: () =>
+      saveStore.save(gs, storage, {
+        events: events.toJSON(),
+        ...(pendingResult ? { pendingResult } : {}),
+      }),
     goto: {
       hub: () => showScreen(hubScreen()),
       location: (id) => showScreen(locationScreen(id)),

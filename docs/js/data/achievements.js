@@ -7,7 +7,7 @@
  * testable.
  */
 
-import { ENDURANCE_GOAL_DAYS } from '../core/balance.js';
+import { ENDURANCE_GOAL_DAYS, ENLIGHTENMENT_GOAL_DAYS } from '../core/balance.js';
 
 const a = (id, name, emoji, desc, test) => Object.freeze({ id, name, emoji, desc, test });
 
@@ -105,6 +105,13 @@ export const ACHIEVEMENTS = [
     (s) => (s.sanity > 0 && s.sanity < 8) || (s.money > 0 && s.money < 8),
   ),
   a('rent_master', 'Never Late', '🧾', 'Pay rent six times.', (s) => s.rentPaidCount >= 6),
+  a(
+    'enlightened',
+    'Enlightened',
+    '✨',
+    `Restore every part of the House of Middleway and reach day ${ENLIGHTENMENT_GOAL_DAYS}.`,
+    (s) => s.journeyDay >= ENLIGHTENMENT_GOAL_DAYS && s.renovations >= s.totalRenovations,
+  ),
   a(
     'festival_goer',
     'Festival Goer',

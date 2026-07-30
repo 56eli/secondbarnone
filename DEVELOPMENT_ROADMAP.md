@@ -1,3 +1,13 @@
+# Historical record (superseded)
+
+> **Frozen context — do not cite for current facts.** The counts, balances,
+> and recommendations in this document describe an earlier revision.
+> Authoritative sources as of 30 July 2026: `README.md`,
+> `PROJECT_OVERVIEW.md`, `CHANGELOG.md`, and `AUDIT_2026-07-30.md`
+> (current audit and prioritized action plan). Kept for context only.
+
+---
+
 # Long-term development considerations
 
 ## Next release (quality and safety)
