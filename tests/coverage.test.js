@@ -93,7 +93,7 @@ test('roleLabel falls back to Side Character for unknown roles', () => {
 test('getInitials handles multi-word, unicode and empty names', () => {
   assert.equal(getInitials('Brock Lee'), 'BL');
   assert.equal(getInitials('Andre Watson'), 'AW');
-  assert.equal(getInitials('Oh'), 'O');
+  assert.equal(getInitials('Ada'), 'A');
   assert.equal(getInitials(''), '?');
   assert.equal(getInitials(undefined), '?');
   assert.equal(getInitials('  '), '?');

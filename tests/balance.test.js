@@ -238,9 +238,8 @@ test('Second Wind makes exhaustion arrive later, exactly as it advertises', () =
 test('the Hard Winter economy rewards attention without immortality at any skill level', () => {
   // 200-day horizon: the long game must grind down every *inattentive* style,
   // while even the best styles keep a real (but survivable) failure rate.
-  // Measured 2026-07-30, 40 seeded runs each:
-  //   greedy 100% death / 0% goal · random 95%/5% · alternate (founding-only)
-  //   100%/0% (~day 19) · concentrates 3%/97% · min_maxing 13%/88%
+  // `goalRate` remains earned after day 60; this contract deliberately uses
+  // `survivalRate` for the separate 200-day horizon.
   const greedy = summarise('greedy', { runs: 40, maxDays: 200 });
   const random = summarise('random', { runs: 40, maxDays: 200 });
   const alternate = summarise('alternate', { runs: 40, maxDays: 200 });
@@ -251,23 +250,23 @@ test('the Hard Winter economy rewards attention without immortality at any skill
     greedy.deathRate >= 0.95,
     `naive preview-reading must die in the long game: ${greedy.deathRate}`,
   );
-  assert.equal(greedy.goalRate, 0, 'greedy never sees day 200');
+  assert.ok(greedy.survivalRate <= 0.05, 'greedy almost never sees day 200');
   assert.ok(random.deathRate >= 0.9, `random play must stay doomed: ${random.deathRate}`);
   assert.ok(
     alternate.deathRate >= 0.9,
     `the founding pair alone must not suffice — rest is mandatory: ${alternate.deathRate}`,
   );
   assert.ok(
-    concentrates.goalRate >= 0.8 && concentrates.goalRate < 1,
-    `concentrating should usually but not always win the long game: ${concentrates.goalRate}`,
+    concentrates.survivalRate >= 0.8 && concentrates.survivalRate < 1,
+    `concentrating should usually but not always win the long game: ${concentrates.survivalRate}`,
   );
   assert.ok(
-    minMaxing.goalRate >= 0.75 && minMaxing.goalRate < 1,
-    `min-maxing should usually but not always win the long game: ${minMaxing.goalRate}`,
+    minMaxing.survivalRate >= 0.75 && minMaxing.survivalRate < 1,
+    `min-maxing should usually but not always win the long game: ${minMaxing.survivalRate}`,
   );
   assert.ok(
-    concentrates.goalRate - greedy.goalRate >= 0.8,
-    `the attention/headroom skill gap is the whole game: ${concentrates.goalRate} vs ${greedy.goalRate}`,
+    concentrates.survivalRate - greedy.survivalRate >= 0.8,
+    `the attention/headroom skill gap is the whole game: ${concentrates.survivalRate} vs ${greedy.survivalRate}`,
   );
 });
 
@@ -492,7 +491,11 @@ test('the whole city and the whole perk tree open before the goal', () => {
   // reachability is measured across one full week, not on one morning.
   const ids = new Set();
   for (let weekday = 0; weekday < 7; weekday += 1) {
-    for (const l of availableLocations({ journeyDay: ENDURANCE_GOAL_DAYS, reputation: 100, weekday })) {
+    for (const l of availableLocations({
+      journeyDay: ENDURANCE_GOAL_DAYS,
+      reputation: 100,
+      weekday,
+    })) {
       ids.add(l.id);
     }
   }

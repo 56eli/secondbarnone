@@ -35,3 +35,10 @@ Portraits are used via `createAllProfiles()` in `docs/js/data/characters.js`.
 The build (`scripts/build-portraits.js`) produces:
 - `docs/assets/portraits/<id>.webp` (288px thumbnails — round via CSS)
 - `docs/assets/portraits/hi/<id>.webp` (896px — clean square for lightbox)
+
+## v2.6 owner-reviewed replacements
+
+Ahyeon Oh, RicardoEA, Renata, Brendan, Scatmandu, yungnosaj and Cat were
+repainted full-bleed on 30 July 2026 after the owner recorded forbidden baked
+frames. The retired duplicate `oh` has no source or deployed tier. The manifest
+pins exactly the 77 live characters.

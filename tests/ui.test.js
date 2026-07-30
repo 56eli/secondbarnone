@@ -13,11 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import {
-  LOCATIONS,
-  WELCOME_SLOT_INDEX,
-  locationForSlot,
-} from '../docs/js/data/locations.js';
+import { LOCATIONS, WELCOME_SLOT_INDEX, locationForSlot } from '../docs/js/data/locations.js';
 import { weatherForDay } from '../docs/js/data/weather.js';
 import { ACHIEVEMENTS } from '../docs/js/data/achievements.js';
 import { PERKS } from '../docs/js/data/perks.js';
@@ -1107,18 +1103,26 @@ function assertAllCardsShow(doc, mode) {
   }
 }
 
-maybe('fog veils the whole preview — cards and location screen', async () => {
+maybe('fog shows only each location’s positive focus icon', async () => {
   const window = await boot({ seed: seedForWeather('fog') });
   try {
     const { document: doc } = window;
     assertAllCardsShow(doc, 'veiled');
     assert.ok(!/\d/.test(chipText(doc)), 'no numbers leak through the fog');
-    assert.match(chipText(doc), /fog — no telling/);
+    assert.doesNotMatch(chipText(doc), /[+−-]|no telling/i, 'no sign or old fog label leaks');
+
+    const community = doc.querySelector('[data-location="spiritual_community"] .focus-chips');
+    const bar = doc.querySelector('[data-location="bar"] .focus-chips');
+    assert.equal(community?.dataset.focus, 'sanity');
+    assert.equal(community?.textContent, '🧘');
+    assert.equal(bar?.dataset.focus, 'money');
+    assert.equal(bar?.textContent, '💰');
 
     window.__game.api.goto.location('bar');
     const preview = doc.querySelector('.preview');
     assert.equal(preview?.dataset.previewMode, 'veiled');
-    assert.ok(preview.querySelector('.preview-veiled'), 'flavour line replaces the chips');
+    assert.equal(preview.querySelector('.focus-chips')?.dataset.focus, 'money');
+    assert.equal(preview.querySelector('.focus-chips')?.textContent, '💰');
     assert.ok(!preview.querySelector('.preview-why'), 'fog hides the reasons too');
     assert.ok(!/\d/.test(preview.textContent), 'no numbers on the location screen either');
   } finally {
@@ -1231,6 +1235,96 @@ maybe('the Saturday Market card says Only on Saturdays and refuses clicks midwee
     const open = doc.querySelector('[data-location="farmers_market"]');
     assert.ok(open && !open.classList.contains('locked'), 'Saturday card is open');
     assert.equal(open.disabled ?? false, false, 'and it can be clicked');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe(
+  'the in-game Reduced Motion setting stops particle timers, not only CSS animation',
+  async () => {
+    const window = await boot();
+    try {
+      const doc = window.document;
+      window.__game.api.goto.settings();
+      click(doc, '.settings-choice', 'Reduced motion');
+      assert.ok(doc.documentElement.classList.contains('reduce-motion'));
+
+      window.__game.api.goto.location('home_loft');
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      assert.equal(doc.querySelector('.particles')?.children.length, 0);
+    } finally {
+      cleanup(window);
+    }
+  },
+);
+
+maybe(
+  'a result reload restores the resolved modal instead of rolling back the choice',
+  async () => {
+    const storage = fakeStorage();
+    let resolved;
+    {
+      const first = await boot({ storage });
+      try {
+        const doc = first.document;
+        first.__game.api.goto.location('bar');
+        click(doc, '.location button', 'Work a Shift');
+        await settle();
+        assert.ok(doc.querySelector('.modal'));
+        resolved = {
+          day: first.__game.gs.journeyDay,
+          money: first.__game.gs.money,
+          sanity: first.__game.gs.sanity,
+        };
+        const blob = JSON.parse(storage.getItem(SAVE_KEY));
+        assert.ok(blob.pendingResult, 'resolved result is persisted before Continue');
+        assert.equal(blob.turnResolvedOnDay, resolved.day);
+      } finally {
+        cleanup(first);
+      }
+    }
+
+    const resumed = await boot({ storage });
+    try {
+      const doc = resumed.document;
+      assert.ok(doc.querySelector('.modal'), 'the unresolved result modal returns after reload');
+      assert.equal(resumed.__game.gs.journeyDay, resolved.day);
+      assert.equal(resumed.__game.gs.money, resolved.money);
+      assert.equal(resumed.__game.gs.sanity, resolved.sanity);
+      click(doc, '.modal button', 'Continue');
+      await settle();
+      assert.equal(resumed.__game.gs.journeyDay, resolved.day + 1);
+      assert.ok(doc.querySelector('.hub'));
+      assert.equal(JSON.parse(storage.getItem(SAVE_KEY)).pendingResult, undefined);
+    } finally {
+      cleanup(resumed);
+    }
+  },
+);
+
+maybe('a three-day retreat returns to the next playable morning', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs, events, api } = window.__game;
+    gs.journeyDay = 20;
+    gs.dayOfMonth = 20;
+    gs.money = 300;
+    gs.sanity = 70;
+    gs.energy = 100;
+    gs.reputation = 100;
+    events._nextEventDay = 999;
+
+    api.goto.location('mountain_retreat');
+    click(doc, '.location button', 'Go on Retreat');
+    await settle();
+    assert.equal(gs.journeyDay, 22, 'two silent interior days resolve before the result');
+    click(doc, '.modal button', 'Continue');
+    await settle();
+    assert.equal(gs.journeyDay, 23, 'the next choice is the morning after the three-day trip');
+    assert.equal(gs.isTurnResolved, false);
+    assert.ok(doc.querySelector('.hub'));
   } finally {
     cleanup(window);
   }

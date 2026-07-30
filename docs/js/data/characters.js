@@ -215,7 +215,7 @@ const RAW = [
     role: Role.RIVAL,
     bio: 'The owner of a polished wellness studio across town — the kind with a waiting list, branded water bottles, and a quarterly newsletter. Sato is disciplined, effective, and quietly certain that Léon\u2019s community is a beautiful mess that could be so much more with proper structure.',
     relationship:
-      'A rival Léon cannot quite dislike. Sato poaches his members and then sends thoughtful notes when the community struggles. Every conversation leaves Léon wondering whether she is right.',
+      'A rival Léon cannot quite dislike. Sato poaches his members and then sends thoughtful notes when the community struggles. Every conversation leaves Léon wondering whether he is right.',
     locationId: 'sato_studio',
   },
   {
@@ -286,9 +286,9 @@ const RAW = [
     id: 'brock_lee',
     name: 'Brock Lee',
     role: Role.SIDE_CHARACTER,
-    bio: 'Runs the vegetable stall at the weekend market and supplies the community kitchen at cost. Puns constantly, apologises never. His produce is genuinely excellent.',
+    bio: 'Runs the vegetable stall at the Saturday market and supplies the community kitchen at cost. Puns constantly, apologises never. His produce is genuinely excellent.',
     relationship: 'Refuses to let Léon pay full price and refuses to discuss why.',
-    locationId: 'community_garden',
+    locationId: 'farmers_market',
   },
   {
     id: 'tarrasqu',
@@ -616,19 +616,11 @@ const RAW = [
   },
   {
     id: 'ahyeon',
-    name: 'Ahyeon',
+    name: 'Ahyeon Oh',
     role: Role.SIDE_CHARACTER,
-    bio: 'A florist who supplies the community\u2019s altar arrangements from whatever did not sell. Believes flowers past their prime are the most interesting ones.',
+    bio: 'A florist who tends the community garden\u2019s cutting beds and supplies altar arrangements from whatever did not sell. Believes flowers past their prime are the most interesting ones.',
     relationship: 'Leaves something on the meditation hall table every week without mentioning it.',
-    locationId: 'farmers_market',
-  },
-  {
-    id: 'oh',
-    name: 'Oh',
-    role: Role.SIDE_CHARACTER,
-    bio: 'A poet whose entire published output is eleven words long. Attends silent sittings religiously and speaks perhaps once a month, to devastating effect.',
-    relationship: 'Said "you are allowed to rest" to Léon in year one. He is still working on it.',
-    locationId: 'river_walk',
+    locationId: 'community_garden',
   },
   {
     id: 'jared',
@@ -702,9 +694,9 @@ const RAW = [
     id: 'hazel',
     name: 'Hazel',
     role: Role.SIDE_CHARACTER,
-    bio: 'A herbalist supplying the community\u2019s tea blends and correcting its wilder health claims. Rigorous where it matters, indulgent where it does not.',
+    bio: 'A herbalist who tends hardy medicinal beds along the canal and corrects the community\u2019s wilder health claims. Rigorous where it matters, indulgent where it does not.',
     relationship: 'Makes Léon a blend for sleep that he never remembers to drink.',
-    locationId: 'community_garden',
+    locationId: 'river_walk',
   },
   {
     id: 'scatmandu',

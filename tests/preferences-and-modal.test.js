@@ -37,6 +37,21 @@ test('PreferencesService loads default and stored settings', () => {
   assert.equal(prefs.preferences.sound, true);
 });
 
+test('PreferencesService clamps malformed persisted values before touching audio', () => {
+  const win = setupDom();
+  const storage = fakeStorage();
+  storage.setItem(
+    'secondbarnone.settings.v1',
+    JSON.stringify({ highContrast: 'yes', reducedMotion: 1, sound: true, volume: 5 }),
+  );
+  const prefs = new PreferencesService(storage, win.document);
+  assert.equal(prefs.preferences.highContrast, false);
+  assert.equal(prefs.preferences.reducedMotion, false);
+  assert.equal(prefs.preferences.volume, 1);
+  assert.doesNotThrow(() => prefs.applyPreferences());
+  assert.equal(prefs.musicEl.volume, 1);
+});
+
 test('PreferencesService toggles high contrast, reduced motion, and sound', () => {
   const win = setupDom();
   const storage = fakeStorage();

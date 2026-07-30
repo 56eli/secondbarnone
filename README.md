@@ -39,10 +39,10 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 
 |                 | Godot version                   | This version                                                                   |
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
-| Deploy payload  | 39.5 MB                         | **3.87 MB** eager (+5.82 MB of full-size portraits fetched only when tapped; 0.80 MB music is lazy) |
+| Deploy payload  | 39.5 MB                         | **3.83 MB** eager (+5.37 MB of full-size portraits fetched only when tapped; 0.78 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **395**                                                                        |
-| Coverage        | —                               | **~98.2%**                                                                     |
+| Automated tests | 0                               | **425**                                                                        |
+| Coverage        | —                               | **~98.1%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
 project may still exist on a historical `godot` branch if one was preserved
@@ -73,7 +73,7 @@ npm run check           # lint + format + typecheck + tests + asset integrity
 Current measured coverage (30 July 2026) — `npm run coverage:check`:
 
 ```
-all files    98.20 line | 85.47 branch | 92.22 funcs
+all files    98.12 line | 86.10 branch | 92.56 funcs
 ```
 
 Randomness goes through a seedable RNG (`docs/js/core/rng.js`), so tests are
@@ -93,21 +93,23 @@ mode). Measured 60-day goal rates:
 | Model | Goal | Reading |
 | --- | ---: | --- |
 | `doesnt_pay_attention` | **0%** | alternating the founding pair blindly always dies |
-| `random` | **20%** | luck is not a plan |
-| `greedy` | **21%** | naive preview-reading dies ~4 of 5 runs |
-| `average` | **36%** | the reference player faces hard-but-winnable odds (contract band: 35–50%) |
-| `pays_attention_sometimes` | **38%** | attention is the game |
-| `concentrates` | **52%** | engaged play wins just over half |
-| `min_maxing` | **61%** | the ceiling — nobody is immortal |
+| `random` | **27%** | luck is not a plan |
+| `greedy` | **27%** | naive preview-reading dies about 3 of 4 runs |
+| `average` | **42%** | the reference player faces hard-but-winnable odds (contract band: 35–50%) |
+| `pays_attention_sometimes` | **45%** | attention is the game |
+| `concentrates` | **61%** | engaged play wins about three in five runs |
+| `min_maxing` | **66%** | the ceiling — nobody is immortal |
 
 The table is measured against the real six-card hub (`poolMode: 'hub'`, 300
-runs). A second harness exists as a stress bound: `tests/balance.test.js`
+runs). Informed models choose one of the four rotating cards on **31–47%** of days (test floor: 25%), so the founding pair no longer monopolize good play. A second harness exists as a stress bound: `tests/balance.test.js`
 lets every model teleport to any open location (`poolMode: 'unlocked'`) over
 a 200-day horizon, and there the inattentive styles die always (0% goal)
 while `concentrates` and `min_maxing` each win ~88%. The two harnesses are
 calibrated separately — never mix their numbers. The models are balancing
 instruments, not claims about real players; human playtests remain the final
-authority. See CHANGELOG (30 July 2026) for what the tuning is and why.
+authority. **Simulator fidelity remains explicitly pending:** models still
+score exact averages under weather-hidden previews and share a decision/event
+RNG stream. See `notes/SIMULATOR_FIDELITY_PENDING.md` and the CHANGELOG.
 
 Asset integrity is checked separately:
 
@@ -122,7 +124,7 @@ CI build.
 ## Project layout
 
 ```
-docs/                      ← deployed by GitHub Pages (main /docs)
+docs/                      ← deployed by GitHub Pages (crazy-branch /docs)
   index.html
   css/style.css
   js/
@@ -134,9 +136,9 @@ docs/                      ← deployed by GitHub Pages (main /docs)
       turn.js              one turn, resolved in order; preview vs resolution
       rng.js               seedable RNG
     data/
-      characters.js        78 characters
+      characters.js        77 characters
       locations.js         23 locations (each with a host)
-      events.js            235 events, keyed by location (3+ per character)
+      events.js            232 events, keyed by location (3+ per character)
       weather.js / perks.js
       festivals.js / achievements.js
     ui/screens.js          six-card hub, location, practice, portrait lightbox
@@ -152,22 +154,21 @@ tests/
 
 ### Repository size and history, in one honest paragraph
 
-The working tree's `assets/` source art is ~243 MB and the packed Git dir is
-~277 MB: `.gitattributes` declares LFS tracking for `assets/**`, but the
-migration was never executed, so all masters are plain blobs — and history is
-a two-snapshot squashed import (29 July 2026), so every master exists twice in
-the pack. If you just want to read the code, clone with
-`git clone --depth 1`. Migrating the masters to LFS (or an external store) is
-a recorded open decision; rewriting history to do it is a deliberate act,
-not an accident to slip into a PR.
+The working tree's `assets/` source art is ~250 MB and the local packed Git
+objects are ~298 MiB; GitHub reports a still larger repository across retained
+refs. `.gitattributes` declares LFS tracking for `assets/**`, but the migration
+was never executed, so masters remain plain blobs. If you just want to read the
+code, clone with `git clone --depth 1`. Migrating the masters to LFS (or an
+external store), pruning merged session branches and any history rewrite remain
+owner-level operations—not changes to slip into a feature PR.
 
 ## Cast
 
-78 characters. Léon is the protagonist; **Kaden** is the arch nemesis; **Sato**
-and **Alex** are rivals with multi-beat arcs. The remaining 74 are side
+77 characters. Léon is the protagonist; **Kaden** is the arch nemesis; **Sato**
+and **Alex** are rivals with multi-beat arcs. The remaining 73 are side
 characters. Every character is bound to **one location** and has **at least three
 events** that fire only there, so a place is somewhere specific people are
-rather than a slot machine with scenery. **222 of 235 events** belong to side
+rather than a slot machine with scenery. **219 of 232 events** belong to side
 characters.
 
 Léon's portrait and name sit in the HUD on every screen.
@@ -192,7 +193,7 @@ Léon's portrait and name sit in the HUD on every screen.
   Rare, so at the current 9–13-event location pools roughly **one event in
   twelve** is rare (measured 8.7% weighted across the catalogue).
 - Burnout unlocks only after 3 consecutive bar days.
-- The same event never fires twice in a row.
+- Authored events fire once per run. Sato, Alex and Kaden beats also require their preceding beat, so their arcs cannot arrive out of order.
 - Reaching 0 sanity or 0 money ends the run.
 - Reaching journey day **60** awards a soft win without ending the run; a
   day-100 mastery ending exists for the well-traveled.
@@ -212,15 +213,14 @@ Léon's portrait and name sit in the HUD on every screen.
   what a place is for without ever knowing the dice in advance.
 - **The weather edits how much of that preview you can see.** Rain and snow
   blur every card into rough `+`/`++`/`-`/`--` estimates (direction and
-  scale, not arithmetic); fog hides the numbers and the reasons alike.
+  scale, not arithmetic); fog hides the arithmetic and reasons, showing only each location’s strongest positive focus icon (money, sanity, energy, reputation or insight).
   Planning in bad weather is a judgement call, not a spreadsheet.
 - **The city keeps a weekly rhythm.** The Saturday Market opens Saturdays
   only, the Puces de Saint-Ouen Sundays only, the open mic Fridays and
   Saturdays. A weekday-gated place shows its card on its day and the day
   before (so you see the rhythm coming); the rest of the week its slot moves
   on rather than holding a dead card.
-- Runs autosave to `localStorage` after every day and resume on reload — a
-  reload replays the exact same scheduled day rather than re-rolling it.
+- Runs autosave to `localStorage` as soon as a day resolves. Reloading before Continue restores the same result modal rather than rolling back the choice; continuing saves the next playable morning.
 
 ## Homely design notes
 
@@ -233,7 +233,7 @@ Eleven things that make the city feel like a home:
    progression gates and weather closure on day one only; from day two the
    chapel goes back behind its ordinary gate.
 3. **Every location has a host** you will likely see there.
-4. **Most events belong to side characters** — 222 of 235 — with their face on the result.
+4. **Most events belong to side characters** — 219 of 232 — with their face on the result.
 5. **Daily greetings** that change with weekday and season.
 6. **Host small talk** gives every location a familiar voice without turning it into a biography page.
 7. **Dedicated backgrounds for all 23 locations**, including the newest environmental scenes.
@@ -251,7 +251,7 @@ Eleven things that make the city feel like a home:
 
 ## Accessibility
 
-Semantic buttons and headings throughout, visible focus rings, `aria-selected`
+Semantic buttons and headings throughout, visible focus rings, `aria-pressed`
 on the character list, `role="dialog"` with `aria-modal` on the result modal,
 `role="meter"` on the stat bars, and full keyboard operability.
 `prefers-reduced-motion` disables particles and collapses transitions; a
@@ -266,8 +266,8 @@ never be changed. The current regeneration policy lives in
 
 - The UI is jsdom-verified; a human pass on a real phone is still worthwhile.
 - Background music is off by default and lazy-loaded from the Settings screen
-  the first time you turn it on (a ~900 KB slow warm pad loop, generated by
-  `scripts/gen-warmth.py`; autoplay policies are respected).
+  the first time you turn it on (an ~795 KiB warm, slow felt-piano loop, synthesized by
+  `scripts/gen-comfy-piano.py`; autoplay policies are respected).
 - Navigating between locations never flashes black: the incoming screen is
   fully ready underneath before the outgoing one dissolves (backgrounds are
   pre-loaded, and the dissolve honours `prefers-reduced-motion`).
@@ -279,8 +279,8 @@ Canonical (current release contract — edit these as the game changes):
 - **README.md** (this file) — what the game is and what its rules are.
 - **PROJECT_OVERVIEW.md** — architecture, systems and internals.
 - **CHANGELOG.md** — dated record of what changed, newest first.
-- **AUDIT_2026-07-30.md** — the current full audit, including verification
-  results and the resolution log of every finding.
+- **AUDIT_2026-07-30.md** — the current full audit, including verification,
+  prioritized findings and the recommended action plan.
 - **DEVELOPMENT notes** in `notes/` — art standard, portrait exceptions and
   the balance postmortem that the tuning contract answers to.
 

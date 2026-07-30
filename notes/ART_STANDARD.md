@@ -86,4 +86,26 @@ the upload-day images, so the old art was what players saw — exactly the
 - **Defects recorded by owner:** white/deckle-edge composition (`baris`); incompatible realistic style (`mrone`); baked frame (`seth`, `siekamcebule`, `isra`, `andre_watson`, `air_vaisselle`, `blokely`, `jits`, `gordon`); `isra` additionally depicted the wrong sex (template: Male).
 - **Regression investigation:** the 30 July "Frame-less Square Standard Pass" entry above lists several of these ids, yet their binaries were never in the tree — the two-commit squashed history carried the upload-day art while the text record arrived through a doc merge. Root cause of "old pictures got implemented again".
 - **Affected IDs:** `baris`, `mrone`, `seth`, `siekamcebule`, `isra`, `andre_watson`, `air_vaisselle`, `blokely`, `jits`, `gordon` — all male per `CHARACTER_AND_LOCATION_TEMPLATES.md`, all regenerated as clean square frame-less painted masters in the house style, then tiers rebuilt.
-- **Verification:** visual QA of all ten masters (full-bleed, no frame/ring/white edge/text); `tests/portrait-assets.test.js` 23/23 (incl. new manifest pin of all 78 characters); `npm run check` green.
+- **Verification:** visual QA of all ten masters (full-bleed, no frame/ring/white edge/text); `tests/portrait-assets.test.js` 23/23 (incl. the then-live full-cast manifest); `npm run check` green.
+
+---
+
+### Update — 30 July 2026, v2.6 owner-directed frame corrections
+
+- **Reviewer/requester:** project owner; implemented and visually checked in the
+  v2.6 release pass.
+- **Recorded defect:** forbidden baked circular/oval frames in the approved
+  masters for `ahyeon`, `ricardoea`, `renata`, `brendan`, `scatmandu`,
+  `yungnosaj`, and `cat`.
+- **Identity checks:** Ahyeon is the female florist **Ahyeon Oh**; RicardoEA,
+  Brendan, Scatmandu and yungnosaj are male; Renata is female; Cat is an actual
+  male domestic cat. Scatmandu's male identity was explicitly reconfirmed by
+  the owner.
+- **Resolution:** all seven masters regenerated as full-bleed 1024×1024
+  paintings with no baked frame/ring/mat/edge/text/UI. Both 288px and 896px
+  WebP tiers were rebuilt. The duplicate `oh` character and all three image
+  tiers were deleted rather than regenerated.
+- **Lock:** `assets/portraits/manifest.json` was rebuilt and now pins exactly
+  the 77 live character masters and both derived tiers by SHA-256.
+- **Verification:** full portrait manifest test, dimensions, payload check and
+  visual inspection are required by the v2.6 release gate.

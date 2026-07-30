@@ -39,7 +39,7 @@ const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
  *          run actually costs to load, so it gets the tight budget.
  *   total  eager + the 896px lightbox sheets, which are fetched only when a
  *          player taps a portrait to enlarge it. One extra sheet is ~80 KB
- *          on demand; nobody downloads all 78.
+ *          on demand; nobody downloads all 77.
  *
  * The eager figure went *down* in the July 2026 art pass (~4.85 MB -> ~3 MB)
  * even though every character gained painted art, because the inline

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 
-const files = ['assets/music/hearth_pad.wav', 'docs/assets/music/hearth_pad.wav'];
+const files = ['assets/music/comfy_piano.wav', 'docs/assets/music/comfy_piano.wav'];
 
 function wavHeader(path) {
   const data = readFileSync(path);

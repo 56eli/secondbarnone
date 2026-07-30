@@ -18,7 +18,7 @@
  */
 
 import { buildEventPool, Category } from '../data/events.js';
-import { defaultRng } from './rng.js';
+import { createRng, defaultRng } from './rng.js';
 
 export const MIN_EVENT_GAP_DAYS = 2;
 export const MAX_EVENT_GAP_DAYS = 5;
@@ -113,12 +113,16 @@ export class EventManager {
   _buildPool(journeyDay, weekday, location, context = {}) {
     const tags = context.tags ?? [];
     const weatherId = context.weatherId ?? '';
+    const seenEvents =
+      context.seenEvents instanceof Set ? context.seenEvents : new Set(context.seenEvents ?? []);
     return this._allEvents.filter((e) => {
       if (e.minimumDay > journeyDay) return false;
       if (e.allowedWeekdays.length > 0 && !e.allowedWeekdays.includes(weekday)) return false;
       if (e.requiredLocation !== '' && e.requiredLocation !== location) return false;
       if (e.requiredTag && !tags.includes(e.requiredTag)) return false;
       if (e.requiredWeather && e.requiredWeather !== weatherId) return false;
+      if (e.oncePerRun && seenEvents.has(e.id)) return false;
+      if ((e.requiresEvents ?? []).some((id) => !seenEvents.has(id))) return false;
       if (e.id === 'burnout' && this._consecutiveBarDays < BURNOUT_THRESHOLD) return false;
       if (e.category === Category.FRIEND && this._characterNames.length === 0) return false;
       return true;
@@ -136,7 +140,12 @@ export class EventManager {
     return pool[pool.length - 1];
   }
 
-  reset() {
+  reset(seed) {
+    // A restarted run is a genuinely fresh seeded city. Keeping the old RNG at
+    // its current cursor made Begin Again diverge from a fresh boot of the same
+    // share seed and, for unseeded restarts, detached events from the new
+    // weather seed entirely.
+    if (seed !== undefined && seed !== null) this.rng = createRng(seed);
     this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;

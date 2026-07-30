@@ -14,27 +14,26 @@ export class PreferencesService {
       volume: 0.35,
     };
     this.musicEl = null;
-    this.musicUrl = 'assets/music/hearth_pad.wav';
+    this.musicUrl = 'assets/music/comfy_piano.wav';
     this.load();
   }
 
   load() {
     try {
       const raw = JSON.parse(this.storage?.getItem('secondbarnone.settings.v1') ?? '{}');
-      this.preferences = {
-        ...this.preferences,
-        ...raw,
-      };
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return this.preferences;
+
+      this.preferences.highContrast = raw.highContrast === true;
+      this.preferences.reducedMotion = raw.reducedMotion === true;
       if (typeof raw.sound === 'boolean') {
         this.preferences.sound = raw.sound;
       } else if ('musicOn' in raw || 'muted' in raw) {
         this.preferences.sound = raw.musicOn === true || raw.muted === false;
       }
-      if (typeof this.preferences.volume !== 'number') {
-        this.preferences.volume = 0.35;
-      }
+      const volume = Number(raw.volume);
+      this.preferences.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 0.35;
     } catch {
-      /* storage is optional or unparseable */
+      /* storage is optional or unparseable; defaults remain safe */
     }
     return this.preferences;
   }

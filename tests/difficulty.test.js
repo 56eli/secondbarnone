@@ -19,7 +19,8 @@
  *   concentrates             ≥50%          engaged play wins ~3 of 5
  *   min_maxing               ≥ concentrates, <100% — nobody is immortal
  *
- * Measured (300 runs each, 2026-07-30): 0%, 29%, 27%, 43%, 48%, 61%, 66%.
+ * Measured (300 runs each, v2.6): DPA 0%, random/greedy 27%, average 42%,
+ * sometimes 45%, concentrates 61%, min-maxing 66%.
  */
 
 import test from 'node:test';
@@ -56,6 +57,25 @@ test('the average player faces a real coin flip over 60 days', () => {
     `average goal rate ${average.goalRate.toFixed(3)} is outside the 35–50% band`,
   );
   assert.equal(average.goalRate + average.deathRate, 1, 'runs end at the goal or a loss');
+});
+
+test('rotating locations earn at least a quarter of informed choices', () => {
+  const founding = new Set(['spiritual_community', 'bar']);
+  for (const name of [
+    'pays_attention_sometimes',
+    'average',
+    'greedy',
+    'concentrates',
+    'min_maxing',
+  ]) {
+    const rotatingShare = Object.entries(results()[name].pickRates)
+      .filter(([id]) => !founding.has(id))
+      .reduce((sum, [, share]) => sum + share, 0);
+    assert.ok(
+      rotatingShare >= 0.25,
+      `${name} chose rotating locations only ${(rotatingShare * 100).toFixed(1)}% of the time`,
+    );
+  }
 });
 
 test('attention produces a clear but not binary skill gradient', () => {

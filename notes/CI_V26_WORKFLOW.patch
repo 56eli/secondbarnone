@@ -1,0 +1,78 @@
+# v2.6 CI upgrade — reviewed but not applied in this branch
+#
+# The Arena GitHub App rejected pushes that update workflow files because its
+# token lacks the `workflows` permission. Apply from a workflow-authorized
+# checkout after v2.6 merges:
+#
+#   git apply notes/CI_V26_WORKFLOW.patch
+#
+# Then commit to crazy-branch through an ordinary reviewed PR. The patch installs
+# ImageMagick, gates lint/format/typecheck, removes duplicate test execution and
+# publishes the exact 300-seed balance contract with its fidelity warning.
+
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index 10ba00f..35ac983 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -17,25 +17,36 @@ jobs:
+           node-version: '22'
+           cache: npm
+ 
+-      # `npm ci` needs the lockfile, which is committed for exactly this reason.
+       - name: Install dependencies
+         run: npm ci
+ 
+-      - name: Tests
+-        run: npm test
++      # Portrait dimensions and luminance are release gates, not optional CI
++      # skips. Install the same image tooling used by the asset pipeline.
++      - name: Install ImageMagick
++        run: |
++          sudo apt-get update
++          sudo apt-get install -y imagemagick
+ 
+-      # Asset integrity: every referenced portrait and background exists, and
+-      # the deployed payload stays inside its budget. ImageMagick is not needed
+-      # here — this only reads file sizes.
+-      - name: Asset check
+-        run: node scripts/check-assets.js
++      - name: Lint
++        run: npm run lint
++
++      - name: Format check
++        run: npm run format:check
+ 
+-      - name: Coverage gate
++      - name: Typecheck
++        run: npm run typecheck
++
++      # The coverage gate runs the complete suite once and enforces line,
++      # branch and function floors; do not duplicate it with a separate test run.
++      - name: Tests and coverage gate
+         run: npm run coverage:check
+ 
+-  # Balance is reported separately so a regression in the economy is legible
+-  # in the Actions summary rather than buried in the test log. The assertions
+-  # themselves live in tests/balance.test.js and already ran above.
++      - name: Asset integrity and payload budgets
++        run: node scripts/check-assets.js
++
++  # Balance is reported separately so economy drift is legible in the Actions
++  # summary. Assertions run in the test job; simulator fidelity remains an
++  # explicit pending audit item until models consume weather-hidden previews.
+   balance:
+     runs-on: ubuntu-latest
+     steps:
+@@ -46,8 +57,10 @@ jobs:
+       - name: Balance simulation
+         run: |
+           {
+-            echo '### Balance simulation'
++            echo '### 60-day hub balance simulation (300 seeds)'
+             echo '```'
+-            node scripts/simulate.js --runs=100 --days=200
++            node scripts/simulate.js --runs=300 --days=61
+             echo '```'
++            echo
++            echo '> Simulator fidelity pending: models still score exact averages under fog/rain/snow.'
+           } >> "$GITHUB_STEP_SUMMARY"

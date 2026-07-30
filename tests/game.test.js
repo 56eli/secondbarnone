@@ -258,8 +258,8 @@ test('daily focus cue reflects combined stat pressure without prescribing a dest
 
 test('event pool has the expected size and rarity split', () => {
   const pool = buildEventPool();
-  // Three events per character across a cast of 78, plus Kaden's fourth beat.
-  assert.equal(pool.length, 235);
+  // Three events per character across a cast of 77, plus Kaden's fourth beat.
+  assert.equal(pool.length, 232);
   const std = pool.filter((e) => e.rarity === Rarity.STANDARD).length;
   const helpful = pool.filter((e) => e.rarity === Rarity.RARE_HELPFUL).length;
   const hurtful = pool.filter((e) => e.rarity === Rarity.RARE_HURTFUL).length;
@@ -577,7 +577,7 @@ test('reset restores a clean starting state', () => {
 
 test('the cast has one protagonist, one arch nemesis and two rivals', () => {
   const chars = createAllProfiles();
-  assert.equal(chars.length, 78);
+  assert.equal(chars.length, 77);
   assert.equal(chars.filter((c) => c.role === Role.PROTAGONIST).length, 1);
   assert.equal(chars.find((c) => c.role === Role.PROTAGONIST).id, 'leon');
 
@@ -639,7 +639,7 @@ test('every character has full biography text', () => {
 test('the friend-name pool excludes the protagonist', () => {
   const gs = new GameState();
   const names = gs.getCharacterNames();
-  assert.equal(names.length, 77);
+  assert.equal(names.length, 76);
   assert.ok(!names.includes('Léon'));
 });
 

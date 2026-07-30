@@ -99,6 +99,10 @@ export function initGame(opts = {}) {
   let stopParticles = null;
   let lastGameOverMessage = '';
   let leonProfile = null;
+  // A resolved day is persisted before the player dismisses its result. This
+  // closes the morning rollback window while preserving the intentional result
+  // screen across a reload.
+  let pendingResult = null;
   const prefsService = new PreferencesService(storage, document);
   const modals = new ModalController(document);
   const preferences = prefsService.preferences;
@@ -246,6 +250,14 @@ export function initGame(opts = {}) {
     }
     const leftovers = [...content.children];
     content.append(node);
+    // Announce navigation and keep keyboard focus out of a screen that is
+    // dissolving away. Headings are programmatically focusable, not added to
+    // the ordinary Tab order.
+    const heading = node.querySelector('h1, h2');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus();
+    }
     // Only the most recent previous screen gets to dissolve; anything older
     // (a swap still in flight) leaves now.
     const old = leftovers.filter((c) => c !== node).pop();
@@ -276,7 +288,10 @@ export function initGame(opts = {}) {
       onBack: () => transitionTo(hubScreen),
       onSpecial: (kind, arg) => handleSpecial(kind, arg, locationId),
       onBuyRenovation: (id) => {
-        if (gs.buyRenovation(id)) toast('Sanctuary restored.');
+        if (gs.buyRenovation(id)) {
+          toast('Sanctuary restored.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
         updateHud();
         showScreen(locationScreen(locationId));
       },
@@ -294,7 +309,10 @@ export function initGame(opts = {}) {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
       onBuy: (id) => {
-        if (gs.buyPerk(id)) toast('Learned.');
+        if (gs.buyPerk(id)) {
+          toast('Learned.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
         updateHud();
         showScreen(perksScreen());
       },
@@ -335,6 +353,14 @@ export function initGame(opts = {}) {
         onChangeVolume: (v) => {
           setVolume(v);
         },
+        onCopyShare: async (url) => {
+          try {
+            await globalThis.navigator?.clipboard?.writeText(url);
+            toast('City link copied.');
+          } catch {
+            toast('Select the link and copy it manually.');
+          }
+        },
         onAbandon: () => {
           restart();
           toast('New run started.');
@@ -348,7 +374,9 @@ export function initGame(opts = {}) {
 
   function handleSpecial(kind, arg, locationId) {
     if (kind === 'prepay_rent') {
-      toast(gs.prepayRent(1) ? 'Paid a week ahead.' : 'Not enough money.');
+      const paid = gs.prepayRent(1);
+      toast(paid ? 'Paid the next uncovered Sunday.' : 'Keep at least one money after paying.');
+      if (paid) saveStore.save(gs, storage, { events: events.toJSON() });
     }
     updateHud();
     showScreen(locationScreen(locationId));
@@ -356,41 +384,44 @@ export function initGame(opts = {}) {
 
   // --------------------------------------------------------------- turn
 
-  function handleAction(locationId) {
-    const result = resolveTurn(gs, events, locationId);
-
+  function presentResolvedTurn(result, { announce = true, persist = true } = {}) {
     updateHud();
-    flashDelta(dom.sanityDelta, result.deltas.sanity);
-    flashDelta(dom.moneyDelta, result.deltas.money);
-    for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
-    if (result.justWon && !result.masteryWon)
-      toast(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
-    if (result.masteryWon) toast(`🌟 ${result.masteryMessage || result.winMessage}`);
-    if (result.extraRent) {
-      toast(`📅 Rent came due while you were away (${result.extraRent} money).`);
+    if (announce) {
+      flashDelta(dom.sanityDelta, result.deltas.sanity);
+      flashDelta(dom.moneyDelta, result.deltas.money);
+      for (const a of result.achievements) toast(`${a.emoji} ${a.name}`);
+      if (result.justWon && !result.masteryWon)
+        toast(`🏅 ${result.winMessage || 'Sixty days. You held.'}`);
+      if (result.masteryWon) toast(`🌟 ${result.masteryMessage || result.winMessage}`);
+      if (result.extraRent) {
+        toast(`📅 Rent came due while you were away (${result.extraRent} money).`);
+      }
     }
 
     if (result.gameOver) {
+      pendingResult = null;
       saveStore.clear(storage);
       showGameOver(lastGameOverMessage || gs.gameOverMessage);
       return;
     }
 
+    pendingResult = result;
+    if (persist) {
+      saveStore.save(gs, storage, {
+        events: events.toJSON(),
+        pendingResult,
+      });
+    }
+
     const modal = renderResultModal(result, gs, {
       onContinue: () => {
         modals.dismissActive();
-        if (!result.longTrip) gs.advanceDay();
-        else {
-          gs.emit(
-            'day_changed',
-            gs.journeyDay,
-            gs.getWeekdayName(),
-            gs.getMonthName(),
-            gs.year,
-            gs.dayOfMonth,
-          );
-          gs._statsChanged();
-        }
+        pendingResult = null;
+        // Every completed action enters the next playable morning. A long trip
+        // has already consumed its two silent interior days in resolveTurn;
+        // this final advance moves N+2 → N+3 just as an ordinary day moves
+        // N → N+1. The simulator uses the same lifecycle.
+        gs.advanceDay();
         updateHud();
         saveStore.save(gs, storage, { events: events.toJSON() });
         transitionTo(hubScreen);
@@ -399,17 +430,23 @@ export function initGame(opts = {}) {
     modals.showModal(modal);
   }
 
+  function handleAction(locationId) {
+    presentResolvedTurn(resolveTurn(gs, events, locationId));
+  }
+
   // ----------------------------------------------------------- game over
 
   function showGameOver(message) {
+    pendingResult = null;
     modals.dismissActive();
     hud.hidden = true;
     showScreen(renderGameOver(gs, message, { onRestart: restart }));
   }
 
   function restart() {
+    pendingResult = null;
     gs.resetGame();
-    events.reset();
+    events.reset(gs.weatherSeed);
     saveStore.clear(storage);
     hud.hidden = false;
     updateHud();
@@ -424,12 +461,23 @@ export function initGame(opts = {}) {
   gs.on('stats_changed', updateHud);
   gs.on('day_changed', updateHud);
 
+  let resumedPending = null;
   if (opts.autoload !== false && saveStore.has(storage)) {
     if (saveStore.load(gs, storage)) {
       toast('Run resumed.');
-      // Restore event manager state (next event day, recent ids, RNG) if saved.
+      // Restore event manager state (next event day, recent ids, RNG) and a
+      // resolved-but-not-dismissed result if saved.
       const blob = saveStore.loadExtra(storage);
       if (blob && blob.events) events.loadFrom(blob.events);
+      if (
+        blob?.pendingResult &&
+        gs.isTurnResolved &&
+        blob.pendingResult.deltas &&
+        blob.pendingResult.weather &&
+        Array.isArray(blob.pendingResult.achievements)
+      ) {
+        resumedPending = blob.pendingResult;
+      }
     }
   }
 
@@ -441,11 +489,16 @@ export function initGame(opts = {}) {
   applyPreferences();
   updateHud();
   showScreen(hubScreen());
+  if (resumedPending) presentResolvedTurn(resumedPending, { announce: false, persist: false });
 
   const api = {
     toast,
     updateHud,
-    save: () => saveStore.save(gs, storage, { events: events.toJSON() }),
+    save: () =>
+      saveStore.save(gs, storage, {
+        events: events.toJSON(),
+        ...(pendingResult ? { pendingResult } : {}),
+      }),
     goto: {
       hub: () => showScreen(hubScreen()),
       location: (id) => showScreen(locationScreen(id)),

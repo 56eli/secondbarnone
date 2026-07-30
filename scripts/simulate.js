@@ -96,7 +96,7 @@ export const STRATEGIES = {
    * calibrated against the real hub to make the 60-day goal a coin flip;
    * it moves when the economy does (see tests/difficulty.test.js). */
   average: (gs, pool, rng) =>
-    rng.random() < 0.32 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
+    rng.random() < 0.3 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
 
   /** Reads every preview and consistently addresses the most urgent resource. */
   concentrates: (gs, pool) => bestPreview(gs, pool, { focus: 1 }),
@@ -226,7 +226,10 @@ export function summarise(strategyName, { runs = 100, maxDays = 200, poolMode = 
     deathRate: deaths.length / runs,
     deathsBySanity: deaths.filter((r) => r.cause === 'sanity').length,
     deathsByMoney: deaths.filter((r) => r.cause === 'money').length,
+    // `goalRate` is monotonic: reaching day 60 stays earned after a later
+    // death. `survivalRate` answers the separate maxDays-horizon question.
     goalRate: results.filter((r) => r.reachedGoal).length / runs,
+    survivalRate: results.filter((r) => !r.died).length / runs,
     meanDays: mean(results.map((r) => r.days)),
     meanMoney: mean(results.map((r) => r.money)),
     meanSanity: mean(results.map((r) => r.sanity)),
@@ -267,6 +270,7 @@ function main() {
       `${name.padEnd(10)} death ${pct(s.deathRate).padStart(4)}` +
         `  (sanity ${s.deathsBySanity}, money ${s.deathsByMoney})` +
         `   goal ${pct(s.goalRate).padStart(4)}` +
+        `   horizon ${pct(s.survivalRate).padStart(4)}` +
         `   mean survival ${s.meanDays.toFixed(0)}d`,
     );
     console.log(
