@@ -17,6 +17,9 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         localStorage: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Image: 'readonly',
       },
     },
     rules: {

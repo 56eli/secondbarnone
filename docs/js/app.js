@@ -5,9 +5,10 @@
  * fresh game against a fresh DOM as many times as they like without
  * re-importing the module.
  *
- * Owns the HUD, screen switching with fade transitions, the result modal,
- * toasts, autosave, audio and the game-over overlay. Game rules live in core/;
- * this file is presentation and wiring only.
+ * Owns the HUD, seamless screen switching (cross-dissolve, never through
+ * black), the result modal, toasts, autosave, audio and the game-over
+ * overlay. Game rules live in core/; this file is presentation and wiring
+ * only.
  */
 
 import { resourceBarClass } from './core/resource-bar.js';
@@ -37,26 +38,34 @@ import {
 import { PreferencesService } from './ui/preferences-service.js';
 import { ModalController } from './ui/modal-controller.js';
 
-export const FADE_MS = 350;
+/** Cross-dissolve duration / background decode budget. Never a black pause. */
+export const FADE_MS = 250;
 export const TOAST_MS = 2600;
 
 /**
  * Boot a game into the current document.
  * @param {{rng?: object, seed?: number, storage?: object, autoload?: boolean, fadeMs?: number, toastMs?: number}} [opts]
+ * `fadeMs` is the cross-dissolve duration in ms and, on the way to a
+ * background-image screen, the decode budget: the swap happens the moment the
+ * new background is ready, at the latest after `fadeMs`. `0` (tests) swaps
+ * synchronously with no dissolve.
  * @returns {{gs: GameState, events: EventManager, api: object}}
  */
 export function initGame(opts = {}) {
   const fadeMs = opts.fadeMs ?? FADE_MS;
   const toastMs = opts.toastMs ?? TOAST_MS;
   const gs = new GameState({ seed: opts.seed });
-  const rng = opts.rng ?? createRng();
+  // Seed the event RNG from the run's own seed by default. Persisting the
+  // RNG state in the save (already done) then makes a mid-day reload replay
+  // the *same* scheduled event draw instead of re-rolling it — determinism
+  // here matches the variance/weather promise everywhere else.
+  const rng = opts.rng ?? createRng(gs.weatherSeed);
   const events = new EventManager(rng);
   events.initialize(gs.getCharacterNames());
 
   const storage = 'storage' in opts ? opts.storage : globalThis.localStorage;
 
   const content = document.getElementById('content');
-  const fade = document.getElementById('fade');
   const hud = document.getElementById('hud');
   const toastHost = document.getElementById('toasts');
 
@@ -190,12 +199,44 @@ export function initGame(opts = {}) {
 
   // ----------------------------------------------------- screen swapping
 
+  // Backgrounds already fetched this session. Repeat navigation (hub →
+  // location → hub) never waits on the network twice.
+  const readyBackgrounds = new Set();
+
+  /**
+   * Resolve once `url`'s image is decoded, or after `budgetMs` — whichever
+   * comes first. The budget exists so a slow first fetch can stall a
+   * navigation at most once; the cross-dissolve below covers whatever pops
+   * in afterwards, so there is no black frame either way.
+   */
+  function backgroundReady(url, budgetMs) {
+    if (!url || readyBackgrounds.has(url) || budgetMs <= 0 || typeof Image === 'undefined') {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const done = () => {
+        readyBackgrounds.add(url);
+        resolve();
+      };
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done; // a missing background must never block navigation
+      img.src = url;
+      if (img.complete && img.naturalWidth > 0) return done(); // synchronously cached
+      if (typeof img.decode === 'function') img.decode().then(done, () => {});
+      setTimeout(done, budgetMs);
+    });
+  }
+
+  /**
+   * Move to a new screen without ever passing through black: wait for the
+   * background (bounded by `fadeMs`), then dissolve — the outgoing screen
+   * fades out on top of the incoming one, exactly like the popups do.
+   */
   function transitionTo(buildScreen) {
-    fade.classList.add('on');
-    setTimeout(() => {
-      showScreen(buildScreen());
-      fade.classList.remove('on');
-    }, fadeMs);
+    const node = buildScreen();
+    const swap = () => showScreen(node);
+    backgroundReady(node?.dataset?.bg, fadeMs).then(swap, swap);
   }
 
   function showScreen(node) {
@@ -203,7 +244,18 @@ export function initGame(opts = {}) {
       stopParticles();
       stopParticles = null;
     }
-    content.replaceChildren(node);
+    const leftovers = [...content.children];
+    content.append(node);
+    // Only the most recent previous screen gets to dissolve; anything older
+    // (a swap still in flight) leaves now.
+    const old = leftovers.filter((c) => c !== node).pop();
+    for (const stale of leftovers) if (stale !== old && stale !== node) stale.remove();
+    if (old && fadeMs > 0) {
+      old.classList.add('swap-out'); // sits on top, fades out, ignores input
+      setTimeout(() => old.remove(), fadeMs);
+    } else {
+      old?.remove();
+    }
     if (typeof node._startParticles === 'function') stopParticles = node._startParticles();
   }
 
@@ -253,29 +305,43 @@ export function initGame(opts = {}) {
     return renderAlmanac(gs, { onBack: () => transitionTo(hubScreen) });
   }
 
+  function shareUrl() {
+    try {
+      const u = new URL(window.location.href);
+      u.search = `?seed=${gs.weatherSeed}`;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  }
+
   function settingsScreen() {
-    return renderSettings(preferences, {
-      onBack: () => transitionTo(hubScreen),
-      onToggleContrast: () => {
-        prefsService.toggleContrast();
-        showScreen(settingsScreen());
+    return renderSettings(
+      preferences,
+      {
+        onBack: () => transitionTo(hubScreen),
+        onToggleContrast: () => {
+          prefsService.toggleContrast();
+          showScreen(settingsScreen());
+        },
+        onToggleMotion: () => {
+          prefsService.toggleMotion();
+          showScreen(settingsScreen());
+        },
+        onToggleSound: () => {
+          prefsService.toggleSound();
+          showScreen(settingsScreen());
+        },
+        onChangeVolume: (v) => {
+          setVolume(v);
+        },
+        onAbandon: () => {
+          restart();
+          toast('New run started.');
+        },
       },
-      onToggleMotion: () => {
-        prefsService.toggleMotion();
-        showScreen(settingsScreen());
-      },
-      onToggleSound: () => {
-        prefsService.toggleSound();
-        showScreen(settingsScreen());
-      },
-      onChangeVolume: (v) => {
-        setVolume(v);
-      },
-      onAbandon: () => {
-        restart();
-        toast('New run started.');
-      },
-    });
+      { seed: gs.weatherSeed, url: shareUrl() },
+    );
   }
 
   // -------------------------------------------------------------- extras
@@ -344,13 +410,6 @@ export function initGame(opts = {}) {
   function restart() {
     gs.resetGame();
     events.reset();
-    // Re-seed the RNG used by the event manager so the new run has fresh
-    // event timing rather than replaying the last one.
-    if (typeof rng.setState === 'function' && rng.isSeeded) {
-      // seeded RNGs keep state; nothing to do, events.reset() already advanced it
-    } else if (rng !== createRng) {
-      // unseeded Math.random path: nothing to reset
-    }
     saveStore.clear(storage);
     hud.hidden = false;
     updateHud();

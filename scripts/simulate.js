@@ -43,7 +43,9 @@ const randomChoice = (pool, rng) => pool[Math.floor(rng.random() * pool.length)]
 
 /** Score a preview with a configurable amount of survival awareness. */
 function scorePreview(gs, location, { focus = 1, optimise = false } = {}) {
-  const { total } = computeDayEffects(gs, location.id);
+  // Player models score the same information a human sees: the preview is
+  // the honest average — weather, festival and perks included, variance not.
+  const { total } = computeDayEffects(gs, location.id, { preview: true });
   const sanityWeight = gs.sanity < 45 ? 1 + 4 * focus : 1;
   const moneyWeight = gs.money < 45 ? 1 + 4 * focus : 1;
   const energyWeight = gs.energy < 35 ? 0.4 + 1.4 * focus : 0.2;
@@ -90,10 +92,11 @@ export const STRATEGIES = {
     rng.random() < 1 / 3 ? bestPreview(gs, pool, { focus: 0.65 }) : randomChoice(pool, rng),
 
   /** An average player notices genuine danger sometimes, but otherwise follows
-   * impulse and does not optimise. The 18% attention cadence is intentionally
-   * calibrated against the real hub to make the 60-day goal a coin flip. */
+   * impulse and does not optimise. The attention cadence is intentionally
+   * calibrated against the real hub to make the 60-day goal a coin flip;
+   * it moves when the economy does (see tests/difficulty.test.js). */
   average: (gs, pool, rng) =>
-    rng.random() < 0.18 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
+    rng.random() < 0.32 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
 
   /** Reads every preview and consistently addresses the most urgent resource. */
   concentrates: (gs, pool) => bestPreview(gs, pool, { focus: 1 }),
@@ -106,7 +109,7 @@ export const STRATEGIES = {
     let best = pool[0];
     let bestScore = -Infinity;
     for (const l of pool) {
-      const { total } = computeDayEffects(gs, l.id);
+      const { total } = computeDayEffects(gs, l.id, { preview: true });
       const sanityWeight = gs.sanity < 40 ? 4 : 1;
       const moneyWeight = gs.money < 40 ? 4 : 1;
       const score =

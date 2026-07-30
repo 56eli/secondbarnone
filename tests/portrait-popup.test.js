@@ -257,3 +257,45 @@ maybe('every clickable avatar button has an accessible label', async () => {
     }
   } finally { cleanup(window); }
 });
+
+maybe('re-opening the popup does not accumulate document keydown listeners', async () => {
+  const window = await boot();
+  const { profileFor } = await import(
+    pathToFileURL(join(DOCS, 'js', 'data', 'characters.js')).href
+  ).then((m) => ({ profileFor: (id) => m.createAllProfiles().find((p) => p.id === id) }));
+  const { openCharacterPopup } = await import(
+    pathToFileURL(join(DOCS, 'js', 'ui', 'screens.js')).href
+  );
+
+  const doc = window.document;
+  let added = 0;
+  let removed = 0;
+  const origAdd = doc.addEventListener.bind(doc);
+  const origRemove = doc.removeEventListener.bind(doc);
+  doc.addEventListener = (type, ...rest) => {
+    if (type === 'keydown') added += 1;
+    return origAdd(type, ...rest);
+  };
+  doc.removeEventListener = (type, ...rest) => {
+    if (type === 'keydown') removed += 1;
+    return origRemove(type, ...rest);
+  };
+
+  const leon = profileFor('leon');
+  // Normalise module state first: another test may have left a popup (and its
+  // tracked close handler) behind; flush it so the counts below are exact.
+  openCharacterPopup(leon);
+  doc.querySelector('.portrait-popup-backdrop .portrait-close')?.click();
+  added = 0;
+  removed = 0;
+
+  for (let i = 0; i < 5; i += 1) openCharacterPopup(leon);
+  doc.querySelector('.portrait-popup-backdrop .portrait-close')?.click();
+  doc.addEventListener = origAdd;
+  doc.removeEventListener = origRemove;
+
+  assert.equal(doc.querySelectorAll('.portrait-popup-backdrop').length, 0, 'popup closed');
+  assert.ok(added >= 5, `each open registers one keydown listener (saw ${added})`);
+  assert.equal(removed, added, 'every keydown listener must be removed on close — no leak');
+  cleanup(window);
+});

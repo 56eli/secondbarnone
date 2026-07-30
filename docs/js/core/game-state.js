@@ -25,6 +25,7 @@ import {
   ENERGY_RECOVERY,
   EXHAUSTION_THRESHOLD,
   EXHAUSTION_MAX_PENALTY,
+  EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
   START_INSIGHT,
@@ -38,6 +39,7 @@ import {
   RENT_DISCOUNT_REP_BONUS,
   RENT_DISCOUNT_REP_HIGH,
   RENT_DISCOUNT_REP_HIGH_BONUS,
+  WEEKDAY_NAMES,
 } from './balance.js';
 
 /**
@@ -58,6 +60,7 @@ export {
   ENERGY_RECOVERY,
   EXHAUSTION_THRESHOLD,
   EXHAUSTION_MAX_PENALTY,
+  EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
   START_INSIGHT,
@@ -71,17 +74,8 @@ export {
   RENT_DISCOUNT_REP_BONUS,
   RENT_DISCOUNT_REP_HIGH,
   RENT_DISCOUNT_REP_HIGH_BONUS,
+  WEEKDAY_NAMES,
 } from './balance.js';
-
-export const WEEKDAY_NAMES = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
 
 export const MONTH_NAMES = [
   'January',
@@ -153,7 +147,6 @@ export class GameState {
     this.visitedLocations = new Set();
     this.nightDays = 0;
     this.festivalsSeen = 0;
-    this.pendingAchievements = [];
 
     /** Per-run seed driving the (deterministic) weather. */
     this.weatherSeed = this._seedOption ?? Math.floor(Math.random() * 1e9);
@@ -188,7 +181,6 @@ export class GameState {
 
   resetGame() {
     this._initStats();
-    this.pendingAchievements = [];
     this._statsChanged();
     this.emit(
       'day_changed',
@@ -254,9 +246,13 @@ export class GameState {
 
   // ---------------- weather & festivals ----------------
 
-  /** Today's weather. Derived, never stored. */
+  /**
+   * Today's weather. Derived, never stored. The month index is passed so
+   * fringe-month weather (snow in November, frost in March) can appear even
+   * when the calendar season disagrees.
+   */
   getWeather() {
-    return weatherForDay(this.journeyDay, this.weatherSeed, this.getSeason());
+    return weatherForDay(this.journeyDay, this.weatherSeed, this.getSeason(), this.monthIndex);
   }
 
   /** Tags shut down by today's weather. */
@@ -356,8 +352,16 @@ export class GameState {
   }
 
   /**
+   * The energy level below which exhaustion bites. Second Wind's
+   * `exhaustionResist` lowers this: exhaustion really does arrive later.
+   */
+  get exhaustionThreshold() {
+    return Math.max(5, EXHAUSTION_THRESHOLD - this.getPerkEffects().exhaustionResist);
+  }
+
+  /**
    * Extra sanity cost when running on empty. Zero above the threshold,
-   * scaling to −EXHAUSTION_MAX_PENALTY at zero energy, reduced by Second Wind.
+   * scaling to −EXHAUSTION_MAX_PENALTY at zero energy, postponed by Second Wind.
    *
    * The curve is quadratic rather than linear on purpose. A shallow dip below
    * the threshold costs almost nothing, so a single hard day is survivable
@@ -367,8 +371,7 @@ export class GameState {
    * rather than a panic at the bottom.
    */
   exhaustionPenalty() {
-    const resist = this.getPerkEffects().exhaustionResist;
-    const threshold = EXHAUSTION_THRESHOLD + resist;
+    const threshold = this.exhaustionThreshold;
     if (this.energy >= threshold) return 0;
     const depth = (threshold - this.energy) / threshold;
     // Ceil, not round: being below the threshold at all must cost at least 1,
@@ -376,8 +379,21 @@ export class GameState {
     return -Math.max(1, Math.ceil(depth * depth * EXHAUSTION_MAX_PENALTY));
   }
 
+  /**
+   * Money cost of running on empty — takeaway instead of cooking, cabs
+   * instead of walking. Same quadratic shape as the sanity penalty, scaling
+   * to −EXHAUSTION_MONEY_BURN_MAX at zero energy, postponed by Second Wind
+   * with the same shifted threshold.
+   */
+  exhaustionBurn() {
+    const threshold = this.exhaustionThreshold;
+    if (this.energy >= threshold) return 0;
+    const depth = (threshold - this.energy) / threshold;
+    return -Math.max(1, Math.ceil(depth * depth * EXHAUSTION_MONEY_BURN_MAX));
+  }
+
   get isExhausted() {
-    return this.energy < EXHAUSTION_THRESHOLD + this.getPerkEffects().exhaustionResist;
+    return this.energy < this.exhaustionThreshold;
   }
 
   /**
@@ -596,7 +612,6 @@ export class GameState {
     const earned = evaluateAchievements(this.achievementSnapshot(extra), this.achievements);
     for (const a of earned) {
       this.achievements.add(a.id);
-      this.pendingAchievements.push(a);
       this.emit('achievement_earned', a);
     }
     return earned;
@@ -611,7 +626,38 @@ export class GameState {
   }
 
   getSeason() {
-    const m = this.monthIndex;
+    return GameState.seasonForMonth(this.monthIndex);
+  }
+
+  /**
+   * The calendar date `daysAhead` days from today, without mutating state.
+   * Used by the almanac so a forecast that crosses a month boundary computes
+   * each day with its own season *and* its own fringe-month eligibility.
+   */
+  peekDay(daysAhead = 0) {
+    let { dayOfMonth, monthIndex, year } = this;
+    for (let i = 0; i < daysAhead; i += 1) {
+      dayOfMonth += 1;
+      let maxDay = DAYS_IN_MONTH[monthIndex];
+      if (monthIndex === 1 && this._isLeapYear(year)) maxDay = 29;
+      if (dayOfMonth > maxDay) {
+        dayOfMonth = 1;
+        monthIndex += 1;
+        if (monthIndex >= 12) {
+          monthIndex = 0;
+          year += 1;
+        }
+      }
+    }
+    return { dayOfMonth, monthIndex, year };
+  }
+
+  /** The season `daysAhead` calendar days from today — see `peekDay`. */
+  peekSeason(daysAhead = 0) {
+    return GameState.seasonForMonth(this.peekDay(daysAhead).monthIndex);
+  }
+
+  static seasonForMonth(m) {
     if (m === 11 || m === 0 || m === 1) return 'Winter';
     if (m >= 2 && m <= 4) return 'Spring';
     if (m >= 5 && m <= 7) return 'Summer';
@@ -638,7 +684,7 @@ export class GameState {
         text: 'Your sanity is low. A quieter plan may help you come back to yourself.',
       };
     }
-    if (this.energy < EXHAUSTION_THRESHOLD) {
+    if (this.isExhausted) {
       const predictive =
         this.consecutiveBarDays >= 2
           ? 'A bar night will put you near empty quickly. Consider rest tomorrow.'
@@ -785,7 +831,6 @@ export class GameState {
     this.nightDays = num(migrated.nightDays, 0);
     this.festivalsSeen = num(migrated.festivalsSeen, 0);
     this.weatherSeed = num(migrated.weatherSeed, 0);
-    this.pendingAchievements = [];
 
     this._statsChanged();
     this.emit(

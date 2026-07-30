@@ -69,7 +69,67 @@ export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
     },
   );
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
-  return el('div', { class: cls }, ...chips);
+  return el('div', { class: cls, 'data-preview-mode': 'exact' }, ...chips);
+}
+
+/**
+ * How much of the day's numbers the weather lets you see.
+ *
+ * - `'exact'`  — the full adjusted preview (most days);
+ * - `'banded'` — rain and snow blur the details: every delta collapses to a
+ *   rough `+` / `++` / `-` / `--` estimate, so you keep direction and a
+ *   sense of scale but lose the arithmetic;
+ * - `'veiled'` — fog hides everything, chips and reasons alike.
+ */
+export function previewMode(weather) {
+  if (weather?.id === 'fog') return 'veiled';
+  if (weather?.id === 'rain' || weather?.id === 'snow') return 'banded';
+  return 'exact';
+}
+
+/** |delta| at or above this renders as the double band. */
+export const BAND_STRONG = 6;
+
+export function effectBandedChips(bundle, cls = 'chips', weatherEmoji = '') {
+  const chips = STAT_META.filter(([key]) => Math.round(bundle[key] ?? 0) !== 0).map(
+    ([key, emoji]) => {
+      const v = Math.round(bundle[key]);
+      const band = Math.abs(v) >= BAND_STRONG ? (v > 0 ? '++' : '--') : v > 0 ? '+' : '-';
+      const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${band}` : `${emoji} ${band}`;
+      return el('span', { class: `chip banded ${v > 0 ? 'pos' : 'neg'}` }, label);
+    },
+  );
+  if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
+  return el('div', { class: cls, 'data-preview-mode': 'banded' }, ...chips);
+}
+
+/** Fog keeps one flavour chip where the numbers would be, so cards keep their shape. */
+export function effectVeiledChips(cls = 'chips') {
+  return el(
+    'div',
+    { class: `${cls} veiled-chips`, 'data-preview-mode': 'veiled' },
+    el('span', { class: 'chip veiled', text: '🌫️ fog — no telling' }),
+  );
+}
+
+/**
+ * The preview chips a card is allowed to show today, honouring `previewMode`.
+ * `weatherEmoji` marks weather-adjusted numbers on exact days.
+ */
+function chipsFor(gs, total, weatherEmoji, cls) {
+  const mode = previewMode(gs.getWeather?.());
+  if (mode === 'veiled') return effectVeiledChips(cls);
+  if (mode === 'banded') return effectBandedChips(total, cls, weatherEmoji);
+  return effectChips(total, cls, weatherEmoji);
+}
+
+/**
+ * The weather emoji, but only when the weather actually adjusted this
+ * location's numbers — a sunny day that touches nothing gets no decoration.
+ */
+function weatherEmojiIfAdjusted(gs, reasons) {
+  const w = gs.getWeather?.();
+  return w && reasons.some((r) => r.includes(w.emoji)) ? w.emoji : '';
 }
 
 /**
@@ -207,6 +267,9 @@ export function renderPortraitPopup(profile, { onClose } = {}) {
   return backdrop;
 }
 
+/** The close handler of the currently open lightbox, if any. */
+let closeOpenPopup = null;
+
 /**
  * Opens (or replaces) the portrait popup for a character, appended straight
  * to <body> like the day-result modal. Self-contained so any screen can call
@@ -216,14 +279,18 @@ export function renderPortraitPopup(profile, { onClose } = {}) {
  */
 export function openCharacterPopup(profile) {
   if (!profile) return;
-  document.querySelector('.portrait-popup-backdrop')?.remove();
+  // Close via the previous popup's own cleanup: removing the backdrop from
+  // the DOM alone would orphan its document keydown listener, one per open.
+  closeOpenPopup?.();
 
   const previouslyFocused = document.activeElement;
   const close = () => {
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
+    if (closeOpenPopup === close) closeOpenPopup = null;
     if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
   };
+  closeOpenPopup = close;
   const onKey = (e) => {
     if (e.key === 'Escape') close();
   };
@@ -270,21 +337,8 @@ export function renderHub(gs, handlers) {
   // The two founding places are the primary choices.
   const quick = ['spiritual_community', 'bar'].map((id, offset) => {
     const location = getLocation(id);
-    const { total, reasons } = computeDayEffects(gs, id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, reasons } = computeDayEffects(gs, id, { preview: true });
+    const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
     return el(
       'button',
       {
@@ -295,7 +349,7 @@ export function renderHub(gs, handlers) {
       },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      effectChips(total, 'chips choice-eff', weatherEmoji),
+      chipsFor(gs, total, weatherEmoji, 'chips choice-eff'),
     );
   });
 
@@ -316,21 +370,8 @@ export function renderHub(gs, handlers) {
 
   const otherChoices = selected.map((location, offset) => {
     const slot = HUB_SLOTS[offset];
-    const { total, reasons } = computeDayEffects(gs, location.id);
-    const weatherEmoji = reasons.some(
-      (r) =>
-        r.includes('☀️') ||
-        r.includes('☁️') ||
-        r.includes('🌧️') ||
-        r.includes('⛈️') ||
-        r.includes('🌫️') ||
-        r.includes('❄️') ||
-        r.includes('🔥') ||
-        r.includes('🧊') ||
-        r.includes('🌸'),
-    )
-      ? (gs.getWeather()?.emoji ?? '')
-      : '';
+    const { total, reasons } = computeDayEffects(gs, location.id, { preview: true });
+    const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
     const visited = gs.visitedLocations.has(location.id);
     const { unlocked, reason } = evaluateUnlock(location, snap);
     // The pinned day-one invitation gets a quiet badge so the player can see
@@ -354,7 +395,7 @@ export function renderHub(gs, handlers) {
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-        effectChips(total, 'chips choice-eff', weatherEmoji),
+        chipsFor(gs, total, weatherEmoji, 'chips choice-eff'),
       );
     } else {
       return el(
@@ -378,6 +419,7 @@ export function renderHub(gs, handlers) {
     {
       class: 'screen hub',
       style: "background-image:url('assets/backgrounds/hub_background.webp')",
+      'data-bg': 'assets/backgrounds/hub_background.webp',
     },
     el(
       'div',
@@ -436,21 +478,11 @@ export function renderHub(gs, handlers) {
 
 export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, onBuyRenovation }) {
   const location = getLocation(locationId);
-  const { total, reasons } = computeDayEffects(gs, locationId);
-  const weatherEmojiForLocation = reasons.some(
-    (r) =>
-      r.includes('☀️') ||
-      r.includes('☁️') ||
-      r.includes('🌧️') ||
-      r.includes('⛈️') ||
-      r.includes('🌫️') ||
-      r.includes('❄️') ||
-      r.includes('🔥') ||
-      r.includes('🧊') ||
-      r.includes('🌸'),
-  )
-    ? (gs.getWeather()?.emoji ?? '')
-    : '';
+  const { total, reasons } = computeDayEffects(gs, locationId, { preview: true });
+  const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
+  const mode = previewMode(gs.getWeather?.());
+  const veiledLine =
+    '🌫️ The fog swallows the details. No telling how today lands — only where it happens.';
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -495,6 +527,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, on
     {
       class: 'screen location',
       style: location.bg ? `background-image:url('${location.bg}')` : '',
+      'data-bg': location.bg || '',
     },
     particles,
     el('h2', { class: 'screen-title', text: `${location.emoji} ${location.name}` }),
@@ -503,10 +536,12 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, on
 
     el(
       'div',
-      { class: 'preview' },
+      { class: 'preview', 'data-preview-mode': mode },
       el('h3', { text: 'Today, here' }),
-      effectChips(total, 'chips preview-chips', weatherEmojiForLocation),
-      reasons.length > 0
+      mode === 'veiled'
+        ? el('p', { class: 'preview-veiled', text: veiledLine })
+        : chipsFor(gs, total, weatherEmoji, 'chips preview-chips'),
+      mode !== 'veiled' && reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
         : null,
     ),
@@ -656,15 +691,26 @@ export function renderPerks(gs, { onBuy, onBack }) {
 // --------------------------------------------------------------- almanac
 
 export function renderAlmanac(gs, { onBack }) {
-  const days = forecast(gs.journeyDay, gs.weatherSeed, gs.getSeason(), 4);
+  const LOOKAHEAD = 4;
+  // Per-day season *and* month: a forecast that crosses a month boundary can
+  // also cross a season boundary, and each day's weather is computed with its
+  // own pair — that is what lets fringe snow (November / early March) appear
+  // in the almanac instead of being smeared into season-only weather.
+  const calendar = Array.from({ length: LOOKAHEAD }, (_, i) => ({
+    season: gs.peekSeason(i),
+    monthIndex: gs.peekDay(i).monthIndex,
+  }));
+  const days = forecast(gs.journeyDay, gs.weatherSeed, calendar, LOOKAHEAD);
   const festivals = upcomingFestivals(gs.monthIndex, gs.dayOfMonth, 3);
   const earned = ACHIEVEMENTS.filter((a) => gs.achievements.has(a.id));
   const pending = ACHIEVEMENTS.filter((a) => !gs.achievements.has(a.id));
 
-  // Energy forecast: predict trajectory based on current energy level
+  // Energy outlook, banded against the *effective* exhaustion threshold so
+  // the prose and the HUD bar's warning never disagree.
+  const threshold = gs.exhaustionThreshold;
   const energyNow = gs.energy;
   const forecastEnergy =
-    energyNow < 25
+    energyNow < threshold
       ? 'Low — rest will restore quickly.'
       : energyNow > 75
         ? 'Strong — you can push a little.'
@@ -743,6 +789,7 @@ export function renderAlmanac(gs, { onBack }) {
 export function renderSettings(
   preferences,
   { onToggleContrast, onToggleMotion, onToggleSound, onChangeVolume, onBack, onAbandon },
+  share = null,
 ) {
   const toggle = (label, enabled, handler, desc) =>
     el(
@@ -806,10 +853,30 @@ export function renderSettings(
         'Background music',
         soundOn,
         onToggleSound,
-        'A quiet warm piano loop — off until you turn it on, per autoplay rules.',
+        'A slow, warm pad loop — off until you turn it on, per autoplay rules.',
       ),
       el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
     ),
+
+    share?.url
+      ? el(
+          'section',
+          { class: 'settings-group' },
+          el('h3', { text: 'Share this city' }),
+          el('p', {
+            class: 'settings-desc',
+            text: `This run's seed is ${share.seed}. Anyone opening the link below gets the same Paris — same weather, same event timing — in a fresh run of their own.`,
+          }),
+          el('input', {
+            class: 'share-url',
+            type: 'text',
+            readonly: true,
+            value: share.url,
+            'aria-label': 'Shareable run-seed link',
+            onclick: (e) => e.target.select(),
+          }),
+        )
+      : null,
 
     el(
       'section',
@@ -1066,8 +1133,12 @@ export function renderResultModal(result, gs, { onContinue }) {
   if (rentCharged) notes.push(`📅 Sunday rent came due — ${rentCharged} money.`);
   if (result.extraRent)
     notes.push(`📅 Rent came due while you were away — ${result.extraRent} money.`);
-  if (exhaustion)
-    notes.push(`😵 Running on empty cost you another ${Math.abs(exhaustion)} sanity.`);
+  if (exhaustion || result.exhaustionBurn) {
+    const parts = [];
+    if (exhaustion) parts.push(`${Math.abs(exhaustion)} sanity`);
+    if (result.exhaustionBurn) parts.push(`${Math.abs(result.exhaustionBurn)} money`);
+    notes.push(`😵 Running on empty cost you another ${parts.join(' and ')}.`);
+  }
   if (festival) notes.push(`${festival.emoji} ${festival.name}.`);
   if (result.longTrip) notes.push(`🏔 Three days pass in silence. The calendar has moved.`);
   for (const a of achievements) notes.push(`${a.emoji} Achievement: ${a.name}.`);

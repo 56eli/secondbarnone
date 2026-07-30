@@ -1,0 +1,25 @@
+# CI improvement prepared 2026-07-30: run lint/format/typecheck legs in CI.
+# Not applied: pushing this change needs a GitHub token with the "workflows"
+# permission. Apply with: git apply notes/CI_QUALITY_LEGS.patch
+# (see AUDIT_2026-07-30.md §6 finding 4.12)
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -21,6 +21,18 @@
+       - name: Install dependencies
+         run: npm ci
+ 
++      # Lint, formatting and typechecking gate alongside the tests — the same
++      # legs `npm run check` runs locally. If CI passes here, `npm run check`
++      # passes there.
++      - name: Lint
++        run: npm run lint
++
++      - name: Format check
++        run: npm run format:check
++
++      - name: Typecheck
++        run: npm run typecheck
++
+       - name: Tests
+         run: npm test
+ 

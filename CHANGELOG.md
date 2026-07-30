@@ -1,19 +1,245 @@
 # Changelog
 
-Entries are newest-first, dated against the working branch.
+Entries are newest-first, dated against the working branch. Every balance
+claim in an entry must match `npm run simulate` output for that entry's
+revision — an entry that describes numbers the code doesn't have is a bug,
+and gets corrected in place rather than remembered fondly.
 
-## 2026-07-30 — Late-Game Renovations, Rebalanced Core Loop, Relationship Markers, Technical Debt & Art Regeneration
+## 2026-07-30 (night) — Owner-directed portrait corrections + content-manifest lockdown
+
+Ten portraits with owner-recorded defects regenerated in the house style, and
+the mechanism that let old art silently come back is now test-locked.
+Version bumped to **2.5.0**.
+
+### Corrections (all male per `CHARACTER_AND_LOCATION_TEMPLATES.md`)
+
+- `baris` — white deckle-edge composition → clean frame-less grocer, shelves
+  of jars and bread, full bleed.
+- `mrone` — incompatible realistic style → painted minimalist in his sparse
+  loft, house brushwork.
+- `seth` ("The Hand") — baked white oval frame + off-theme Americana props →
+  weathered driver at the lantern-lit night market, no badge text.
+- `siekamcebule` — baked frame → squinting community-kitchen cook chopping
+  herbs in steam.
+- `isra` — baked frame **and wrong sex** (template: Male) → the male
+  architecture student with sketchbook and floorplan.
+- `andre_watson` — baked frame → jazz trumpeter at rest in the back-room bar.
+- `air_vaisselle` — baked frame → transcendent dishwasher, headphones and
+  steam.
+- `blokely` — baked frame → sculptor before his salvaged garden wall.
+- `jits` — baked frame → calm instructor in gi at the mountain retreat.
+- `gordon` — baked frame → silver-haired retired firefighter stacking
+  chairs in the chapel hall.
+
+All ten masters are clean square 1024px PNGs, visually QA'd (full-bleed, no
+frame/ring/white edge/text/watermark), with both tiers rebuilt.
+
+### Why old art kept coming back — and why it now can't
+
+The two-commit squashed history shipped the upload-day portrait binaries
+while the *text record* of the 30 July frame-less pass arrived through a doc
+merge. Docs said replaced; players saw upload-day art. The fix is structural:
+`assets/portraits/manifest.json` now pins the SHA-256 of every master and
+both deployed tiers for **all 78 characters**, asserted byte-for-byte by
+`tests/portrait-assets.test.js`. Approved changes re-pin the manifest in the
+same commit (`scripts/build-portrait-manifest.js`, added to the ART_STANDARD
+checklist); anything else that changes a single pixel fails the suite.
+
+## 2026-07-30 (evening) — Winter theming, weekday rhythm, seamless navigation
+
+The polish pass on top of Hard Winter. Everything is measured/verified; the
+difficulty contract (`tests/difficulty.test.js`, 61-day hub harness and
+`tests/balance.test.js`, 200-day unlocked harness) passes with the numbers
+quoted in the README. Version bumped to **2.4.0**.
+
+### Winter, in and around winter
+
+- **Fringe-month weather.** Snow and hard frost carry `fringeMonths`
+  (November / early March at half weight) in `data/weather.js`; the pool
+  widens but the per-day roll is never reshuffled, so mid-season weather is
+  bit-identical to before. `weatherForDay` takes an optional month index;
+  `GameState.peekDay()` reads a future date without mutating the calendar;
+  the almanac forecast now carries each day's real month, so shoulder-season
+  snow shows up in the four-day outlook instead of being flattened into
+  season-only weather.
+
+### The weekly rhythm
+
+- **The Saturday Market finally runs on Saturdays** (user-reported open
+  issue), the Puces de Saint-Ouen keeps its promised Sunday tarpaulins, and
+  the open mic stays Friday–Saturday as its description always claimed —
+  all through the existing `unlock.weekdays` gate.
+- Locked-card reasons now name the day: "Only on Saturdays", "Only on
+  Fridays and Saturdays" (`weekdayGateReason`, with `WEEKDAY_NAMES` moved to
+  `core/balance.js` so the data layer can phrase reasons without an import
+  cycle).
+- **Slot fallthrough for weekday gates only.** A recurring weekly closure is
+  not progression, so a weekday-gated place holds its hub card on its day
+  and the day before, then steps aside for the next location in the cycle.
+  Long-term locks (day/reputation/perk) still hold their cards as before —
+  that visibility is the discovery system. This is what keeps the midweek
+  board alive without touching the winter economy, and the 61-day contract
+  was re-verified against it.
+
+### Weather-bound previews
+
+- **Fog veils, rain and snow blur.** `previewMode(weather)` in
+  `ui/screens.js`: fog hides the chips *and* the "Adjusted by" reasons (a
+  single flavour line instead); rain and snow collapse every chip into
+  `+`/`++`/`-`/`--` bands (`BAND_STRONG = 6`); everything else shows the exact
+  honest average as before. Applied on all six hub cards and the location
+  page. The resolution itself is unchanged — this is an information rule,
+  not a balance rule.
+- The copy-pasted weather-emoji detection in the hub was replaced by a
+  single `weatherEmojiIfAdjusted` helper while touching those call sites.
+
+### No more black flicker
+
+- The 350 ms `#fade` blackout on every hub↔location navigation is gone —
+  element, CSS and JS. `transitionTo` now pre-loads the destination's
+  background (a full `Image` decode, bounded by a 250 ms budget) and
+  `showScreen` dissolves: the outgoing screen fades out *on top of* the
+  fully-present incoming one, like the popups always did. `data-bg` on the
+  hub/location screens feeds the preloader. `screenIn` was retired; the
+  character-panel rise animation kept, renamed `riseIn`.
+
+### Music
+
+- The piano loop is replaced by something calmer, warmer, equally slow:
+  `hearth_pad.wav` — 5 bars at 56 BPM of detuned-sine pads, a soft sub
+  root, one faint bell per bar, low-pass warmth, seamless circular-reverb
+  loop (~21 s, 0.90 MB, inside the 1 MB lazy-audio budget). New generator
+  `scripts/gen-warmth.py`; `scripts/gen-piano.py` and both `warm_piano.wav`
+  copies deleted. Settings copy updated.
+
+### Cleanup verified, not assumed
+
+- Removed: the `#fade` overlay and its CSS, `screenIn`, `gen-piano.py`,
+  `warm_piano.wav` (master + deploy), the vague "Not on today of all days"
+  lock reason, two stale "Removed obsolete inventory test" marker tails in
+  `tests/ui.test.js`, and the duplicate block they hid (a real maintenance
+  hazard: one of the two copies was being edited while the other ran).
+- Balance after gating, measured (README updates match): 61-day hub goal
+  rates — random 20% / dpa 0% / sometimes 38% / average 36% / greedy 21% /
+  concentrates 52% / min-maxing 61%. The average-model attention knob was
+  recalibrated 0.27 → 0.32 (documented in `scripts/simulate.js`, as is its
+  habit when the economy shifts); the 200-day unlocked-pool contract holds
+  (greedy 100% death / 0% goal; concentrates and min-maxing ~88% goal).
+
+## 2026-07-30 (later) — Hard Winter: one canonical tuning, honesty pass
+
+This pass landed the rebalance the entry below *described but never shipped*,
+and fixed every finding of the 2026-07-30 audit (`AUDIT_2026-07-30.md`).
+Version bumped to **2.3.0**.
+
+### Mechanics — the tuning (measured, not described)
+
+The one tuning, for everyone, no easy mode:
+
+- **Founding loop**: La Maison Calme **+18 sanity / −8 money / −14 energy**;
+  Le Dernier Verre **+20 money / −14 sanity / −26 energy** (was
+  +15/−10/−12 and +12/−12/−20).
+- **Energy recovery is 12/night** (was 14): eight nights restore 96, a ninth
+  tops off. Seven consecutive bar shifts empty a full tank — the fantasy the
+  README always sold is now literally true.
+- **Exhaustion costs money as well as sanity.** Below the threshold, a
+  quadratic sanity curve to −12/day (was −10) and a new money burn to
+  −9/day — running on empty is expensive: takeaway, cabs, no tips. Priced by
+  `EXHAUSTION_MONEY_BURN_MAX` in `balance.js` and surfaced in the end-of-day
+  modal.
+- **Rent escalates faster**: +3 every **14** journey days (was 24), capping
+  at **48** (was 42).
+- **Rest relief trimmed**: Home Loft +28 energy (was +30), Bathhouse +18
+  (was +22). Reactive deep-tank rest costs more days than proactive rest.
+- **Second Wind now does what it says.** `exhaustionResist` used to *raise*
+  the exhaustion threshold (exhaustion earlier and harsher at every energy
+  level) while the description promised "exhaustion arrives later". The
+  threshold now shifts down (25→17) and both exhaustion curves soften;
+  `restBonus` trimmed 10→8 and cost raised 6→8 insight as the perk is now a
+  genuine buff all around.
+- **Preview shows the honest average, never the dice.** The deterministic
+  daily swing is excluded from all previews (hub cards, location page, and
+  the balance simulator's player models) and applies only at resolution.
+  Exact-answer play is gone; planning around what a place *is for* remains.
+- **Event RNG is seeded per run** from the run seed and persisted with the
+  save: closing the tab before Continue and reloading replays the same
+  scheduled day instead of re-rolling the event.
+- First-event scheduling after *Abandon run* now matches a fresh boot
+  (day 3–6), not day 2–5.
+
+### Difficulty contract (`tests/difficulty.test.js`, 300 runs × 61 days)
+
+| model | 60-day goal |
+| --- | ---: |
+| doesnt_pay_attention | **0%** |
+| random | **29%** |
+| greedy | **27%** |
+| average | **43%** |
+| pays_attention_sometimes | **48%** |
+| concentrates | **61%** |
+| min_maxing | **66%** |
+
+200-day horizon: greedy 100% death / random 95% / founding-only alternation
+100% (~day 19) / concentrates 3% / min_maxing 13% — attention wins, nobody is
+immortal. The calibration legend lives in `tests/difficulty.test.js`.
+
+### Features
+
+- **Share-a-city seed links.** `?seed=N` boots a deterministic run (same
+  weather, event timing and day swings); Settings shows the current run's
+  link, click-to-copy. An existing autosave always wins over the URL seed.
+- `forecast()` accepts per-day seasons: the almanac's 4-day outlook now uses
+  each day's own season across month boundaries (`GameState.peekSeason()`).
+
+### Bug fixes
+
+- Portrait lightbox no longer leaks a `keydown` listener per open (module
+  state from a prior popup is closed properly).
+- Removed a dead always-true branch in `restart()` and the never-read
+  `pendingAchievements` state.
+- Daily focus cue and the energy bar now agree (cue uses `isExhausted`,
+  almanac outlook uses the effective threshold instead of hardcoded 25/75).
+- `locations.js` header count corrected (twenty-three locations).
+
+### Tooling and CI
+
+- CI legs for **lint + format:check + typecheck** were prepared (the same
+  legs as `npm run check` locally) but could not be pushed from this
+  workspace — that file needs a token with the `workflows` permission. The
+  reviewed diff ships as `notes/CI_QUALITY_LEGS.patch`: `git apply` it from
+  any checkout with the right permissions. *(Amended 2026-07-30 evening:
+  this entry originally said "CI now runs…" — it does not yet.)*
+- `check-assets.js` warns below 10% eager-budget headroom (currently 97%
+  used) so the budget conversation happens before CI fails, not at it.
+- New tests: reload-replays-the-same-event, restart cadence, lightbox
+  listener hygiene, nudge/bar consistency, almanac season boundary, seed
+  URLs (boots the real `main.js`), share link presence, exhaustion money
+  burn, preview-vs-resolution split. **395 tests** pass; coverage
+  98.20/85.47/92.22.
+- README rare-rate claim corrected to the measured ~1-in-12 (was "one in
+  six"). Stale counts corrected everywhere (locations header, PROJECT_OVERVIEW).
+
+---
+
+## 2026-07-30 — Late-Game Renovations, Relationship Markers, Technical Debt & Art Regeneration
+
+> ⚠ **Corrected 2026-07-30 (later).** This entry originally claimed a core-loop
+> rebalance and simulation outcomes (+18/−8, +20/−14, `greedy` goal ~23%)
+> **that had not landed in the build** — the code still shipped the old
+> +15/−10, +12/−12 numbers and `greedy` succeeded 99–100% of the time. The
+> entry below now describes what that revision actually contained. The
+> intended rebalance shipped later the same day (see entry above). Keeping
+> this correction visible is the point: documentation is part of the release
+> contract, per `notes/BALANCE_REGRESSION_POSTMORTEM.md`.
 
 ### Mechanics and Game Balance
-- Rebalanced the economy around the founding loop (`spiritual_community` + `bar`). Meditating at La Maison Calme now restores +18 sanity / -8 money, and working a shift at Le Dernier Verre earns +20 money / -14 sanity, making the core loop sustainable and reliable against escalating rent.
-- Tuned secondary location costs so that static preview-reading (`greedy`) players run out of money or sanity when ignoring rent timing and headroom, dropping the `greedy` 60-day endurance goal rate to ~23% (unachievable for >75% of greedy players).
-- Calibrated `average` player goal rate to ~45% (within the committed 50% ±7% band) and `concentrates` / `min_maxing` to 100%, creating a meaningful skill gradient.
 - Introduced **Community Projects: House of Middleway Renovation** (`docs/js/data/renovations.js`), unlocking when reaching Day 60 OR purchasing all 10 perks. Added 4 progressive sanctuary renovation projects (`roof_repair`, `community_kitchen`, `meditation_garden`, `sanctuary_library`) that allow players to invest late-game Insight and Money in exchange for Reputation and Sanity.
+- *(The core-loop tuning originally described here did not ship in this revision; see the entry above for the version that did, and `tests/difficulty.test.js` for the contract it answers to.)*
 
 ### UX, UI, and Accessibility
 - Added `getRelationshipMarker(gs, profile)` in `docs/js/ui/screens.js`, displaying real-time narrative arc progression badges (`First meeting pending` → `Arc deepening · Second beat fired`) on the `People` screen and character detail view for key arcs (`Sato`, `Alex`, `Kaden`, `Brian`) and side characters.
 - Updated `.portrait-close` mobile touch target size to 44×44px on <=480px viewports for accessibility compliance.
-- Configured `initGame({ fadeMs: 0, toastMs: 50 })` and microtask `settle()` delays across all jsdom UI tests (`ui.test.js`, `dom.test.js`, `portrait-popup.test.js`, `slots.test.js`), reducing total UI test execution time from ~96 seconds down to <10 seconds.
+- Configured `initGame({ fadeMs: 0, toastMs: 50 })` and microtask `settle()` delays across all jsdom UI tests to cut the UI suites' runtime.
 
 ### Architecture and Technical Debt
 - Extracted `PreferencesService` (`docs/js/ui/preferences-service.js`) to manage high contrast, reduced motion, sound/volume settings, audio lifecycle, and localStorage persistence.
@@ -22,7 +248,7 @@ Entries are newest-first, dated against the working branch.
 - Added unit test suites for `PreferencesService`, `ModalController`, `RENOVATIONS`, and relationship markers.
 
 ### Art and Asset Pipeline
-- Configured Git LFS tracking for `assets/**` in `.gitattributes` to keep clone sizes lean while versioning source art masters.
+- Configured Git LFS tracking for `assets/**` in `.gitattributes`. *(The attribute is present; the actual LFS migration of the masters has NOT happened — the repo still carries ~277 MB of plain blobs across two squashed snapshots. See README → "Repository size and history".)*
 - Removed obsolete legacy procedural avatar scripts (`generate-avatars.js`, `process-portrait.sh`).
 - Regenerated clean, square, frame-less painterly portraits for 9 characters: Brock Lee, Kaschem, Carl-bot (turtle robot), Sir Cruds, Baris, Aril Stellar, Alvigunilla, Mrone, and Stephen, keeping gender and character identities consistent. Rebuilt deployed thumbnail (288px) and high-resolution (896px) WebP tiers and deleted obsolete circular-framed masters.
 
@@ -31,7 +257,9 @@ Entries are newest-first, dated against the working branch.
 ### Mechanics and quality gates
 - Made Mountain Retreat resolution atomic. Sunday rent during its two silent travel days now correctly triggers game over at zero money, and displayed turn deltas include all travel recovery and rent.
 - Added a regression test for a Friday retreat that reaches a fatal Sunday.
-- Turned typechecking into a real gate: TypeScript and `jsconfig.json` are committed, `npm run typecheck` fails on errors, and CI runs lint, formatting and typechecking before the coverage suite.
+- Turned typechecking into a real gate: TypeScript and `jsconfig.json` are committed and `npm run typecheck` fails on errors. *(This entry originally also claimed CI ran lint/format/typecheck — it did
+ not; the legs exist as a reviewed patch, `notes/CI_QUALITY_LEGS.patch`,
+ pending a `workflows`-permission push.)*
 - Added the documented `npm run simulate` command and Node 20+ engine declaration.
 - Removed the stale `package-lock.json` ignore rule.
 
@@ -116,8 +344,10 @@ Entries are newest-first, dated against the working branch.
     ceiling raised to 11 MB to absorb the new file while keeping the eager
     4 MB budget intact (actual eager payload 3.89 MB).
 - Asset check now prints lazy-music size separately.
-- CI checks run cleanly: `npm ci`, `npm test` (374 pass / 0 fail), lint,
-  format, `check-assets`, and coverage gate all green.
+- Local checks run cleanly: `npm ci`, `npm test` (374 pass / 0 fail), lint,
+  format, `check-assets`, and coverage gate all green. *(CI ran only
+  tests + assets + coverage at this revision; the full `npm run check` leg
+  set arrived 2026-07-30.)*
 
 ### Tests
 - New tests added:

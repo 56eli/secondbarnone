@@ -14,7 +14,7 @@ export class PreferencesService {
       volume: 0.35,
     };
     this.musicEl = null;
-    this.musicUrl = 'assets/music/warm_piano.wav';
+    this.musicUrl = 'assets/music/hearth_pad.wav';
     this.load();
   }
 

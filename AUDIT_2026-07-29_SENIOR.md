@@ -1,3 +1,13 @@
+# Historical record (superseded)
+
+> **Frozen context — do not cite for current facts.** The counts, balances,
+> and recommendations in this document describe an earlier revision.
+> Authoritative sources as of 30 July 2026: `README.md`,
+> `PROJECT_OVERVIEW.md`, `CHANGELOG.md`, and `AUDIT_2026-07-30.md`
+> (current audit, with the full resolution log). Kept for context only.
+
+---
+
 # secondbarnone — Senior Developer Audit & Roadmap
 
 **Auditor:** Senior Game Developer (Arena Agent Mode)  
