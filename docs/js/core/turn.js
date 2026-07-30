@@ -263,6 +263,12 @@ export function resolveTurn(gs, eventManager, locationId) {
     gs.energy = Math.max(0, Math.min(MAX_ENERGY, gs.energy));
     gs.money = Math.max(0, gs.money);
     gs.reputation = Math.max(0, Math.min(MAX_REPUTATION, gs.reputation));
+    // The multi-day action consumes every day up to the evening the player
+    // returns, so the turn must be marked resolved against the final
+    // journey day — otherwise isTurnResolved reports false on day N+2 and
+    // either reloads lose the pending-result modal or a second action can
+    // fire without an intervening night.
+    gs.markTurnResolved();
     gs.emit(
       'day_changed',
       gs.journeyDay,

@@ -8,6 +8,9 @@ import { createRng } from '../docs/js/core/rng.js';
 import { buildEventPool, eventsForCharacter } from '../docs/js/data/events.js';
 import { createAllProfiles } from '../docs/js/data/characters.js';
 import { LOCATIONS } from '../docs/js/data/locations.js';
+import { RENOVATIONS } from '../docs/js/data/renovations.js';
+import { evaluateAchievements, getAchievement } from '../docs/js/data/achievements.js';
+import { resolveTurn } from '../docs/js/core/turn.js';
 import { locationFocusResources } from '../docs/js/ui/screens.js';
 
 const ROOT = new URL('..', import.meta.url);
@@ -168,4 +171,72 @@ test('side-character portrait CSS stays round and larger than the retired squeez
   assert.doesNotMatch(avatarRule, /flex:\s*0 0 42px/);
   assert.match(css, /\.detail-avatar[\s\S]*?width:\s*96px[\s\S]*?height:\s*96px/);
   assert.match(css, /\.hud-portrait[\s\S]*?width:\s*110px[\s\S]*?height:\s*110px/);
+});
+
+test('the Enlightened achievement fires when every renovation is owned on or after day 150', () => {
+  const gs = new GameState({ seed: 1 });
+  // Walk to day 150 with sufficient resources, owning every renovation.
+  gs.sanity = 80;
+  gs.money = 200;
+  gs.energy = 80;
+  gs.reputation = 90;
+  gs.journeyDay = 150;
+  gs._turnResolvedOnDay = 149;
+  for (const r of RENOVATIONS) gs.renovations.add(r.id);
+  const snap = gs.achievementSnapshot();
+  assert.equal(snap.renovations, RENOVATIONS.length);
+  assert.equal(snap.totalRenovations, RENOVATIONS.length);
+  const earned = evaluateAchievements(snap, new Set());
+  assert.ok(
+    earned.some((a) => a.id === 'enlightened'),
+    'enlightened must fire',
+  );
+  // A pre-day-150 snapshot must not fire it, even with all renovations.
+  const early = { ...snap, journeyDay: 149 };
+  assert.equal(
+    evaluateAchievements(early, new Set()).some((a) => a.id === 'enlightened'),
+    false,
+    'enlightened must not fire before day 150',
+  );
+});
+
+test('resolveTurn leaves isTurnResolved true even after a long-trip (mountain retreat)', () => {
+  const gs = new GameState({ seed: 1 });
+  const events = new EventManager(createRng(gs.weatherSeed));
+  events.initialize(gs.getCharacterNames());
+  // Walk to retreat unlock day with a playable state.
+  gs.reputation = 80;
+  while (gs.journeyDay < 20) {
+    gs.advanceDay();
+    gs._turnResolvedOnDay = gs.journeyDay;
+  }
+  gs._turnResolvedOnDay = gs.journeyDay - 1; // one action still open
+  const before = gs.journeyDay;
+  const result = resolveTurn(gs, events, 'mountain_retreat');
+  assert.equal(result.longTrip, true);
+  assert.equal(result.extraDays, 2);
+  assert.equal(gs.journeyDay, before + 2);
+  assert.equal(
+    gs.isTurnResolved,
+    true,
+    'after resolving a long trip the turn must be marked resolved on the return day',
+  );
+  // A second call in the same resolved state must come back as alreadyResolved.
+  const again = resolveTurn(gs, events, 'bar');
+  assert.equal(again.alreadyResolved, true, 'must not double-resolve on the same state');
+});
+
+test('"fragile fraud" label is hidden on day 1 and shown after the Kaden smear on day 2', () => {
+  const fresh = new GameState({ seed: 1 });
+  assert.equal(fresh.kadenSmearSeen, false);
+  assert.equal(fresh.getWeekdayName(), 'Thursday');
+  // Label must stay hidden until advanceDay fires the smear.
+  const hiddenBeforeSmear = !fresh.kadenSmearSeen || fresh.reputation >= 80;
+  assert.equal(hiddenBeforeSmear, true, 'label hidden on day 1');
+  fresh.advanceDay(); // journeys to day 2
+  assert.equal(fresh.journeyDay, 2);
+  assert.equal(fresh.kadenSmearSeen, true, 'Kaden smear fires on day 2 morning');
+  assert.equal(fresh.reputation, 15);
+  const shownAfterSmear = fresh.kadenSmearSeen && fresh.reputation < 80;
+  assert.equal(shownAfterSmear, true, 'label visible while smear is active');
 });
