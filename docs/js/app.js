@@ -428,6 +428,7 @@ export function initGame(opts = {}) {
         // N → N+1. The simulator uses the same lifecycle.
         const showKadenSmear = () => {
           const story = renderKadenSmearModal({
+            gs,
             onContinue: () => {
               gs.acknowledgeKadenSmear();
               saveStore.save(gs, storage, { events: events.toJSON() });
@@ -533,6 +534,7 @@ export function initGame(opts = {}) {
       () =>
         modals.showModal(
           renderKadenSmearModal({
+            gs,
             onContinue: () => {
               gs.acknowledgeKadenSmear();
               saveStore.save(gs, storage, { events: events.toJSON() });

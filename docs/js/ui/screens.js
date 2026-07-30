@@ -900,7 +900,7 @@ export function renderSettings(
         'Background music',
         soundOn,
         onToggleSound,
-        'A warm, slow felt-piano loop — off until you turn it on, per autoplay rules.',
+        'A warm, slow piano loop — off until you turn it on, per autoplay rules.',
       ),
       el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
     ),
@@ -1273,8 +1273,13 @@ export function renderToast(text) {
   return el('div', { class: 'toast', role: 'status', text });
 }
 
-/** A non-dismissable narrative interlude; the explicit button is the only exit. */
-function renderStoryModal(title, lines, actions, className = '') {
+/**
+ * A non-dismissable narrative interlude; the explicit button is the only exit.
+ * `lead` is an optional DOM element rendered above the title — used to put a
+ * face on a story beat (e.g. Kaden's portrait on the opening smear), matching
+ * how the event popups preview their character.
+ */
+function renderStoryModal(title, lines, actions, className = '', lead = null) {
   const modal = el(
     'div',
     {
@@ -1283,13 +1288,16 @@ function renderStoryModal(title, lines, actions, className = '') {
       'aria-modal': 'true',
       'aria-label': title,
     },
+    lead ?? null,
     el('h2', { text: title }),
     ...lines.map((line) => el('p', { text: line })),
     el('div', { class: 'modal-actions' }, ...actions),
   );
   const backdrop = el('div', { class: 'modal-backdrop' }, modal);
   const previous = document.activeElement;
-  const first = modal.querySelector('button');
+  // Focus the primary action (Continue), not a portrait lead button that may
+  // sit earlier in the DOM — the explicit action is this modal's only exit.
+  const first = modal.querySelector('.btn-primary') || modal.querySelector('button');
   setTimeout(() => first?.focus(), 0);
   backdrop._cleanup = () => {
     if (previous instanceof HTMLElement) previous.focus();
@@ -1298,7 +1306,23 @@ function renderStoryModal(title, lines, actions, className = '') {
 }
 
 /** Kaden's fixed opening story beat, shown once when day two begins. */
-export function renderKadenSmearModal({ onContinue }) {
+export function renderKadenSmearModal({ onContinue, gs }) {
+  // Preview Kaden's face at the top of the interlude, exactly like the event
+  // popups do — the rumour is his, so he should be the one visible.
+  const kaden = findCharacter(gs, 'kaden');
+  const lead = kaden
+    ? el(
+        'div',
+        { class: 'story-lead' },
+        avatar(kaden, 'avatar story-avatar'),
+        el(
+          'div',
+          {},
+          el('p', { class: 'story-who', text: kaden.name }),
+          el('p', { class: 'story-role', text: roleLabel(kaden.role) }),
+        ),
+      )
+    : null;
   return renderStoryModal(
     'A Rumour Finds Its Feet',
     [
@@ -1308,6 +1332,7 @@ export function renderKadenSmearModal({ onContinue }) {
     ],
     [el('button', { class: 'btn btn-primary', text: 'Face the day →', onclick: onContinue })],
     'kaden-smear-modal',
+    lead,
   );
 }
 

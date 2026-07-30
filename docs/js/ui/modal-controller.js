@@ -12,7 +12,9 @@ export class ModalController {
     this.dismissActive();
     this.doc?.body?.append(modalNode);
     this.activeModal = modalNode;
-    modalNode.querySelector('button')?.focus();
+    // Prefer the primary action (e.g. Continue) over a portrait-lead button
+    // that may appear earlier in the DOM, so the modal's real exit has focus.
+    (modalNode.querySelector('.btn-primary') || modalNode.querySelector('button'))?.focus();
     return modalNode;
   }
 

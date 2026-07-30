@@ -230,13 +230,61 @@ test('"fragile fraud" label is hidden on day 1 and shown after the Kaden smear o
   const fresh = new GameState({ seed: 1 });
   assert.equal(fresh.kadenSmearSeen, false);
   assert.equal(fresh.getWeekdayName(), 'Thursday');
-  // Label must stay hidden until advanceDay fires the smear.
-  const hiddenBeforeSmear = !fresh.kadenSmearSeen || fresh.reputation >= 80;
-  assert.equal(hiddenBeforeSmear, true, 'label hidden on day 1');
+  // The label must stay hidden until advanceDay fires the smear.
+  assert.equal(!fresh.kadenSmearSeen || fresh.reputation >= 80, true, 'label hidden on day 1');
   fresh.advanceDay(); // journeys to day 2
   assert.equal(fresh.journeyDay, 2);
   assert.equal(fresh.kadenSmearSeen, true, 'Kaden smear fires on day 2 morning');
   assert.equal(fresh.reputation, 15);
-  const shownAfterSmear = fresh.kadenSmearSeen && fresh.reputation < 80;
-  assert.equal(shownAfterSmear, true, 'label visible while smear is active');
+  assert.equal(fresh.kadenSmearSeen && fresh.reputation < 80, true, 'label visible while smear is active');
 });
+
+test('"fragile fraud" label CSS lets the [hidden] attribute win and renders lower-case', () => {
+  // The label's `.fragile-fraud { display: block }` (author origin) overrides
+  // the browser's user-agent `[hidden] { display: none }`, which is what made
+  // the slur leak onto day 1. jsdom's getComputedStyle cannot model that
+  // cascade, so this asserts the CSS rules directly: there must be an author
+  // rule forcing display:none on [hidden], and the label must not be
+  // upper-cased.
+  const css = readFileSync(new URL('docs/css/style.css', ROOT), 'utf8');
+  assert.match(
+    css,
+    /\.fragile-fraud\[hidden\]\s*\{[^}]*display:\s*none/,
+    '.fragile-fraud[hidden] must force display:none so the attribute beats the author display:block',
+  );
+  const fraudRule = css.match(/\.fragile-fraud\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+  assert.doesNotMatch(
+    fraudRule,
+    /text-transform:\s*uppercase/,
+    'the label must render as lower-case "fragile fraud", not upper-cased',
+  );
+});
+
+test('programmatically-focused headings hide their focus ring (no box on "Where will you spend today?")', () => {
+  // The hub title is focused on every screen change for screen-reader
+  // announcement (tabindex="-1", never in the Tab order). Without suppressing
+  // the default outline that programmatic focus leaves a visible box around
+  // "Where will you spend today?" on every load. Assert an author rule removes
+  // the outline for these headings.
+  const css = readFileSync(new URL('docs/css/style.css', ROOT), 'utf8');
+  assert.match(
+    css,
+    /h2\[tabindex[^\]]*\]:focus[\s\S]*?outline:\s*none/,
+    'headings focused for announcement must not show a default focus outline',
+  );
+});
+
+
+test('Kaden smear story modal can preview Kaden, whose portrait asset exists', () => {
+  // The smear modal renders Kaden's avatar at the top, exactly like the event
+  // popups do. Both tiers of his portrait must exist so the avatar — and its
+  // enlarge-on-tap lightbox — resolve.
+  const gs = new GameState({ seed: 1 });
+  const kaden = gs.getAllCharacters().find((c) => c.id === 'kaden');
+  assert.ok(kaden, 'Kaden exists in the cast');
+  assert.equal(kaden.role, 'arch_nemesis');
+  assert.equal(existsSync(new URL('docs/assets/portraits/kaden.webp', ROOT)), true);
+  assert.equal(existsSync(new URL('docs/assets/portraits/hi/kaden.webp', ROOT)), true);
+});
+
+

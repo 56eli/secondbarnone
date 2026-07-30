@@ -497,3 +497,57 @@ maybe('a ten-turn playthrough never throws', async () => {
     assert.ok(true);
   } finally { cleanup(window); }
 });
+
+maybe('"fragile fraud" label carries the [hidden] attribute on day 1 and drops it after the smear', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs, api } = window.__game;
+    const fraudEl = doc.getElementById('fragile-fraud');
+    assert.ok(fraudEl, 'fragile fraud element exists in the HUD');
+    assert.equal(fraudEl.hasAttribute('hidden'), true, 'hidden on day 1, before the smear');
+    assert.equal(gs.kadenSmearSeen, false);
+
+    gs.advanceDay(); // -> day 2 morning, fires the smear
+    api.updateHud();
+    assert.equal(gs.kadenSmearSeen, true);
+    assert.equal(fraudEl.hasAttribute('hidden'), false, 'visible on day 2 after the smear');
+
+    // Reputation restored to 80 (his name cleared) hides it again.
+    gs.reputation = 80;
+    api.updateHud();
+    assert.equal(fraudEl.hasAttribute('hidden'), true, 'hidden again once reputation is restored');
+  } finally { cleanup(window); }
+});
+
+maybe('Kaden smear modal previews Kaden with his portrait, like the event popups', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const { gs } = window.__game;
+    const { renderKadenSmearModal } = await import(
+      pathToFileURL(join(DOCS, 'js', 'ui', 'screens.js')).href
+    );
+    const node = renderKadenSmearModal({ gs, onContinue: () => {} });
+    doc.body.append(node);
+    await settle();
+
+    const modal = doc.querySelector('.kaden-smear-modal');
+    assert.ok(modal, 'Kaden smear modal renders');
+    const lead = modal.querySelector('.story-lead');
+    assert.ok(lead, 'modal has a portrait lead');
+    const img = lead.querySelector('img.story-avatar');
+    assert.ok(img, 'lead has a Kaden portrait image');
+    assert.equal(img.getAttribute('src'), 'assets/portraits/kaden.webp');
+    assert.match(lead.textContent, /Kaden/);
+
+    // The portrait lead is a button earlier in the DOM; focus must still land
+    // on the primary action (Continue), not on the portrait.
+    const cont = [...modal.querySelectorAll('button')].find((b) =>
+      b.textContent.includes('Face the day'),
+    );
+    assert.ok(cont, 'Continue action present');
+    assert.equal(doc.activeElement, cont, 'focus lands on Continue, not the portrait lead');
+  } finally { cleanup(window); }
+});
+
