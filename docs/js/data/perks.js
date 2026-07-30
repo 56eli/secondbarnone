@@ -88,9 +88,9 @@ export const PERKS = [
     name: 'Second Wind',
     emoji: '💨',
     desc: 'Resting recovers noticeably more, and exhaustion arrives later.',
-    cost: 6,
+    cost: 8,
     requires: ['deep_practice'],
-    effects: { restBonus: 10, exhaustionResist: 8 },
+    effects: { restBonus: 8, exhaustionResist: 8 },
   }),
   perk({
     id: 'the_long_view',

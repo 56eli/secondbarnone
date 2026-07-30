@@ -32,7 +32,7 @@ import { buildEventPool } from '../docs/js/data/events.js';
 
 // ============================================================== locations
 
-test('the catalogue holds twenty-two locations with unique ids', () => {
+test('the catalogue holds twenty-three locations with unique ids', () => {
   assert.equal(LOCATIONS.length, 23);
   const ids = locationIds();
   assert.equal(new Set(ids).size, ids.length);
@@ -47,15 +47,17 @@ test('the two founding locations are present and open from day one', () => {
   }
 });
 
-test('the original two locations keep their original numbers', () => {
-  // The whole expansion is worthless if it quietly rebalances the opening.
+test('the founding pair keeps its rebalanced core-loop numbers', () => {
+  // Canonical since the July 2026 rebalance (see CHANGELOG): sustainable but
+  // demanding, anchored in tests/difficulty.test.js. Changing these numbers
+  // IS rebalancing the opening — do it deliberately and recalibrate the sims.
   const sc = getLocation('spiritual_community');
-  assert.equal(sc.effects.sanity, 15);
-  assert.equal(sc.effects.money, -10);
+  assert.equal(sc.effects.sanity, 18);
+  assert.equal(sc.effects.money, -8);
 
   const bar = getLocation('bar');
-  assert.equal(bar.effects.money, 12);
-  assert.equal(bar.effects.sanity, -12);
+  assert.equal(bar.effects.money, 20);
+  assert.equal(bar.effects.sanity, -14);
 });
 
 test('every location is fully specified', () => {
@@ -151,9 +153,42 @@ test('a reputation-gated location reports what it wants', () => {
 test('a weekday-gated location only opens on its days', () => {
   const openMic = getLocation('open_mic');
   const snap = { journeyDay: 99, reputation: 99 };
-  assert.equal(evaluateUnlock(openMic, { ...snap, weekday: 0 }).unlocked, false);
+  const shut = evaluateUnlock(openMic, { ...snap, weekday: 0 });
+  assert.equal(shut.unlocked, false);
+  assert.equal(shut.reason, 'Only on Fridays and Saturdays');
   assert.equal(evaluateUnlock(openMic, { ...snap, weekday: 4 }).unlocked, true);
   assert.equal(evaluateUnlock(openMic, { ...snap, weekday: 5 }).unlocked, true);
+});
+
+test('the Saturday Market runs on Saturdays and nowhere else', () => {
+  const market = getLocation('farmers_market');
+  assert.equal(market.name, 'Saturday Market', 'the name is the contract');
+  const snap = { journeyDay: 99, reputation: 99 };
+  const shut = evaluateUnlock(market, { ...snap, weekday: 0 });
+  assert.equal(shut.unlocked, false);
+  assert.equal(shut.reason, 'Only on Saturdays');
+  for (let wd = 0; wd < 7; wd += 1) {
+    assert.equal(
+      evaluateUnlock(market, { ...snap, weekday: wd }).unlocked,
+      wd === 5,
+      `weekday ${wd}`,
+    );
+  }
+});
+
+test('the Puces flea market keeps its Sunday tarpaulins', () => {
+  const puces = getLocation('flea_market');
+  const snap = { journeyDay: 99, reputation: 99 };
+  const shut = evaluateUnlock(puces, { ...snap, weekday: 5 });
+  assert.equal(shut.unlocked, false);
+  assert.equal(shut.reason, 'Only on Sundays');
+  for (let wd = 0; wd < 7; wd += 1) {
+    assert.equal(
+      evaluateUnlock(puces, { ...snap, weekday: wd }).unlocked,
+      wd === 6,
+      `weekday ${wd}`,
+    );
+  }
 });
 
 test('closed tags shut a location regardless of every other gate', () => {
@@ -284,11 +319,19 @@ test('day two closes Brian’s welcome again', () => {
 
 test('the city opens up as the run goes on', () => {
   const early = availableLocations({ journeyDay: 1, reputation: 10, weekday: 3 }).length;
-  const mid = availableLocations({ journeyDay: 12, reputation: 40, weekday: 4 }).length;
-  const late = availableLocations({ journeyDay: 60, reputation: 100, weekday: 4 }).length;
+  const mid = availableLocations({ journeyDay: 12, reputation: 40, weekday: 5 }).length;
+  const late = availableLocations({ journeyDay: 60, reputation: 100, weekday: 5 }).length;
   assert.ok(mid > early, `mid ${mid} should exceed early ${early}`);
   assert.ok(late > mid, `late ${late} should exceed mid ${mid}`);
-  assert.equal(late, LOCATIONS.length, 'everything should eventually open');
+  // Weekday-gated places never share one Saturday, so the full city only
+  // exists across a week: the union of a late-run week covers everything.
+  const weekLong = new Set();
+  for (let wd = 0; wd < 7; wd += 1) {
+    for (const l of availableLocations({ journeyDay: 60, reputation: 100, weekday: wd })) {
+      weekLong.add(l.id);
+    }
+  }
+  assert.equal(weekLong.size, LOCATIONS.length, 'everything should eventually open');
 });
 
 // ================================================================ weather
@@ -300,6 +343,10 @@ test('weather types are unique, weighted and captioned', () => {
     assert.ok(t.weight > 0, `${t.id} weight`);
     assert.ok(t.name.length > 2, `${t.id} name`);
     assert.ok(t.line.length > 20, `${t.id} line`);
+    assert.ok(
+      t.fringeMonths.length === 0 || (t.fringeWeightFactor > 0 && t.fringeWeightFactor < 1),
+      `${t.id} fringe months need a real weight reduction`,
+    );
     assert.ok(Array.isArray(t.closes), `${t.id} closes`);
   }
 });
@@ -307,6 +354,68 @@ test('weather types are unique, weighted and captioned', () => {
 test('getWeather resolves known ids and refuses unknown ones', () => {
   assert.equal(getWeather('storm').id, 'storm');
   assert.equal(getWeather('sharknado'), null);
+});
+
+test('snow and hard frost bleed into the months around winter, at reduced weight', () => {
+  const snow = WEATHER_TYPES.find((t) => t.id === 'snow');
+  assert.deepEqual([...snow.fringeMonths].sort((a, b) => a - b), [2, 10]);
+  const november = eligibleWeather('Autumn', 10);
+  const october = eligibleWeather('Autumn', 9);
+  assert.ok(november.some((t) => t.id === 'snow'), 'November can snow');
+  assert.ok(!october.some((t) => t.id === 'snow'), 'October cannot');
+  assert.ok(!eligibleWeather('Summer', 6).some((t) => t.id === 'snow'), 'July never snows');
+
+  // The fringe weakens the chance, not the weather: effects are untouched,
+  // and the frozen catalogue entry is never mutated by the pool copy.
+  const fringeSnow = november.find((t) => t.id === 'snow');
+  assert.equal(fringeSnow.weight, snow.weight * snow.fringeWeightFactor);
+  assert.equal(fringeSnow.tagEffects, snow.tagEffects, 'effect bundle is shared');
+  assert.equal(snow.weight, 12, 'catalogue weight unchanged');
+  assert.ok(Object.isFrozen(snow));
+
+  const march = eligibleWeather('Spring', 2);
+  assert.ok(march.some((t) => t.id === 'snow'), 'early March can still snow');
+  assert.ok(march.some((t) => t.id === 'first_frost'), 'the late frost reaches March');
+  assert.ok(!eligibleWeather('Spring', 3).some((t) => t.id === 'first_frost'), 'April cannot frost');
+});
+
+test('fringe snow is possible but rarer than winter snow', () => {
+  let winterSnow = 0;
+  let fringeSnow = 0;
+  for (let seed = 0; seed < 25; seed += 1) {
+    for (let day = 1; day <= 31; day += 1) {
+      if (weatherForDay(day, seed, 'Winter', 0).id === 'snow') winterSnow += 1;
+      if (weatherForDay(day, seed, 'Autumn', 10).id === 'snow') fringeSnow += 1;
+    }
+  }
+  assert.ok(fringeSnow > 0, 'November snows sometimes');
+  assert.ok(fringeSnow < winterSnow, `fringe ${fringeSnow} must stay below winter ${winterSnow}`);
+});
+
+test('a mid-season month widens nothing and never reshuffles the sky', () => {
+  // January is inside Winter: passing its month index cannot change the roll.
+  for (let day = 1; day <= 30; day += 1) {
+    assert.equal(weatherForDay(day, 42, 'Winter', 0), weatherForDay(day, 42, 'Winter'));
+  }
+  // Season-only calls keep the pre-fringe behaviour exactly.
+  assert.equal(
+    weatherForDay(10, 42, 'Autumn'),
+    weatherForDay(10, 42, 'Autumn', 9),
+    'October (no fringe) equals the season-only pool',
+  );
+});
+
+test('the almanac forecast carries per-day months, so fringe weather shows up', () => {
+  const days = [
+    { season: 'Autumn', monthIndex: 10 },
+    { season: 'Winter', monthIndex: 11 },
+  ];
+  const out = forecast(5, 7, days, 2);
+  assert.deepEqual(out.map((d) => d.day), [5, 6]);
+  assert.equal(out[0].weather, weatherForDay(5, 7, 'Autumn', 10));
+  assert.equal(out[1].weather, weatherForDay(6, 7, 'Winter', 11));
+  // Plain strings still work (back-compat), month unknown.
+  assert.equal(forecast(5, 7, ['Autumn'], 1)[0].weather, weatherForDay(5, 7, 'Autumn'));
 });
 
 test('weatherForDay is pure: same inputs always give the same sky', () => {
@@ -341,7 +450,7 @@ test('every season can actually produce weather', () => {
   }
 });
 
-test('snow is winter-only and heatwaves are summer-only', () => {
+test('snow is winter-seasoned and heatwaves are summer-only (fringe is month-keyed)', () => {
   assert.deepEqual(getWeather('snow').seasons, ['Winter']);
   assert.deepEqual(getWeather('heatwave').seasons, ['Summer']);
   const winter = new Set(eligibleWeather('Winter').map((t) => t.id));

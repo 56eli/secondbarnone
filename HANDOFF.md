@@ -1,6 +1,6 @@
 # Historical handoff (superseded)
 
-> **Historical record only.** This handoff describes an earlier revision. For current commands, counts, release gates and known work, use `README.md`, `PROJECT_OVERVIEW.md`, `AUDIT_CURRENT_2026-07-29.md`, and `CHANGELOG.md`.
+> **Frozen context — do not cite for current facts.** This handoff describes an earlier revision. Authoritative sources as of 30 July 2026: `README.md`, `PROJECT_OVERVIEW.md`, `CHANGELOG.md`, and `AUDIT_2026-07-30.md` (current audit, with the full resolution log). Kept for context only.
 
 # Handoff notes
 

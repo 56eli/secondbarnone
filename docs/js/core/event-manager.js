@@ -140,8 +140,9 @@ export class EventManager {
     this._previousEventId = null;
     this._recentIds = [];
     this._consecutiveBarDays = 0;
-    this._nextEventDay = 1;
-    this._scheduleNextEvent(0);
+    // Same convention as initialize(): the run starts on journey day 1, so
+    // the first event lands 2–5 days after it (day 3–6) — matching README.
+    this._scheduleNextEvent(1);
   }
 
   // ------------------------------------------------ persistence

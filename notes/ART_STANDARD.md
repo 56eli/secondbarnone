@@ -49,10 +49,26 @@ merely because they already have art or use a legacy decorative composition.
 2. Write the prompt with the verified sex/identity, species, location and role.
 3. Generate one clean square master; visually inspect it against the approved
    source and character brief.
-4. Replace only `assets/portraits/<id>.png`, rebuild the two WebP tiers, and
-   inspect both at actual UI sizes.
-5. Run `npm test`, `npm run typecheck`, and `node scripts/check-assets.js`.
-6. Update this record with reviewer, reason and exact affected IDs.
+4. Replace only `assets/portraits/<id>.png`, rebuild the two WebP tiers
+   (`node scripts/build-portraits.js --only=<ids>`), and inspect both at
+   actual UI sizes.
+5. **Re-pin the manifest in the same commit**
+   (`node scripts/build-portrait-manifest.js`). The manifest is what makes a
+   recorded replacement *landed*, not merely *recorded* — see the 30 July
+   regression note below.
+6. Run `npm test`, `npm run typecheck`, and `node scripts/check-assets.js`.
+7. Update this record with reviewer, reason and exact affected IDs.
+
+## The bytes are the record (manifest lockdown, 30 July 2026)
+
+`assets/portraits/manifest.json` pins the SHA-256 of every approved master
+and both deployed tiers for every character, asserted by
+`tests/portrait-assets.test.js`. Touching an approved portrait without
+re-pinning the manifest in the same commit fails the suite. This exists
+because an earlier replacement pass updated its *text record* while its
+binaries never landed in the tree: the squashed two-commit history shipped
+the upload-day images, so the old art was what players saw — exactly the
+"old pictures came back somehow" regression.
 
 ---
 
@@ -61,3 +77,13 @@ merely because they already have art or use a legacy decorative composition.
 - **Affected IDs:** `brock_lee`, `kaschem`, `carl_bot` (turtle robot), `sir_cruds`, `baris`, `aril_stellar`, `alvigunilla`, `mrone`, `stephen`.
 - **Reason:** Replaced circular-framed legacy art with clean, square, frame-less painted masters in accordance with v2.0 art policy and verified character sex/identity templates. Rebuilt 288px thumbnail and 896px hi-res WebP tiers.
 - **Verification:** All tests, `npm run typecheck`, and `node scripts/check-assets.js` passed.
+
+
+---
+
+### Update — 30 July 2026, later (owner-directed defect corrections + manifest lockdown)
+- **Reviewer:** Project owner (change request in Arena session), executed by Senior Game Developer (Arena Agent Mode).
+- **Defects recorded by owner:** white/deckle-edge composition (`baris`); incompatible realistic style (`mrone`); baked frame (`seth`, `siekamcebule`, `isra`, `andre_watson`, `air_vaisselle`, `blokely`, `jits`, `gordon`); `isra` additionally depicted the wrong sex (template: Male).
+- **Regression investigation:** the 30 July "Frame-less Square Standard Pass" entry above lists several of these ids, yet their binaries were never in the tree — the two-commit squashed history carried the upload-day art while the text record arrived through a doc merge. Root cause of "old pictures got implemented again".
+- **Affected IDs:** `baris`, `mrone`, `seth`, `siekamcebule`, `isra`, `andre_watson`, `air_vaisselle`, `blokely`, `jits`, `gordon` — all male per `CHARACTER_AND_LOCATION_TEMPLATES.md`, all regenerated as clean square frame-less painted masters in the house style, then tiers rebuilt.
+- **Verification:** visual QA of all ten masters (full-bleed, no frame/ring/white edge/text); `tests/portrait-assets.test.js` 23/23 (incl. new manifest pin of all 78 characters); `npm run check` green.

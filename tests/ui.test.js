@@ -13,10 +13,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { LOCATIONS, WELCOME_SLOT_INDEX } from '../docs/js/data/locations.js';
+import {
+  LOCATIONS,
+  WELCOME_SLOT_INDEX,
+  locationForSlot,
+} from '../docs/js/data/locations.js';
+import { weatherForDay } from '../docs/js/data/weather.js';
 import { ACHIEVEMENTS } from '../docs/js/data/achievements.js';
 import { PERKS } from '../docs/js/data/perks.js';
-import { SAVE_KEY } from '../docs/js/core/game-state.js';
+import { SAVE_KEY, START_WEEKDAY_OFFSET } from '../docs/js/core/game-state.js';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -93,7 +98,7 @@ function cleanup(window) {
   delete global.requestAnimationFrame;
 }
 
-/** Advance past a fade transition (0ms in test) plus a little microtask slack. */
+/** Advance past the swap microtask/cross-dissolve (0ms budget in test) plus slack. */
 const settle = () => new Promise((r) => setTimeout(r, 10));
 
 /** Click a compact hub-tool button by its visible text. */
@@ -165,6 +170,25 @@ maybe('the settings cog is present and opens a real settings screen', async () =
     cog.click();
     await settle();
     assert.ok(doc.querySelector('.settings-screen'));
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('the settings screen offers a copyable share-this-seed link', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('settings-button').click();
+    await settle();
+    const input = doc.querySelector('.settings-screen .share-url');
+    assert.ok(input, 'share link input');
+    const url = new URL(input.value);
+    assert.equal(
+      url.searchParams.get('seed'),
+      String(window.__game.gs.weatherSeed),
+      'the link carries this run’s seed',
+    );
   } finally {
     cleanup(window);
   }
@@ -631,8 +655,6 @@ maybe('the preview explains what adjusted the numbers', async () => {
   }
 });
 
-// Removed obsolete inventory test.
-
 maybe('the letting office takes rent a week early', async () => {
   const window = await boot();
   try {
@@ -696,12 +718,6 @@ maybe('the flavour-only specials render without a button', async () => {
 });
 
 // ============================================================ retired inventory
-
-// Removed obsolete inventory test.
-
-// Removed obsolete inventory test.
-
-// Removed obsolete inventory test.
 
 // ================================================================ practice
 
@@ -842,8 +858,6 @@ maybe('the modal reports weather, deltas and running totals', async () => {
     cleanup(window);
   }
 });
-
-// Removed obsolete inventory test.
 
 maybe('achievements raise a toast when earned', async () => {
   const window = await boot();
@@ -1018,11 +1032,7 @@ maybe('the game-over screen summarises the whole run', async () => {
   }
 });
 
-// Removed obsolete inventory test.
-
 // ============================================================== endurance
-
-// Removed obsolete inventory test.
 
 maybe('a twelve-day playthrough across the city never throws', async () => {
   const window = await boot({ seed: 7 });
@@ -1071,6 +1081,157 @@ maybe('reduced motion still suppresses the particles on new locations', async ()
   }
 });
 
-// Removed obsolete inventory test.
+// ----------------------------------------------------- weather-bound previews
 
-// Removed obsolete inventory test.
+/** First seed that puts the given weather on the run's first (January) day. */
+function seedForWeather(id) {
+  for (let s = 1; s < 8000; s += 1) {
+    if (weatherForDay(1, s, 'Winter', 0).id === id) return s;
+  }
+  throw new Error(`no seed produces "${id}" on a winter day one`);
+}
+
+const chipText = (doc) =>
+  [...doc.querySelectorAll('.choices .chip')].map((c) => c.textContent).join(' ');
+
+/** Every preview chip container currently on the hub cards shows the same mode. */
+function assertAllCardsShow(doc, mode) {
+  const all = [...doc.querySelectorAll('.choices [data-preview-mode]')];
+  assert.ok(all.length >= 2, 'at least the founding pair has previews');
+  for (const node of all) {
+    assert.equal(
+      node.dataset.previewMode,
+      mode,
+      `a card shows ${node.dataset.previewMode}, expected ${mode}`,
+    );
+  }
+}
+
+maybe('fog veils the whole preview — cards and location screen', async () => {
+  const window = await boot({ seed: seedForWeather('fog') });
+  try {
+    const { document: doc } = window;
+    assertAllCardsShow(doc, 'veiled');
+    assert.ok(!/\d/.test(chipText(doc)), 'no numbers leak through the fog');
+    assert.match(chipText(doc), /fog — no telling/);
+
+    window.__game.api.goto.location('bar');
+    const preview = doc.querySelector('.preview');
+    assert.equal(preview?.dataset.previewMode, 'veiled');
+    assert.ok(preview.querySelector('.preview-veiled'), 'flavour line replaces the chips');
+    assert.ok(!preview.querySelector('.preview-why'), 'fog hides the reasons too');
+    assert.ok(!/\d/.test(preview.textContent), 'no numbers on the location screen either');
+  } finally {
+    cleanup(window);
+  }
+});
+
+maybe('rain and snow blur the preview into ++ / -- bands, reasons stay', async () => {
+  for (const weatherId of ['rain', 'snow']) {
+    const window = await boot({ seed: seedForWeather(weatherId) });
+    try {
+      const { document: doc } = window;
+      assertAllCardsShow(doc, 'banded');
+      assert.ok(!/\d/.test(chipText(doc)), `${weatherId}: no exact numbers`);
+      // Direction and rough scale survive: the bar's big preview swings
+      // (+money / -sanity / -energy) must read as ++ and -- bands.
+      const barCard = doc.querySelector('[data-location="bar"]');
+      assert.ok(barCard, 'the bar is on the hub');
+      const bands = [...barCard.querySelectorAll('.chip')].map((c) =>
+        c.textContent.replace(/[^+\-]/g, ''),
+      );
+      assert.ok(bands.includes('++'), `${weatherId}: a strong gain reads ++ (${bands})`);
+      assert.ok(bands.includes('--'), `${weatherId}: a strong drain reads -- (${bands})`);
+
+      window.__game.api.goto.location('river_walk');
+      const preview = doc.querySelector('.preview');
+      assert.equal(preview?.dataset.previewMode, 'banded');
+      assert.ok(
+        preview.querySelector('.preview-why'),
+        `${weatherId}: banded days keep the qualitative reasons`,
+      );
+    } finally {
+      cleanup(window);
+    }
+  }
+});
+
+maybe('clear weather shows the full exact preview with numbers', async () => {
+  const window = await boot({ seed: seedForWeather('clear') });
+  try {
+    const { document: doc } = window;
+    assertAllCardsShow(doc, 'exact');
+    assert.ok(/\d/.test(chipText(doc)), 'exact days show real numbers');
+    assert.ok(!/\+\+|--/.test(chipText(doc)), 'exact days never degrade to bands');
+  } finally {
+    cleanup(window);
+  }
+});
+
+// ----------------------------------------------------- seamless swaps
+
+maybe('navigation never passes through black: no overlay, one dissolve, no leaks', async () => {
+  const window = await boot({ fadeMs: 30 });
+  try {
+    const { document: doc } = window;
+    assert.equal(doc.getElementById('fade'), null, 'the black fade overlay is gone');
+
+    const content = doc.getElementById('content');
+    const card = [...doc.querySelectorAll('.choice')].find((b) => b.dataset.location === 'bar');
+    assert.ok(card, 'a bar card is on the hub');
+    card.click();
+
+    await settle();
+    assert.equal(content.querySelectorAll('.screen.location').length, 1, 'new screen is in');
+    const leaving = [...content.children].filter((n) => n.classList.contains('swap-out'));
+    assert.equal(leaving.length, 1, 'exactly one outgoing screen dissolves on top');
+    assert.ok(leaving[0].classList.contains('hub'), 'it is the hub we came from');
+
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(content.children.length, 1, 'the outgoing screen is removed afterwards');
+    assert.ok(content.querySelector('.screen.location'), 'and the location stayed');
+    assert.ok(
+      content.querySelector('.screen').dataset.bg,
+      'background screens carry data-bg for the preloader',
+    );
+  } finally {
+    cleanup(window);
+  }
+});
+
+// ----------------------------------------------------- weekday-gated market
+
+maybe('the Saturday Market card says Only on Saturdays and refuses clicks midweek', async () => {
+  const window = await boot({}); // default seed
+  try {
+    const { document: doc } = window;
+    const { gs, api } = window.__game;
+
+    // Find a midweek day and a Saturday where the market is today's slot-5 card.
+    let midweekDay = 0;
+    let saturdayDay = 0;
+    for (let d = 3; d <= 45 && (!midweekDay || !saturdayDay); d += 1) {
+      const weekday = (d - 1 + START_WEEKDAY_OFFSET) % 7;
+      const inSlot = locationForSlot(5, { journeyDay: d, reputation: 0, weekday }, gs.weatherSeed);
+      if (inSlot?.id !== 'farmers_market') continue;
+      if (weekday === 5) saturdayDay = d;
+      else midweekDay = d;
+    }
+    assert.ok(midweekDay && saturdayDay, 'test days found in the rotation');
+
+    gs.journeyDay = midweekDay;
+    api.goto.hub();
+    const locked = doc.querySelector('[data-location="farmers_market"].locked');
+    assert.ok(locked, 'midweek card is locked');
+    assert.equal(locked.disabled, true, 'a locked card cannot be clicked');
+    assert.match(locked.textContent, /Only on Saturdays/);
+
+    gs.journeyDay = saturdayDay;
+    api.goto.hub();
+    const open = doc.querySelector('[data-location="farmers_market"]');
+    assert.ok(open && !open.classList.contains('locked'), 'Saturday card is open');
+    assert.equal(open.disabled ?? false, false, 'and it can be clicked');
+  } finally {
+    cleanup(window);
+  }
+});

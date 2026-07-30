@@ -117,6 +117,19 @@ console.log(`  total payload: ${mb(total)} (limit ${mb(MAX_TOTAL_BYTES)})`);
 if (eager > MAX_EAGER_BYTES) fail(`eager payload exceeds ${mb(MAX_EAGER_BYTES)}`);
 if (total > MAX_TOTAL_BYTES) fail(`total payload exceeds ${mb(MAX_TOTAL_BYTES)}`);
 
+// Headroom policy: the 4 MB eager budget is deliberate and should stay — but
+// a content PR should never *discover* the wall by tripping CI. Warn loudly
+// once headroom drops below 10% so the optimisation conversation happens in
+// review, not in a failed build. (Budget decisions live in PROJECT_OVERVIEW.)
+const HEADROOM_FRACTION = 0.1;
+if (eager > MAX_EAGER_BYTES * (1 - HEADROOM_FRACTION) && eager <= MAX_EAGER_BYTES) {
+  console.log(
+    `  ⚠ eager headroom is ${mb(MAX_EAGER_BYTES - eager)} ` +
+      `(${Math.round((eager / MAX_EAGER_BYTES) * 100)}% of budget used) — ` +
+      `optimise images on sight or raise the budget deliberately`,
+  );
+}
+
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed.`);
   process.exit(1);

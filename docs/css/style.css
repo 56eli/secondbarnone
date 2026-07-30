@@ -1,7 +1,7 @@
 /* ============================================================
    secondbarnone — styles
    Replaces the Godot theme: HUD, hub, locations, characters,
-   modal, fades, particles and stat-bar animation.
+   modal, dissolves, particles and stat-bar animation.
    ============================================================ */
 
 :root {
@@ -18,7 +18,7 @@
   --good: #66e589;
   --radius: 10px;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
-  --fade-ms: 350ms;
+  --swap-ms: 250ms;
 }
 
 * {
@@ -308,18 +308,6 @@ body {
 
 .screen {
   padding: 20px;
-  animation: screenIn var(--fade-ms) ease-out;
-}
-
-@keyframes screenIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 h2.screen-title {
@@ -726,7 +714,19 @@ h2.screen-title {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
-  animation: screenIn 260ms ease-out;
+  animation: riseIn 260ms ease-out;
+}
+
+/* A soft rise for in-page panels (never a fade through black). */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .detail-head {
@@ -1019,20 +1019,22 @@ h2.screen-title {
   margin-bottom: 20px;
 }
 
-/* ---------------- fade overlay ---------------- */
+/* ---------------- screen swap ---------------- */
 
-#fade {
-  position: fixed;
+/* The outgoing screen dissolves on top of the incoming one. Navigation never
+   passes through black: the new screen is fully present underneath before
+   the old one starts to fade. */
+.swap-out {
+  position: absolute;
   inset: 0;
-  background: #000;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity var(--fade-ms) ease;
-  z-index: 90;
+  animation: swapOut var(--swap-ms) ease-out forwards;
 }
 
-#fade.on {
-  opacity: 1;
+@keyframes swapOut {
+  to {
+    opacity: 0;
+  }
 }
 
 footer {
@@ -1802,4 +1804,24 @@ footer a {
   #content {
     min-height: 360px;
   }
+}
+
+/* Share-it link on the Settings screen */
+.share-url {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--ink, #e8e4da);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.share-url:focus-visible {
+  outline: 2px solid var(--accent, #c9a24b);
+  outline-offset: 1px;
 }

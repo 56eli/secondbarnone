@@ -35,11 +35,19 @@ function accumulate(dst, src = {}) {
  * Exported separately from `resolveTurn` so the UI can preview a day before
  * the player commits to it, and so the maths is testable on its own.
  *
+ * Pass `{ preview: true }` for the numbers a player is allowed to see before
+ * committing: everything *except* the day's variance. The preview is the
+ * honest average ("what this place is for"); resolveTurn adds the
+ * deterministic swing on top ("how today actually went"). Hiding the swing
+ * from previews is what stops exact-answer play — you can read the weather,
+ * the festival and your perks, but never the dice.
+ *
  * @param {object} gs
  * @param {string} locationId
+ * @param {{preview?: boolean}} [opts]
  * @returns {{base:object, total:object, reasons:string[]}}
  */
-export function computeDayEffects(gs, locationId) {
+export function computeDayEffects(gs, locationId, { preview = false } = {}) {
   const location = getLocation(locationId);
   const reasons = [];
   if (!location) return { base: zero(), total: zero(), reasons };
@@ -49,13 +57,15 @@ export function computeDayEffects(gs, locationId) {
 
   // --- variance ---
   // A location's printed numbers are an average, not a promise. The swing is
-  // derived from (location, day, run seed), so the preview the player reads
-  // and the day they actually get are the same figures — see
-  // `varianceForDay()` for why this is hashed rather than rolled.
-  const variance = varianceForDay(location, gs.journeyDay, gs.weatherSeed ?? 0);
-  if (KEYS.some((k) => variance[k] !== 0)) {
-    accumulate(total, variance);
-    reasons.push('🎲 How the day went');
+  // derived from (location, day, run seed) — see `varianceForDay()` for why
+  // this is hashed rather than rolled. It is only included when resolving
+  // the day, never when previewing it.
+  if (!preview) {
+    const variance = varianceForDay(location, gs.journeyDay, gs.weatherSeed ?? 0);
+    if (KEYS.some((k) => variance[k] !== 0)) {
+      accumulate(total, variance);
+      reasons.push('🎲 How the day went');
+    }
   }
 
   // --- weather ---
@@ -138,7 +148,8 @@ export function scaleEventDeltas(event, perks) {
  *            longTrip:boolean, gameOver:boolean, justWon:boolean,
  *            masteryWon:boolean, masteryMessage:string, winMessage:string,
  *            deltas:object, reasons:string[], achievements:object[],
- *            exhaustion:number, sanityDelta:number, moneyDelta:number,
+ *            exhaustion:number, exhaustionBurn:number,
+ *            sanityDelta:number, moneyDelta:number,
  *            prevSanity:number, prevMoney:number, weather:object,
  *            festival:object|null, alreadyResolved?:boolean}}
  */
@@ -161,6 +172,7 @@ export function resolveTurn(gs, eventManager, locationId) {
       reasons: [],
       achievements: [],
       exhaustion: 0,
+      exhaustionBurn: 0,
       weather: gs.getWeather(),
       festival: gs.getFestival(),
       prevSanity: gs.sanity,
@@ -188,9 +200,11 @@ export function resolveTurn(gs, eventManager, locationId) {
   gs.noteVisit(locationId);
   const actionDesc = location?.actionDesc ?? getLocation(locationId)?.actionDesc ?? '';
 
-  // 2 — exhaustion
+  // 2 — exhaustion (sanity *and* wallet: being drained is expensive)
   const exhaustion = gs.exhaustionPenalty();
-  if (exhaustion !== 0) gs.applyDeltas({ sanity: exhaustion });
+  const exhaustionBurn = gs.exhaustionBurn();
+  if (exhaustion !== 0 || exhaustionBurn !== 0)
+    gs.applyDeltas({ sanity: exhaustion, money: exhaustionBurn });
 
   // 3 — rent
   const rentCharged = gs.applyRentIfSunday();
@@ -292,6 +306,7 @@ export function resolveTurn(gs, eventManager, locationId) {
     reasons,
     achievements,
     exhaustion,
+    exhaustionBurn,
     weather,
     festival,
     prevSanity: prev.sanity,

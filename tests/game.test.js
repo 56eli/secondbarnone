@@ -664,3 +664,72 @@ test('randInt stays within its inclusive bounds', () => {
     assert.ok(v >= 2 && v <= 5 && Number.isInteger(v));
   }
 });
+
+// ----------------------------------------------------- determinism across save/load
+
+test('a mid-day reload replays the same event draw instead of re-rolling it', () => {
+  // Production wiring (app.js) seeds the event RNG from the run's
+  // weatherSeed, and the save persists the RNG state. Closing the tab on a
+  // bad result and reloading must therefore replay the *same* scheduled
+  // event — this test reproduces that flow below the DOM.
+  const boot = (snapshot) => {
+    const gs = new GameState({ seed: 4242 });
+    if (snapshot) gs.loadFrom(snapshot.gs);
+    const em = new EventManager(createRng(gs.weatherSeed));
+    em.initialize(gs.getCharacterNames());
+    if (snapshot?.events) em.loadFrom(snapshot.events);
+    return { gs, em };
+  };
+
+  // Uninterrupted timeline: play a survivable mix until the first event
+  // actually fires, keeping the morning's autosave snapshot at each step —
+  // exactly what a player sees before clicking a location.
+  const live = boot(null);
+  const mix = ['spiritual_community', 'bar', 'spiritual_community', 'bar', 'home_loft'];
+  let morningSnapshot = null;
+  let eventDay = null;
+  let eventLocation = null;
+  while (eventDay === null) {
+    morningSnapshot = { gs: live.gs.toJSON(), events: live.em.toJSON() };
+    const where = mix[(live.gs.journeyDay - 1) % mix.length];
+    resolveTurn(live.gs, live.em, where);
+    if (live.gs.eventsSeen.size > 0) {
+      eventDay = [...live.gs.eventsSeen][live.gs.eventsSeen.size - 1];
+      eventLocation = where;
+      break;
+    }
+    live.gs.advanceDay();
+    assert.ok(!live.gs.gameOver && live.gs.journeyDay < 20, 'an event must fire by day 20');
+  }
+  assert.ok(eventDay, 'baseline run must fire at least one event to be meaningful');
+
+  // The scum: close the tab instead of pressing Continue, reload from the
+  // morning's save, and re-resolve the same day at the same location.
+  const replay = boot(morningSnapshot);
+  resolveTurn(replay.gs, replay.em, eventLocation);
+  const replayIds = [...replay.gs.eventsSeen];
+  assert.equal(
+    replayIds[replayIds.length - 1],
+    eventDay,
+    'reloading and re-resolving the same day must redraw the same event',
+  );
+  assert.equal(replay.gs.money, live.gs.money, 'replayed day must land on the same totals');
+  assert.equal(replay.gs.sanity, live.gs.sanity);
+});
+
+test('event manager restart schedules from day one like a fresh boot', () => {
+  for (const seed of [1, 77, 555, 90210]) {
+    const fresh = new EventManager(createRng(seed));
+    fresh.initialize(['A', 'B', 'C']);
+    const restarted = new EventManager(createRng(seed));
+    restarted.reset();
+    assert.ok(
+      restarted._nextEventDay >= 3 && restarted._nextEventDay <= 6,
+      `reset() scheduled for day ${restarted._nextEventDay}; initialize() would land day 3–6`,
+    );
+    assert.ok(
+      fresh._nextEventDay >= 3 && fresh._nextEventDay <= 6,
+      `initialize() scheduled for day ${fresh._nextEventDay}`,
+    );
+  }
+});

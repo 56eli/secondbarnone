@@ -248,6 +248,54 @@ test('Brian and Vanna are immutable approved-art locks', () => {
   }
 });
 
+// --------------------------------------------- full-coverage content manifest
+
+/**
+ * The manifest pins the SHA-256 of every approved master and both deployed
+ * tiers, for every character — the bytes are the record. It exists because a
+ * text-only pass record once said "replaced" while the tree kept upload-day
+ * art: nothing a checklist can do about files that silently never landed.
+ *
+ * `LOCKED_PORTRAITS` (Brian/Vanna) stay a stronger, manually-reviewed subset;
+ * the manifest covers them too, so the two cannot disagree.
+ */
+test('the portrait manifest pins every approved image byte for byte', () => {
+  const manifestPath = join(ROOT, 'assets', 'portraits', 'manifest.json');
+  assert.ok(existsSync(manifestPath), 'portrait manifest is missing');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+
+  // Coverage is exact: every character pinned, no ghosts of retired ids.
+  assert.deepEqual(
+    Object.keys(manifest).sort(),
+    profiles.map((c) => c.id).sort(),
+    'manifest must pin exactly the live character list',
+  );
+
+  for (const c of profiles) {
+    const pinned = manifest[c.id];
+    assert.deepEqual(
+      Object.keys(pinned).sort(),
+      ['hi', 'master', 'thumb'],
+      `${c.id}: manifest entry shape`,
+    );
+    assert.equal(
+      sha256(join(ROOT, 'assets', 'portraits', `${c.id}.png`)),
+      pinned.master,
+      `${c.id}: master changed without a manifest update`,
+    );
+    assert.equal(
+      sha256(join(PORTRAITS, `${c.id}.webp`)),
+      pinned.thumb,
+      `${c.id}: deployed thumbnail changed without a manifest update`,
+    );
+    assert.equal(
+      sha256(join(HI, `${c.id}.webp`)),
+      pinned.hi,
+      `${c.id}: deployed hi sheet changed without a manifest update`,
+    );
+  }
+});
+
 // ------------------------------------------------------------- backgrounds
 
 test('every location background exists and is referenced', () => {
