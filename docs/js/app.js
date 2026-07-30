@@ -288,7 +288,10 @@ export function initGame(opts = {}) {
       onBack: () => transitionTo(hubScreen),
       onSpecial: (kind, arg) => handleSpecial(kind, arg, locationId),
       onBuyRenovation: (id) => {
-        if (gs.buyRenovation(id)) toast('Sanctuary restored.');
+        if (gs.buyRenovation(id)) {
+          toast('Sanctuary restored.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
         updateHud();
         showScreen(locationScreen(locationId));
       },
@@ -306,7 +309,10 @@ export function initGame(opts = {}) {
     return renderPerks(gs, {
       onBack: () => transitionTo(hubScreen),
       onBuy: (id) => {
-        if (gs.buyPerk(id)) toast('Learned.');
+        if (gs.buyPerk(id)) {
+          toast('Learned.');
+          saveStore.save(gs, storage, { events: events.toJSON() });
+        }
         updateHud();
         showScreen(perksScreen());
       },
@@ -347,6 +353,14 @@ export function initGame(opts = {}) {
         onChangeVolume: (v) => {
           setVolume(v);
         },
+        onCopyShare: async (url) => {
+          try {
+            await globalThis.navigator?.clipboard?.writeText(url);
+            toast('City link copied.');
+          } catch {
+            toast('Select the link and copy it manually.');
+          }
+        },
         onAbandon: () => {
           restart();
           toast('New run started.');
@@ -360,7 +374,9 @@ export function initGame(opts = {}) {
 
   function handleSpecial(kind, arg, locationId) {
     if (kind === 'prepay_rent') {
-      toast(gs.prepayRent(1) ? 'Paid a week ahead.' : 'Not enough money.');
+      const paid = gs.prepayRent(1);
+      toast(paid ? 'Paid the next uncovered Sunday.' : 'Keep at least one money after paying.');
+      if (paid) saveStore.save(gs, storage, { events: events.toJSON() });
     }
     updateHud();
     showScreen(locationScreen(locationId));

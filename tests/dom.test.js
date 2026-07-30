@@ -166,7 +166,7 @@ maybe('the characters screen lists the whole cast and shows detail on click', as
     await settle();
 
     const rows = doc.querySelectorAll('.char-row');
-    assert.equal(rows.length, 78, 'all characters listed');
+    assert.equal(rows.length, 77, 'all live characters listed');
     assert.match(doc.querySelector('.detail').textContent, /Select a character/);
 
     rows[0].click();
@@ -202,7 +202,7 @@ maybe('searching filters the character list', async () => {
     const search = doc.querySelector('.char-search');
     const visible = () => [...doc.querySelectorAll('.char-row')].filter((r) => !r.hidden).length;
 
-    assert.equal(visible(), 78);
+    assert.equal(visible(), 77);
 
     search.value = 'Kaden';
     search.dispatchEvent(new window.Event('input'));
@@ -216,7 +216,7 @@ maybe('searching filters the character list', async () => {
 
     search.value = '';
     search.dispatchEvent(new window.Event('input'));
-    assert.equal(visible(), 78);
+    assert.equal(visible(), 77);
   } finally { cleanup(window); }
 });
 

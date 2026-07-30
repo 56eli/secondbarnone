@@ -1,10 +1,21 @@
 # Deploying
 
-GitHub Pages serves `main` → `/docs`. Any push to `main` that touches `docs/`
-goes live in about a minute.
+GitHub Pages serves **`crazy-branch` → `/docs`**. `crazy-branch` is the
+canonical release branch and should also be the repository default. A merged
+pull request targeting `crazy-branch` that changes `docs/` triggers the legacy
+Pages build; the source itself is the build.
+
+Release through a reviewed pull request, never by updating the stale historical
+`main` branch:
 
 ```bash
-npm run check && git add -A && git commit -m "..." && git push origin main
+npm run check
+npm run coverage:check
+git push origin <feature-branch>
+gh pr create --base crazy-branch --head <feature-branch>
 ```
 
-No build step, no export, no settings to change.
+Before merging, require the `check` workflow and confirm its 60-day balance
+summary. After merge, verify the Pages deployment records the merged SHA at:
+
+https://56eli.github.io/secondbarnone/

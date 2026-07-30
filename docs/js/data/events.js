@@ -788,8 +788,6 @@ export const EVENTS_BY_LOCATION = {
       { sanity: 13, energy: -10, insight: 2 },
     ),
 
-
-
     ev(
       'last_bus',
       'speedfire',
@@ -848,10 +846,6 @@ export const EVENTS_BY_LOCATION = {
       S,
       { money: -7, sanity: 2 },
     ),
-
-
-
-
 
     ev(
       'blokely_wall',
@@ -939,8 +933,6 @@ export const EVENTS_BY_LOCATION = {
       S,
       { money: -5, sanity: 3 },
     ),
-
-
 
     ev(
       'sir_cruds_tribute',

@@ -32,10 +32,10 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current             |
 | --------------- | ------------------------------- | ------------------- |
-| Deploy payload  | 39.5 MB                         | **3.87 MB** eager to play (+5.82 MB portrait lightbox tier; 0.90 MB music is lazy) |
+| Deploy payload  | 39.5 MB                         | **3.83 MB** eager to play (+5.37 MB portrait lightbox tier; 0.78 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **395**             |
-| Coverage        | —                               | **~98.2%**          |
+| Automated tests | 0                               | **425**             |
+| Coverage        | —                               | **~98.1%**          |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -61,13 +61,13 @@ docs/js/
     turn.js          resolves one day in a fixed order
     rng.js           seedable RNG
   data/
-    characters.js    78 profiles, each bound to one location
+    characters.js    77 profiles, each bound to one location
     locations.js     23 locations, 5 districts, 4 hub slots
-    events.js        235 events, keyed by location
+    events.js        232 events, keyed by location
     weather.js        9 weather types, derived per day
     perks.js         10 perks in a prerequisite tree
     festivals.js      9 fixed calendar events
-    achievements.js  22 predicates over a state snapshot
+    achievements.js  20 predicates over a state snapshot
   ui/
     screens.js       six-card hub, location, practice, almanac,
                      characters, modal, game over
@@ -168,8 +168,8 @@ test.)
 
 The balance suite asserts this as behaviour rather than arithmetic: the
 difficulty contract in `tests/difficulty.test.js` measures seven player models
-over 300 seeded runs each (60-day goal: inattentive 0%, random 29%, naive
-greedy 27%, reference average 43%, fully engaged 61–66%), and bands in
+over 300 seeded runs each (v2.6 60-day goal: inattentive 0%, random/naive
+greedy 27%, reference average 42%, fully engaged 61–66%), and bands in
 `balance.test.js` pin the 200-day horizon (inattentive styles ~always die;
 even the best styles fail 3–13%).
 
@@ -228,7 +228,7 @@ renderer, so it is testable headlessly — and the rendered cards carry a
 `data-slot` attribute so the DOM tests can assert the same rule the data tests
 assert.
 
-Locations unlock on journey day, reputation, weekday, or a required perk/item.
+Locations currently unlock on journey day, reputation, or weekday. The schema can add a required perk later, but no shipped location uses that gate.
 Weekday gates are recurring, not progression: the Saturday Market (Saturdays
 only), the Puces (Sundays only) and the open mic (Fridays–Saturdays) hold
 their hub card on their day and the vigil of it, then the slot falls through
@@ -278,12 +278,11 @@ The almanac passes per-day `{season, monthIndex}` pairs from
 day against its real calendar slot.
 
 Weather modifies effects by tag and can close tags outright — a storm shuts
-every outdoor location unless you are carrying the rain shell. Heatwaves are
+every outdoor location. The day-one House of Middleway invitation is the one narrative exception. Heatwaves are
 summer-only, blossom wind is spring-only.
 
 **Weather also edits the preview, not only the numbers.** `previewMode()` in
-`ui/screens.js`: fog hides chips and reasons entirely; rain and snow blur
-chips into `+`/`++`/`-`/`--` bands (`BAND_STRONG = 6`); other days are exact.
+`ui/screens.js`: fog hides arithmetic and reasons, leaving only the location’s strongest positive focus icon(s); rain and snow blur chips into `+`/`++`/`-`/`--` bands (`BAND_STRONG = 6`); other days are exact.
 This is an information rule, applied to all six hub cards and the location
 page, never a change to the resolution.
 
@@ -308,7 +307,7 @@ history lines, and its focus cue can quietly flag resource pressure or rent.
 
 ### Events
 
-**235 events.** **222 (94.5%)** belong to side characters.
+**232 events.** **219 (94.4%)** belong to side characters.
 
 The catalogue has one rule, and it is structural:
 
@@ -337,8 +336,7 @@ A test walks every location under four skies and 300 days to prove that every
 single event in the catalogue is actually reachable in play — dead copy fails
 the build.
 
-Scheduling is unchanged and still deterministic: 2–5 journey-days apart, with
-the last four events filtered out of the pool to avoid repetition.
+Scheduling stays deterministic at 2–5 journey-days apart. Authored encounters are one-shot per run, and Sato/Alex/Kaden beats declare prerequisite event ids so their arcs resolve in narrative order. The recent-four memory remains a fallback for any future event explicitly marked repeatable.
 
 ### Turn order
 
@@ -365,14 +363,14 @@ modes; they cannot drift because preview is strictly resolution-minus-dice.
 
 ## Cast
 
-**78 characters.**
+**77 characters.**
 
 | Role           | Count          |
 | -------------- | -------------- |
 | Protagonist    | 1 — Léon       |
 | Arch Nemesis   | 1 — Kaden      |
 | Rival          | 2 — Sato, Alex |
-| Side Character | 74             |
+| Side Character | 73             |
 
 **Kaden** is a developer circling the community's land — never threatening,
 just refiling paperwork while the rent notices do the work. **Sato** runs a
@@ -380,7 +378,7 @@ polished rival wellness studio; **Alex** runs the craft cocktail bar two streets
 over. Each has a full profile in the same shape as everyone else.
 
 The character screen groups by role (antagonists first) and filters on name,
-role, location or biography text. A flat list of 78 was unusable.
+role, location or biography text. A flat list of 77 was unusable.
 
 ### Everyone lives somewhere
 
@@ -424,7 +422,7 @@ The UI always renders the original spelling. Slug uniqueness is enforced by test
 
 ## Art
 
-**78 portrait masters — the whole cast.** Procedural SVG placeholders are gone.
+**77 portrait masters — the whole cast.** Procedural SVG placeholders are gone.
 All new art must be clean, square and frame-less; CSS makes inline avatars
 round. Brian and Vanna are permanent frozen exceptions: Vanna retains the bunny
 portrait, and neither asset may be regenerated or reframed. The active visual
@@ -448,7 +446,7 @@ rack, Arian mid-story over a glass, Dorian immovable in his armchair.
 | Thumbnail | `assets/portraits/<id>.webp`    | 288px | every inline avatar     |
 | Hi-res    | `assets/portraits/hi/<id>.webp` | 896px | the lightbox, on demand |
 
-The largest avatar the game renders inline is **84 CSS px**, so the previous
+The largest side-character avatar renders at **96 CSS px** (Léon remains 110px in the HUD), so the previous
 single 512px sheet was ~6x oversized on every page load — while being too
 _small_ for the enlarged view, which renders up to 560 CSS px. Splitting the
 tiers cut the eager payload from ~4.85 MB to **~2.93 MB** and made the
@@ -458,7 +456,7 @@ never upscales.
 
 ### The portrait lightbox
 
-All 78 portraits are additionally **content-pinned**: `assets/portraits/manifest.json`
+All 77 portraits are additionally **content-pinned**: `assets/portraits/manifest.json`
 holds the SHA-256 of every master and both tiers, asserted in
 `tests/portrait-assets.test.js`, so old art can never silently come back
 (the 30 July regression: a text-recorded replacement whose binaries never
@@ -504,10 +502,10 @@ asserts every repainted background keeps its master.
 
 Missing portraits fall back to an initials chip, which is exercised by test.
 
-Source art in `assets/` is ~243 MB (plain blobs — the LFS attribute exists
+Source art in `assets/` is ~250 MB (plain blobs — the LFS attribute exists
 but the migration is a recorded open decision; see README → "Repository size
 and history"); the deployed payload in
-`docs/assets/` is 3.87 MB eager plus 5.82 MB of on-demand portrait sheets; music is a separate 0.90 MB lazy asset (`hearth_pad.wav`, generated by `scripts/gen-warmth.py`).
+`docs/assets/` is 3.83 MB eager plus 5.37 MB of on-demand portrait sheets; music is a separate 0.78 MB lazy asset (`comfy_piano.wav`, synthesized by `scripts/gen-comfy-piano.py`).
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -516,7 +514,7 @@ one pass.
 ## Testing
 
 The test suite spans rule, catalogue, asset, balance and jsdom UI coverage.
-**409 tests across 18 files** (30 July 2026, night; `npm test` prints the live count).
+**425 tests across 19 files** (30 July 2026, night; `npm test` prints the live count).
 
 The suites that carry the most weight:
 
@@ -533,7 +531,7 @@ The suites that carry the most weight:
   the real DOM driven by real clicks in jsdom, including accessibility paths.
 
 `tests/portrait-assets.test.js` checks the art itself rather than
-the code that renders it: both tiers exist for all 78 characters, thumbnails
+the code that renders it: both tiers exist for all 77 characters, thumbnails
 never exceed 288px, a hi-res sheet is never _smaller_ than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
 background is referenced by a location. It skips cleanly if ImageMagick is
@@ -577,7 +575,7 @@ Coverage on shipped code:
 ```
 Measured 30 July 2026 (run `npm run coverage:check` for the current figure):
 
-all files          98.20 line | 85.47 branch | 92.22 funcs
+all files          98.12 line | 86.10 branch | 92.56 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -591,7 +589,7 @@ that state never goes invalid.
 
 ## Accessibility
 
-Semantic buttons and headings, visible focus rings, `aria-selected` on the
+Semantic buttons and headings, visible focus rings, `aria-pressed` on the
 character list, `role="dialog"` with `aria-modal` on the result modal, labelled
 search input, and full keyboard operability.
 

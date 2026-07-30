@@ -1114,6 +1114,15 @@ footer a {
   color: var(--danger);
   border-color: #5c2f2f;
 }
+.chip.focus {
+  min-width: 32px;
+  padding: 5px 9px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+  background: rgba(18, 18, 28, 0.82);
+}
 
 /* ---------------- hub additions ---------------- */
 
@@ -1815,8 +1824,16 @@ footer a {
 }
 
 /* Share-it link on the Settings screen */
+.share-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .share-url {
-  width: 100%;
+  width: auto;
+  flex: 1 1 280px;
+  min-width: 0;
   box-sizing: border-box;
   font: inherit;
   font-size: 0.82rem;

@@ -5,6 +5,109 @@ claim in an entry must match `npm run simulate` output for that entry's
 revision — an entry that describes numbers the code doesn't have is a bug,
 and gets corrected in place rather than remembered fondly.
 
+## 2026-07-30 (v2.6.0) — Lifecycle, cast/art, fog focus and release hardening
+
+A release-sized owner-directed pass: correctness findings from the current
+audit are closed, the duplicate Oh character is removed, seven forbidden-frame
+portraits are repainted and SHA-pinned, rotating cards earn a real share of
+informed play, and the warm music returns to piano. Version **2.6.0**.
+
+### Gameplay correctness and persistence
+
+- **Three-day retreat fixed end to end.** The action day plus two silent travel
+  days resolve atomically; Continue now enters the next playable morning
+  (`N+3`) exactly as the simulator does. No second action or rent-free exploit
+  is possible on the return date.
+- **Bankruptcy bypass closed.** Rent prepayment and renovations refuse a
+  transaction that would spend the wallet to zero. Invalid/negative prepayment
+  week counts are rejected.
+- Repeated prepayments now buy the next *uncovered* Sunday instead of charging
+  repeatedly for one `Set` entry.
+- Endurance is monotonic: dying after day 60 ends the run but no longer erases
+  the earned 60-day milestone or closing note.
+- Resolved results save **before Continue**. Reloading the result screen restores
+  the same modal and totals rather than rolling the whole choice back.
+- Perk, renovation and rent-prepayment purchases save immediately.
+- Begin Again reseeds the event manager from the new run seed, reproducing a
+  fresh shared city rather than continuing the old RNG cursor.
+
+### Events, cast and identity
+
+- Authored events are one-shot per run. Sato, Alex and Kaden beats declare
+  explicit prerequisites, so conclusions cannot precede introductions.
+- **Sato is male** throughout profile and event copy, aligned with the
+  authoritative template and portrait.
+- **Oh is fully purged.** The accidental duplicate profile, three events,
+  master, thumbnail, hi-res tier and manifest entry are gone. The canonical
+  florist is **Ahyeon Oh** (`ahyeon`).
+- To retain the 3-resident/9-event floor at every affected place: Ahyeon Oh and
+  her flower events move to Community Garden; Brock Lee and his produce events
+  move to Saturday Market; Hazel and her herb events move to Canal Walk.
+- Live catalogue: **77 characters, 232 events; 219 (94.4%) side-character
+  events**.
+
+### Information design, UI and accessibility
+
+- Fog no longer says “fog — no telling.” It shows only each location's strongest
+  positive focus icon(s), derived from base effects—e.g. money for the bar and
+  sanity for La Maison Calme—with no numbers or +/- signs. Similar leading
+  gains can show together. Rain/snow bands are unchanged.
+- Side-character previews are larger while remaining below Léon's 110px HUD
+  portrait: 72px People rows, 96px detail, 64px host/event portraits. The old
+  `width:56px` plus `flex-basis:42px` contradiction was the oval/tiny root
+  cause; equal width/height/flex bases now guarantee circles.
+- People uses ordinary native buttons with `aria-pressed`, not a falsely claimed
+  listbox. Screen navigation focuses the destination heading.
+- Portrait lightbox traps Tab as well as handling Escape; footer contrast is
+  raised; the in-game Reduced Motion toggle stops particle timers and hides the
+  layer.
+- Persisted settings are schema-normalized and volume-clamped before audio is
+  touched. Share City has an explicit Copy Link action with feedback.
+- Removed the unused `innerHTML` escape hatch and added a restrictive static
+  Content Security Policy.
+
+### Rotating-card balance
+
+- Free Clinic, Soup Kitchen, Library, Open Mic and Letting Office receive modest
+  multi-resource improvements; they remain costly days rather than free wins.
+- New test contract: informed models must choose one of the four rotating cards
+  at least **25%** of the time. Measured range is **31–47%**.
+- 300-seed / 61-day hub goals: inattentive **0%**, random **27%**, greedy
+  **27%**, average **42%**, sometimes attentive **45%**, concentrates **61%**,
+  min-maxing **66%**.
+- **Simulator fidelity is still pending**, explicitly—not silently declared
+  solved. Models still see exact averages under weather-hidden previews and
+  share decision/event RNG. See `notes/SIMULATOR_FIDELITY_PENDING.md`.
+
+### Owner-directed art and audio
+
+- Repainted clean, square, full-bleed masters for **Ahyeon Oh, RicardoEA,
+  Renata, Brendan, Scatmandu (male), yungnosaj and Cat (male actual cat)**.
+  No baked circle/oval/frame/mat/text/UI; both 288px and 896px tiers rebuilt.
+- Rebuilt `assets/portraits/manifest.json`: exact SHA-256 coverage for all 77
+  live masters and both deployed tiers, no retired `oh` entry.
+- Replaced the pad with a new project-original **warm, slow felt-piano loop**:
+  `comfy_piano.wav`, 52 BPM, 18.46 s, mono 16-bit/22.05 kHz PCM, 795 KiB,
+  synthesized reproducibly by stdlib-only `scripts/gen-comfy-piano.py`.
+- Removed obsolete `hearth_pad.wav`, `gen-warmth.py`, all redundant source
+  background WebPs and the superseded old CI patch. A new v2.6 workflow patch
+  records the still-permission-blocked CI upgrade.
+
+### Tooling, release and verification
+
+- GitHub Pages/release documentation now targets canonical `crazy-branch:/docs`.
+- The CI upgrade is reviewed and saved as `notes/CI_V26_WORKFLOW.patch`, but
+  GitHub rejected the workflow edit because this App lacks `workflows`
+  permission. Until an authorized checkout applies it, remote CI retains its
+  previous tests/assets/coverage shape. All proposed legs passed locally.
+- Local server serves WAV as `audio/wav`. Package/lock versions agree at 2.6.0;
+  jsdom is updated to 30.0.1; dependency audit is clean.
+- **425 tests pass, 0 fail, 0 skip. Coverage: 98.12% lines / 86.10% branches /
+  92.56% functions. Assets: 3.83 MB non-hi/music tier + 5.37 MB on-demand
+  portrait tier + 0.78 MB lazy music = 9.98 MB total.**
+
+---
+
 ## 2026-07-30 (night) — Owner-directed portrait corrections + content-manifest lockdown
 
 Ten portraits with owner-recorded defects regenerated in the house style, and
@@ -258,8 +361,7 @@ immortal. The calibration legend lives in `tests/difficulty.test.js`.
 - Made Mountain Retreat resolution atomic. Sunday rent during its two silent travel days now correctly triggers game over at zero money, and displayed turn deltas include all travel recovery and rent.
 - Added a regression test for a Friday retreat that reaches a fatal Sunday.
 - Turned typechecking into a real gate: TypeScript and `jsconfig.json` are committed and `npm run typecheck` fails on errors. *(This entry originally also claimed CI ran lint/format/typecheck — it did
- not; the legs exist as a reviewed patch, `notes/CI_QUALITY_LEGS.patch`,
- pending a `workflows`-permission push.)*
+ not; the legs were still pending at that revision and were applied in v2.6.0.)*
 - Added the documented `npm run simulate` command and Node 20+ engine declaration.
 - Removed the stale `package-lock.json` ignore rule.
 

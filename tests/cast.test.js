@@ -291,12 +291,17 @@ test('every event in the catalogue is reachable in play', () => {
       for (let seed = 0; seed < 6; seed += 1) {
         const em = new EventManager(createRng(seed));
         em.initialize(PROFILES.map((p) => p.name));
+        const runSeen = new Set();
         for (let day = 1; day <= 300; day += 1) {
           const e = em.selectEvent(day, day % 7, l.id, BURNOUT_THRESHOLD, {
             tags: l.tags,
             weatherId,
+            seenEvents: runSeen,
           });
-          if (e) seen.add(e.id);
+          if (e) {
+            seen.add(e.id);
+            runSeen.add(e.id);
+          }
         }
       }
     }

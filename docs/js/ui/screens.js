@@ -31,7 +31,6 @@ export function el(tag, attrs = {}, ...children) {
     if (v === false || v === null || v === undefined) continue;
     if (k === 'class') node.className = v;
     else if (k === 'text') node.textContent = v;
-    else if (k === 'html') node.innerHTML = v;
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
     else node.setAttribute(k, v === true ? '' : v);
   }
@@ -79,7 +78,7 @@ export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
  * - `'banded'` — rain and snow blur the details: every delta collapses to a
  *   rough `+` / `++` / `-` / `--` estimate, so you keep direction and a
  *   sense of scale but lose the arithmetic;
- * - `'veiled'` — fog hides everything, chips and reasons alike.
+ * - `'veiled'` — fog hides arithmetic/reasons and keeps only positive focus icons.
  */
 export function previewMode(weather) {
   if (weather?.id === 'fog') return 'veiled';
@@ -103,12 +102,47 @@ export function effectBandedChips(bundle, cls = 'chips', weatherEmoji = '') {
   return el('div', { class: cls, 'data-preview-mode': 'banded' }, ...chips);
 }
 
-/** Fog keeps one flavour chip where the numbers would be, so cards keep their shape. */
-export function effectVeiledChips(cls = 'chips') {
+/**
+ * A location's clearest positive purpose, derived from its base contract.
+ * Resources within two points of the strongest gain are peers; fog reveals
+ * only these icons, never sign or magnitude. This keeps place identity legible
+ * without leaking the day's hidden arithmetic.
+ */
+export function locationFocusResources(locationOrId) {
+  const location = typeof locationOrId === 'string' ? getLocation(locationOrId) : locationOrId;
+  if (!location) return [];
+  const positive = STAT_META.map(([key, emoji, label]) => ({
+    key,
+    emoji,
+    label,
+    value: location.effects[key] ?? 0,
+  })).filter((entry) => entry.value > 0);
+  if (positive.length === 0) return [];
+  const strongest = Math.max(...positive.map((entry) => entry.value));
+  return positive.filter((entry) => entry.value >= strongest - 2);
+}
+
+/** Fog shows only the location's positive focus icon(s), with no +/- markers. */
+export function effectFocusChips(location, cls = 'chips') {
+  const focus = locationFocusResources(location);
+  const accessible = focus.map((entry) => entry.label).join(' and ') || 'Place';
+  const icons = focus.length ? focus : [{ key: 'place', emoji: '📍', label: 'Place' }];
   return el(
     'div',
-    { class: `${cls} veiled-chips`, 'data-preview-mode': 'veiled' },
-    el('span', { class: 'chip veiled', text: '🌫️ fog — no telling' }),
+    {
+      class: `${cls} focus-chips`,
+      'data-preview-mode': 'veiled',
+      'data-focus': focus.map((entry) => entry.key).join(','),
+      'aria-label': `Main focus: ${accessible}`,
+    },
+    ...icons.map((entry) =>
+      el('span', {
+        class: 'chip focus',
+        text: entry.emoji,
+        title: `${entry.label} focus`,
+        'aria-hidden': 'true',
+      }),
+    ),
   );
 }
 
@@ -116,9 +150,9 @@ export function effectVeiledChips(cls = 'chips') {
  * The preview chips a card is allowed to show today, honouring `previewMode`.
  * `weatherEmoji` marks weather-adjusted numbers on exact days.
  */
-function chipsFor(gs, total, weatherEmoji, cls) {
+function chipsFor(gs, total, weatherEmoji, cls, location) {
   const mode = previewMode(gs.getWeather?.());
-  if (mode === 'veiled') return effectVeiledChips(cls);
+  if (mode === 'veiled') return effectFocusChips(location, cls);
   if (mode === 'banded') return effectBandedChips(total, cls, weatherEmoji);
   return effectChips(total, cls, weatherEmoji);
 }
@@ -355,7 +389,7 @@ export function renderHub(gs, handlers) {
       },
       el('span', { class: 'choice-name', text: `${location.emoji} ${location.name}` }),
       el('span', { class: 'choice-action', text: location.actionLabel }),
-      chipsFor(gs, total, weatherEmoji, 'chips choice-eff'),
+      chipsFor(gs, total, weatherEmoji, 'chips choice-eff', location),
     );
   });
 
@@ -401,7 +435,7 @@ export function renderHub(gs, handlers) {
         isWelcome
           ? el('span', { class: 'choice-welcome', text: '✨ Brian is expecting you' })
           : null,
-        chipsFor(gs, total, weatherEmoji, 'chips choice-eff'),
+        chipsFor(gs, total, weatherEmoji, 'chips choice-eff', location),
       );
     } else {
       return el(
@@ -487,8 +521,6 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, on
   const { total, reasons } = computeDayEffects(gs, locationId, { preview: true });
   const weatherEmoji = weatherEmojiIfAdjusted(gs, reasons);
   const mode = previewMode(gs.getWeather?.());
-  const veiledLine =
-    '🌫️ The fog swallows the details. No telling how today lands — only where it happens.';
   const particles = el('div', { class: 'particles', 'aria-hidden': 'true' });
 
   const actionBtn = el('button', {
@@ -544,9 +576,7 @@ export function renderLocation(gs, locationId, { onAction, onBack, onSpecial, on
       'div',
       { class: 'preview', 'data-preview-mode': mode },
       el('h3', { text: 'Today, here' }),
-      mode === 'veiled'
-        ? el('p', { class: 'preview-veiled', text: veiledLine })
-        : chipsFor(gs, total, weatherEmoji, 'chips preview-chips'),
+      chipsFor(gs, total, weatherEmoji, 'chips preview-chips', location),
       mode !== 'veiled' && reasons.length > 0
         ? el('p', { class: 'preview-why', text: `Adjusted by: ${reasons.join(', ')}` })
         : null,
@@ -797,7 +827,15 @@ export function renderAlmanac(gs, { onBack }) {
 
 export function renderSettings(
   preferences,
-  { onToggleContrast, onToggleMotion, onToggleSound, onChangeVolume, onBack, onAbandon },
+  {
+    onToggleContrast,
+    onToggleMotion,
+    onToggleSound,
+    onChangeVolume,
+    onCopyShare,
+    onBack,
+    onAbandon,
+  },
   share = null,
 ) {
   const toggle = (label, enabled, handler, desc) =>
@@ -862,7 +900,7 @@ export function renderSettings(
         'Background music',
         soundOn,
         onToggleSound,
-        'A slow, warm pad loop — off until you turn it on, per autoplay rules.',
+        'A warm, slow felt-piano loop — off until you turn it on, per autoplay rules.',
       ),
       el('div', { class: 'settings-row' }, el('label', { text: 'Volume' }), volumeInput),
     ),
@@ -876,14 +914,24 @@ export function renderSettings(
             class: 'settings-desc',
             text: `This run's seed is ${share.seed}. Anyone opening the link below gets the same Paris — same weather, same event timing — in a fresh run of their own.`,
           }),
-          el('input', {
-            class: 'share-url',
-            type: 'text',
-            readonly: true,
-            value: share.url,
-            'aria-label': 'Shareable run-seed link',
-            onclick: (e) => e.target.select(),
-          }),
+          el(
+            'div',
+            { class: 'share-controls' },
+            el('input', {
+              class: 'share-url',
+              type: 'text',
+              readonly: true,
+              value: share.url,
+              'aria-label': 'Shareable run-seed link',
+              onclick: (e) => e.target.select(),
+            }),
+            el('button', {
+              class: 'btn btn-small',
+              type: 'button',
+              text: 'Copy link',
+              onclick: () => onCopyShare?.(share.url),
+            }),
+          ),
         )
       : null,
 

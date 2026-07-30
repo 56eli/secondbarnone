@@ -299,3 +299,23 @@ maybe('re-opening the popup does not accumulate document keydown listeners', asy
   assert.equal(removed, added, 'every keydown listener must be removed on close — no leak');
   cleanup(window);
 });
+
+maybe('Tab stays trapped on the portrait close control', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('hud-portrait-btn').click();
+    const close = doc.querySelector('.portrait-close');
+    assert.equal(doc.activeElement, close);
+    const event = new window.KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    doc.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(doc.activeElement, close);
+  } finally {
+    cleanup(window);
+  }
+});
