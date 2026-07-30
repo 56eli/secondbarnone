@@ -83,7 +83,12 @@ export const EXHAUSTION_MONEY_BURN_MAX = 9;
 // ----------------------------------------------------------- reputation
 
 export const MAX_REPUTATION = 100.0;
-export const START_REPUTATION = 10.0;
+/** Léon begins with public goodwill; Kaden's day-two smear resets it to 15. */
+export const START_REPUTATION = 80.0;
+/** Reputation after Kaden's opening smear campaign. */
+export const KADEN_SMEAR_REPUTATION = 15.0;
+/** The community's full restoration unlocks the enlightenment ending on this day. */
+export const ENLIGHTENMENT_GOAL_DAYS = 150;
 
 /** Currency of the perk tree. Uncapped, spent not lost. */
 export const START_INSIGHT = 0;

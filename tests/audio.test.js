@@ -26,7 +26,7 @@ test('background music is a small browser-decodable PCM WAV and deploy copy matc
     assert.equal(header.data, 'data');
     assert.equal(header.format, 1, 'WAV must use PCM, not an unsupported float/invalid format');
     assert.equal(header.channels, 1);
-    assert.equal(header.sampleRate, 22050);
+    assert.equal(header.sampleRate, 16000);
     assert.equal(header.bitsPerSample, 16);
   }
   assert.deepEqual(deployed, source, 'deployed audio header must match source master');

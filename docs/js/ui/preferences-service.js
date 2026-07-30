@@ -11,7 +11,7 @@ export class PreferencesService {
       highContrast: false,
       reducedMotion: false,
       sound: false,
-      volume: 0.35,
+      volume: 0.25,
     };
     this.musicEl = null;
     this.musicUrl = 'assets/music/comfy_piano.wav';
@@ -31,7 +31,7 @@ export class PreferencesService {
         this.preferences.sound = raw.musicOn === true || raw.muted === false;
       }
       const volume = Number(raw.volume);
-      this.preferences.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 0.35;
+      this.preferences.volume = Number.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 0.25;
     } catch {
       /* storage is optional or unparseable; defaults remain safe */
     }

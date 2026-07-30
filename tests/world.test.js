@@ -645,7 +645,7 @@ test('getFestival resolves by id', () => {
 test('achievements are unique and fully described', () => {
   const ids = ACHIEVEMENTS.map((a) => a.id);
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal(ACHIEVEMENTS.length, 20);
+  assert.equal(ACHIEVEMENTS.length, 21);
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name.length > 2, `${a.id} name`);
     assert.ok(a.emoji.length > 0, `${a.id} emoji`);

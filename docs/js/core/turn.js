@@ -199,33 +199,42 @@ export function resolveTurn(gs, eventManager, locationId) {
   gs.applyDeltas(total);
   gs.noteVisit(locationId);
   const actionDesc = location?.actionDesc ?? getLocation(locationId)?.actionDesc ?? '';
+  // Energy is a hard survival resource: reaching empty is an immediate collapse,
+  // before exhaustion, rent, or a lucky event can reverse it.
+  let gameOver = gs.checkGameOver();
 
   // 2 — exhaustion (sanity *and* wallet: being drained is expensive)
-  const exhaustion = gs.exhaustionPenalty();
-  const exhaustionBurn = gs.exhaustionBurn();
-  if (exhaustion !== 0 || exhaustionBurn !== 0)
-    gs.applyDeltas({ sanity: exhaustion, money: exhaustionBurn });
-
-  // 3 — rent
-  const rentCharged = gs.applyRentIfSunday();
-
-  // 4 — scheduled event
+  let exhaustion = 0;
+  let exhaustionBurn = 0;
+  let rentCharged = 0;
   let event = null;
-  if (!gs.gameOver) {
-    event = eventManager.selectEvent(
-      gs.journeyDay,
-      gs.getWeekdayIndex(),
-      locationId,
-      gs.consecutiveBarDays,
-      {
-        tags: location?.tags ?? [],
-        weatherId: weather.id,
-        seenEvents: gs.eventsSeen,
-      },
-    );
-    if (event) {
-      gs.recordEventSeen(event);
-      gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
+  if (!gameOver) {
+    exhaustion = gs.exhaustionPenalty();
+    exhaustionBurn = gs.exhaustionBurn();
+    if (exhaustion !== 0 || exhaustionBurn !== 0)
+      gs.applyDeltas({ sanity: exhaustion, money: exhaustionBurn });
+
+    // 3 — rent
+    rentCharged = gs.applyRentIfSunday();
+
+    // 4 — scheduled event
+    if (!gs.gameOver) {
+      event = eventManager.selectEvent(
+        gs.journeyDay,
+        gs.getWeekdayIndex(),
+        locationId,
+        gs.consecutiveBarDays,
+        {
+          tags: location?.tags ?? [],
+          weatherId: weather.id,
+          seenEvents: gs.eventsSeen,
+        },
+      );
+      if (event) {
+        gs.recordEventSeen(event);
+        gs.applyDeltas(scaleEventDeltas(event, gs.getPerkEffects()));
+      }
+      gameOver = gs.checkGameOver();
     }
   }
 
@@ -237,7 +246,6 @@ export function resolveTurn(gs, eventManager, locationId) {
   const longTrip = location?.special === 'long_trip';
   let extraDays = 0;
   let extraRent = 0;
-  let gameOver = gs.checkGameOver();
   if (longTrip && !gameOver) {
     const addNight = () => {
       gs.journeyDay += 1;

@@ -139,7 +139,7 @@ maybe('the HUD shows four gauges, insight and today’s weather', async () => {
     assert.match(doc.getElementById('sanity-num').textContent, /50%/);
     assert.match(doc.getElementById('money-num').textContent, /^50$/);
     assert.match(doc.getElementById('energy-num').textContent, /100%/);
-    assert.match(doc.getElementById('rep-num').textContent, /10%/);
+    assert.match(doc.getElementById('rep-num').textContent, /80%/);
     // Léon is always present in the HUD
     assert.equal(doc.getElementById('hud-name').textContent.trim(), 'Léon');
     assert.ok(doc.getElementById('hud-portrait').getAttribute('src').includes('leon'));
@@ -663,7 +663,7 @@ maybe('the letting office takes rent a week early', async () => {
     click(doc, '.special button', 'Pay a week ahead');
     await settle();
 
-    assert.equal(gs.money, 72);
+    assert.equal(gs.money, 74);
     assert.ok(gs.rentPrepaidUntilDay > gs.journeyDay);
 
     // Revisiting now reports the cover.
@@ -909,7 +909,7 @@ maybe('a completed day is written to storage', async () => {
     const raw = storage.getItem(SAVE_KEY);
     assert.ok(raw, 'the run should be saved after continuing');
     const parsed = JSON.parse(raw);
-    assert.equal(parsed.v, 5);
+    assert.equal(parsed.v, 6);
     assert.equal(parsed.journeyDay, 2);
     assert.ok(parsed.events, 'event scheduler state is persisted');
   } finally {

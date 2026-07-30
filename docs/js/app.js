@@ -29,6 +29,8 @@ import {
   renderCharacters,
   renderGameOver,
   renderResultModal,
+  renderVictoryModal,
+  renderKadenSmearModal,
   renderPerks,
   renderAlmanac,
   renderSettings,
@@ -81,6 +83,7 @@ export function initGame(opts = {}) {
     portraitBtn: document.getElementById('hud-portrait-btn'),
     settingsBtn: document.getElementById('settings-button'),
     name: document.getElementById('hud-name'),
+    fragileFraud: document.getElementById('fragile-fraud'),
     sanityLabel: document.getElementById('sanity-label'),
     moneyLabel: document.getElementById('money-label'),
     sanityBar: document.getElementById('sanity-bar'),
@@ -144,6 +147,8 @@ export function initGame(opts = {}) {
       }
       setText(dom.name, leon.name);
     }
+    // Kaden's slur is visible only while the campaign still has purchase.
+    dom.fragileFraud?.toggleAttribute('hidden', !gs.kadenSmearSeen || gs.reputation >= 80);
 
     const sLow = gs.sanity < 25;
     const mLow = gs.money < 25;
@@ -421,10 +426,43 @@ export function initGame(opts = {}) {
         // has already consumed its two silent interior days in resolveTurn;
         // this final advance moves N+2 → N+3 just as an ordinary day moves
         // N → N+1. The simulator uses the same lifecycle.
-        gs.advanceDay();
-        updateHud();
-        saveStore.save(gs, storage, { events: events.toJSON() });
-        transitionTo(hubScreen);
+        const showKadenSmear = () => {
+          const story = renderKadenSmearModal({
+            onContinue: () => {
+              gs.acknowledgeKadenSmear();
+              saveStore.save(gs, storage, { events: events.toJSON() });
+              modals.dismissActive();
+              transitionTo(hubScreen);
+            },
+          });
+          modals.showModal(story);
+        };
+        const advanceToMorning = () => {
+          const kadenSmear = gs.advanceDay();
+          updateHud();
+          saveStore.save(gs, storage, { events: events.toJSON() });
+          if (kadenSmear || (gs.kadenSmearSeen && !gs.kadenSmearAcknowledged)) {
+            // Zero-duration transitions are the headless test harness; a real player
+            // gets the day-two interlude after the hub transition settles.
+            if (fadeMs > 0) setTimeout(showKadenSmear, 0);
+            else transitionTo(hubScreen);
+          } else transitionTo(hubScreen);
+        };
+        if (result.masteryWon) {
+          const victory = renderVictoryModal(gs, {
+            onRestart: () => {
+              modals.dismissActive();
+              restart();
+            },
+            onContinue: () => {
+              modals.dismissActive();
+              advanceToMorning();
+            },
+          });
+          modals.showModal(victory);
+        } else {
+          advanceToMorning();
+        }
       },
     });
     modals.showModal(modal);
@@ -490,6 +528,22 @@ export function initGame(opts = {}) {
   updateHud();
   showScreen(hubScreen());
   if (resumedPending) presentResolvedTurn(resumedPending, { announce: false, persist: false });
+  else if (fadeMs > 0 && gs.kadenSmearSeen && !gs.kadenSmearAcknowledged) {
+    setTimeout(
+      () =>
+        modals.showModal(
+          renderKadenSmearModal({
+            onContinue: () => {
+              gs.acknowledgeKadenSmear();
+              saveStore.save(gs, storage, { events: events.toJSON() });
+              modals.dismissActive();
+              transitionTo(hubScreen);
+            },
+          }),
+        ),
+      0,
+    );
+  }
 
   const api = {
     toast,

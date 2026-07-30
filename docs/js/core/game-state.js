@@ -28,6 +28,8 @@ import {
   EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
+  KADEN_SMEAR_REPUTATION,
+  ENLIGHTENMENT_GOAL_DAYS,
   START_INSIGHT,
   ENDURANCE_GOAL_DAYS,
   RENT_AMOUNT,
@@ -63,6 +65,8 @@ export {
   EXHAUSTION_MONEY_BURN_MAX,
   MAX_REPUTATION,
   START_REPUTATION,
+  KADEN_SMEAR_REPUTATION,
+  ENLIGHTENMENT_GOAL_DAYS,
   START_INSIGHT,
   ENDURANCE_GOAL_DAYS,
   RENT_AMOUNT,
@@ -95,9 +99,9 @@ export const MONTH_NAMES = [
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /** localStorage key for the save slot. */
-export const SAVE_VERSION = 5;
-export const SAVE_KEY = 'secondbarnone.save.v5';
-const LEGACY_KEYS = ['secondbarnone.save.v4', 'secondbarnone.save.v3'];
+export const SAVE_VERSION = 6;
+export const SAVE_KEY = 'secondbarnone.save.v6';
+const LEGACY_KEYS = ['secondbarnone.save.v5', 'secondbarnone.save.v4', 'secondbarnone.save.v3'];
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -126,9 +130,12 @@ export class GameState {
     /** Set when the player reaches the endurance goal without dying. */
     this.won = false;
     this.winMessage = '';
-    /** Set once when the second (100-day) mastery ending fires. */
+    /** Set once when the day-150 House of Middleway enlightenment ending fires. */
     this.masteryWon = false;
     this.masteryMessage = '';
+    // The day-two Kaden story beat is stateful so reload cannot evade or repeat it.
+    this.kadenSmearSeen = false;
+    this.kadenSmearAcknowledged = false;
 
     this.consecutiveBarDays = 0;
     this.lastLocationVisited = '';
@@ -215,6 +222,7 @@ export class GameState {
     this.journeyDay += 1;
     this._advanceCalendarDay();
     this.recoverEnergy();
+    const kadenSmear = this.triggerKadenSmearIfDue();
     this.emit(
       'day_changed',
       this.journeyDay,
@@ -224,6 +232,22 @@ export class GameState {
       this.dayOfMonth,
     );
     this._statsChanged();
+    return kadenSmear;
+  }
+
+  /** Kaden's opening move lands on the second playable morning, exactly once. */
+  triggerKadenSmearIfDue() {
+    if (this.kadenSmearSeen || this.journeyDay !== 2) return false;
+    this.kadenSmearSeen = true;
+    this.reputation = KADEN_SMEAR_REPUTATION;
+    this.emit('kaden_smear_triggered');
+    return true;
+  }
+
+  acknowledgeKadenSmear() {
+    if (!this.kadenSmearSeen || this.kadenSmearAcknowledged) return false;
+    this.kadenSmearAcknowledged = true;
+    return true;
   }
 
   _advanceCalendarDay() {
@@ -524,6 +548,12 @@ export class GameState {
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
     }
+    if (this.energy <= 0) {
+      this.gameOver = true;
+      this.gameOverMessage = 'Léon drops down due to exhaustion.';
+      this.emit('game_over_triggered', this.gameOverMessage);
+      return true;
+    }
     if (this.money <= 0) {
       this.gameOver = true;
       // Preserve the monotonic endurance milestone; game-over state is tracked
@@ -535,18 +565,13 @@ export class GameState {
     return false;
   }
 
-  /** Second mastery layer: survive 100 days with reputation, exploration and stability. */
+  /** Enlightenment: carry the fully restored House of Middleway through day 150. */
   checkSecondWin() {
-    if (this.masteryWon) return false;
-    if (this.gameOver || this.journeyDay < 100) return false;
-    if (this.reputation < 80) return false;
-    if (this.money < 200) return false;
-    if (this.visitedLocations.size < 18) return false;
-    // No more than 5 consecutive bar days when the threshold is crossed.
-    if (this.consecutiveBarDays > 5) return false;
+    if (this.masteryWon || this.gameOver || this.journeyDay < ENLIGHTENMENT_GOAL_DAYS) return false;
+    if (this.renovations.size !== RENOVATIONS.length) return false;
     this.masteryWon = true;
     this.masteryMessage =
-      "A hundred days, well-known, well-traveled, and still standing. The city is yours as much as anyone's.";
+      'You are enlightened! The House of Middleway is whole, and so is the life you built around it.';
     this.emit('mastery_triggered', this.masteryMessage);
     return true;
   }
@@ -765,6 +790,8 @@ export class GameState {
       winMessage: this.winMessage,
       masteryWon: this.masteryWon,
       masteryMessage: this.masteryMessage,
+      kadenSmearSeen: this.kadenSmearSeen,
+      kadenSmearAcknowledged: this.kadenSmearAcknowledged,
       consecutiveBarDays: this.consecutiveBarDays,
       lastLocationVisited: this.lastLocationVisited,
       turnResolvedOnDay: this._turnResolvedOnDay,
@@ -785,7 +812,8 @@ export class GameState {
   /** Restore from `toJSON()`. Unknown or malformed input is ignored. */
   loadFrom(data) {
     const migrated = migrateSave(data);
-    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5].includes(migrated.v)) return false;
+    if (!migrated || typeof migrated !== 'object' || ![3, 4, 5, 6].includes(migrated.v))
+      return false;
     const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
     const arr = (v) => (Array.isArray(v) ? v : []);
 
@@ -807,6 +835,8 @@ export class GameState {
     this.masteryWon = Boolean(migrated.masteryWon);
     this.masteryMessage =
       typeof migrated.masteryMessage === 'string' ? migrated.masteryMessage : '';
+    this.kadenSmearSeen = Boolean(migrated.kadenSmearSeen);
+    this.kadenSmearAcknowledged = Boolean(migrated.kadenSmearAcknowledged);
 
     this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
     this.lastLocationVisited =
@@ -880,6 +910,12 @@ export function migrateSave(data) {
     if (typeof migrated.festivalsSeen !== 'number') migrated.festivalsSeen = 0;
     if (typeof migrated.weatherSeed !== 'number')
       migrated.weatherSeed = Math.floor(Math.random() * 1e9);
+  }
+
+  // v5 -> v6: existing runs have already passed Kaden's opening morning.
+  if (v < 6) {
+    migrated.kadenSmearSeen = migrated.journeyDay >= 2;
+    migrated.kadenSmearAcknowledged = migrated.journeyDay >= 2;
   }
 
   // v4 -> v5: add mastery state + event-manager + RNG serialisation slot

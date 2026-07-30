@@ -3,7 +3,7 @@
 A small narrative balance game. You play **Léon**, who runs a spiritual community
 by day and tends bar by night. Every day you pick one place to be. The community
 restores your sanity but costs money; the bar pays but grinds you down. Rent hits
-every Sunday — and climbs. Let sanity or money reach zero and the run ends.
+every Sunday — and climbs. Let sanity, money, or energy reach zero and the run ends.
 
 Those two places are where you start. There are **23 locations across five
 districts**, and they reveal through the six main hub cards as the run goes on — a rooftop, a bathhouse, a
@@ -14,8 +14,8 @@ know. Every portrait — HUD, host banners, the People screen, event cards — i
 artwork full-size and nothing else. Bios stay on the People screen.
 Weather is written down four days in advance and closes the outdoor ones.
 Insight buys practices, and a gentle daily focus cue makes the next decision easier to read. Survive **60 days**
-and the run acknowledges it — without forcing you to stop. A hundred days,
-well-known, well-traveled and still standing earns the mastery ending.
+and the run acknowledges it — without forcing you to stop. Reach day **150** with every
+House of Middleway renovation complete and Léon reaches enlightenment — without ending the run.
 
 Keep an eye on **energy**. A full night returns an eighth of the bar, and a
 week of *pushing* empties it outright — literally: seven back-to-back bar
@@ -41,7 +41,7 @@ The game was rewritten as vanilla ES modules so the source **is** the build:
 | --------------- | ------------------------------- | ------------------------------------------------------------------------------ |
 | Deploy payload  | 39.5 MB                         | **3.83 MB** eager (+5.37 MB of full-size portraits fetched only when tapped; 0.78 MB music is lazy) |
 | Build step      | Godot binary + export templates | none                                                                           |
-| Automated tests | 0                               | **425**                                                                        |
+| Automated tests | 0                               | **427**                                                                        |
 | Coverage        | —                               | **~98.1%**                                                                     |
 
 Legacy Godot sources have been removed from this branch. The original engine
@@ -179,7 +179,7 @@ Léon's portrait and name sit in the HUD on every screen.
 | -------------- | ----- | ------------ | --------------------------------------------------------------------------------------------- |
 | **Sanity**     | 50    | 100%         | Gauge. 0 ends the run.                                                                        |
 | **Energy**     | 100   | 100%         | Gauge. Recovers 12/night — eight nights from empty to 96. Below 25 it drains sanity **and money**, steeply. |
-| **Reputation** | 10    | 100%         | Gauge. Gates places; shaves rent by 1–2.                                                      |
+| **Reputation** | 80 → 15 (Day 2) | 100% | Gauge. Kaden’s opening smear drops Léon to 15; restore 80 to clear his name. |
 | **Money**      | 50    | **uncapped** | Wallet. Still ends the run at 0. HUD bar is a comfort meter against 100.                      |
 | **Insight**    | 0     | uncapped     | Spent on perks.                                                                               |
 
@@ -194,9 +194,9 @@ Léon's portrait and name sit in the HUD on every screen.
   twelve** is rare (measured 8.7% weighted across the catalogue).
 - Burnout unlocks only after 3 consecutive bar days.
 - Authored events fire once per run. Sato, Alex and Kaden beats also require their preceding beat, so their arcs cannot arrive out of order.
-- Reaching 0 sanity or 0 money ends the run.
+- Reaching 0 sanity, money, or energy ends the run; at empty energy, Léon drops down from exhaustion.
 - Reaching journey day **60** awards a soft win without ending the run; a
-  day-100 mastery ending exists for the well-traveled.
+  day-150 enlightenment ending requires every House of Middleway renovation.
 - Energy recovers **12 points each night**: eight nights restore 96 from empty
   and a ninth tops off. Rest remains valuable — and it always costs a day.
 - Below 25 energy every day costs extra sanity, on a quadratic curve that is

@@ -529,18 +529,16 @@ test('a long random playthrough never produces invalid state', () => {
   }
 });
 
-test('always alternating locations is a survivable strategy', () => {
-  // Sanity check on balance: alternating should not die almost immediately.
-  const gs = new GameState();
-  const em = new EventManager(seeded());
-  em.initialize(gs.getCharacterNames());
-  let turns = 0;
-  while (!gs.gameOver && turns < 100) {
-    resolveTurn(gs, em, turns % 2 ? 'bar' : 'spiritual_community');
+test('always alternating founding locations now collapses from exhaustion', () => {
+  const gs = new GameState({ seed: 1 });
+  const events = new EventManager(createRng(1));
+  events.initialize(gs.getCharacterNames());
+  for (let i = 0; i < 20 && !gs.gameOver; i += 1) {
+    resolveTurn(gs, events, i % 2 === 0 ? 'spiritual_community' : 'bar');
     if (!gs.gameOver) gs.advanceDay();
-    turns += 1;
   }
-  assert.ok(turns > 10, `alternating died after only ${turns} turns`);
+  assert.equal(gs.gameOver, true);
+  assert.match(gs.gameOverMessage, /exhaustion/);
 });
 
 test('only ever visiting the bar eventually breaks you', () => {
@@ -732,4 +730,12 @@ test('event manager restart schedules from day one like a fresh boot', () => {
       `initialize() scheduled for day ${fresh._nextEventDay}`,
     );
   }
+});
+
+
+test('zero energy ends the run with Léon dropping down from exhaustion', () => {
+  const gs = new GameState({ seed: 1 });
+  gs.energy = 0;
+  assert.equal(gs.checkGameOver(), true);
+  assert.equal(gs.gameOverMessage, 'Léon drops down due to exhaustion.');
 });
