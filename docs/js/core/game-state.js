@@ -635,6 +635,8 @@ export class GameState {
       perks: this.perks,
       visitedLocations: this.visitedLocations,
       totalLocations: LOCATIONS.length,
+      renovations: this.renovations.size,
+      totalRenovations: RENOVATIONS.length,
       rentPaidCount: this.rentPaidCount,
       nightDays: this.nightDays,
       festivalsSeen: this.festivalsSeen,
