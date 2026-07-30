@@ -5,90 +5,57 @@ import { GameState, migrateSave } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 
 describe('new gameplay loop improvements', () => {
-  it('migrates v3 saves to v5 (current)', () => {
+  it('migrates v3 saves to v6 (current)', () => {
     const v3 = { v: 3, sanity: 50, money: 50, journeyDay: 5 };
     const migrated = migrateSave(v3);
-    assert.strictEqual(migrated.v, 5);
+    assert.strictEqual(migrated.v, 6);
     assert.strictEqual(migrated.reputation, 10);
     assert.strictEqual(migrated.energy, 100);
     assert.strictEqual(migrated.masteryWon, false);
   });
 
-  it('migrates v4 saves forward to v5', () => {
+  it('migrates v4 saves forward to v6', () => {
     const v4 = { v: 4, sanity: 70, money: 20, journeyDay: 9 };
     const migrated = migrateSave(v4);
-    assert.strictEqual(migrated.v, 5);
+    assert.strictEqual(migrated.v, 6);
     assert.strictEqual(migrated.masteryWon, false);
   });
 
-  it('checks second win requires reputation and exploration', () => {
+  it('checks enlightenment requires day 150 and every House of Middleway renovation', () => {
     const gs = new GameState();
-    gs.journeyDay = 100;
-    gs.reputation = 85;
-    gs.money = 250;
-    gs.visitedLocations = new Set([
-      'spiritual_community',
-      'bar',
-      'home_loft',
-      'rooftop',
-      'free_clinic',
-      'river_walk',
-      'community_garden',
-      'farmers_market',
-      'bathhouse',
-      'night_market',
-      'flea_market',
-      'public_library',
-      'pawn_shop',
-      'radio_station',
-      'open_mic',
-      'landlord_office',
-      'sato_studio',
-      'alex_cocktail_bar',
-    ]);
-    gs.consecutiveBarDays = 2;
+    gs.journeyDay = 150;
+    gs.renovations = new Set(['roof_repair', 'community_kitchen', 'meditation_garden', 'sanctuary_library']);
     assert.strictEqual(gs.checkSecondWin(), true);
   });
 
-  it('checks second win fails with low reputation', () => {
+  it('enlightenment fails before day 150 or with an unfinished House', () => {
     const gs = new GameState();
-    gs.journeyDay = 100;
-    gs.reputation = 40;
-    gs.money = 250;
-    gs.visitedLocations = new Set(new Array(18).fill('bar'));
+    gs.journeyDay = 149;
+    gs.renovations = new Set(['roof_repair', 'community_kitchen', 'meditation_garden', 'sanctuary_library']);
+    assert.strictEqual(gs.checkSecondWin(), false);
+    gs.journeyDay = 150;
+    gs.renovations.delete('sanctuary_library');
     assert.strictEqual(gs.checkSecondWin(), false);
   });
 
-  it('second win only fires once (idempotent)', () => {
+  it('enlightenment only fires once (idempotent)', () => {
     const gs = new GameState();
-    gs.journeyDay = 100;
-    gs.reputation = 90;
-    gs.money = 300;
-    gs.visitedLocations = new Set([
-      'spiritual_community',
-      'bar',
-      'home_loft',
-      'rooftop',
-      'free_clinic',
-      'river_walk',
-      'community_garden',
-      'farmers_market',
-      'bathhouse',
-      'night_market',
-      'flea_market',
-      'public_library',
-      'pawn_shop',
-      'radio_station',
-      'open_mic',
-      'landlord_office',
-      'sato_studio',
-      'alex_cocktail_bar',
-    ]);
-    gs.consecutiveBarDays = 1;
+    gs.journeyDay = 150;
+    gs.renovations = new Set(['roof_repair', 'community_kitchen', 'meditation_garden', 'sanctuary_library']);
     assert.strictEqual(gs.checkSecondWin(), true);
     assert.strictEqual(gs.masteryWon, true);
-    // Second call should not fire again
     assert.strictEqual(gs.checkSecondWin(), false);
+  });
+
+  it('Kaden starts the run with goodwill then smears Léon on day two exactly once', () => {
+    const gs = new GameState();
+    assert.strictEqual(gs.reputation, 80);
+    assert.strictEqual(gs.advanceDay(), true);
+    assert.strictEqual(gs.journeyDay, 2);
+    assert.strictEqual(gs.reputation, 15);
+    assert.strictEqual(gs.kadenSmearSeen, true);
+    assert.strictEqual(gs.advanceDay(), false);
+    assert.strictEqual(gs.reputation, 15);
   });
 
   it('prepaying rent on a Sunday does NOT skip today\u2019s rent (exploit fixed)', () => {

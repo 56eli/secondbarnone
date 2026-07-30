@@ -24,13 +24,15 @@ function fakeStorage() {
   };
 }
 
-test('PreferencesService loads default and stored settings', () => {
+test('PreferencesService defaults music volume to 25% and loads stored settings', () => {
   const win = setupDom();
   const storage = fakeStorage();
   storage.setItem(
     'secondbarnone.settings.v1',
     JSON.stringify({ highContrast: true, volume: 0.8, musicOn: true }),
   );
+  const defaults = new PreferencesService(fakeStorage(), win.document);
+  assert.equal(defaults.preferences.volume, 0.25);
   const prefs = new PreferencesService(storage, win.document);
   assert.equal(prefs.preferences.highContrast, true);
   assert.equal(prefs.preferences.volume, 0.8);

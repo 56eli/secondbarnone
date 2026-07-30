@@ -1850,3 +1850,26 @@ footer a {
   outline: 2px solid var(--accent, #c9a24b);
   outline-offset: 1px;
 }
+
+.fragile-fraud {
+  display: block;
+  width: max-content;
+  margin-top: 0.1rem;
+  color: #ff6576;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.story-modal {
+  max-width: 39rem;
+}
+.story-modal h2 {
+  color: var(--gold, #f3c969);
+}
+.kaden-smear-modal h2 {
+  color: #ff6576;
+}
+.victory-modal h2 {
+  font-size: clamp(1.8rem, 6vw, 2.65rem);
+}

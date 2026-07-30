@@ -853,7 +853,7 @@ export function renderSettings(
     );
 
   const soundOn = preferences.sound !== false;
-  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.35;
+  const volume = typeof preferences.volume === 'number' ? preferences.volume : 0.25;
 
   const volumeInput = el('input', {
     type: 'range',
@@ -1271,4 +1271,58 @@ function rarityLabel(rarity) {
 /** Small transient toast, used for achievements and saves. */
 export function renderToast(text) {
   return el('div', { class: 'toast', role: 'status', text });
+}
+
+/** A non-dismissable narrative interlude; the explicit button is the only exit. */
+function renderStoryModal(title, lines, actions, className = '') {
+  const modal = el(
+    'div',
+    {
+      class: `modal story-modal ${className}`,
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': title,
+    },
+    el('h2', { text: title }),
+    ...lines.map((line) => el('p', { text: line })),
+    el('div', { class: 'modal-actions' }, ...actions),
+  );
+  const backdrop = el('div', { class: 'modal-backdrop' }, modal);
+  const previous = document.activeElement;
+  const first = modal.querySelector('button');
+  setTimeout(() => first?.focus(), 0);
+  backdrop._cleanup = () => {
+    if (previous instanceof HTMLElement) previous.focus();
+  };
+  return backdrop;
+}
+
+/** Kaden's fixed opening story beat, shown once when day two begins. */
+export function renderKadenSmearModal({ onContinue }) {
+  return renderStoryModal(
+    'A Rumour Finds Its Feet',
+    [
+      'By breakfast, Kaden has already been busy. A clipped recording, a few planted quotes, and the city has a version of Léon that is easier to repeat than to know.',
+      '“Fragile fraud,” the posts call him — a man with a fragile ego playing at wisdom. Friends avoid his eyes. A regular cancels. The House suddenly feels very quiet.',
+      'The lie has travelled faster than any answer can. For now, Léon has to let his work speak.',
+    ],
+    [el('button', { class: 'btn btn-primary', text: 'Face the day →', onclick: onContinue })],
+    'kaden-smear-modal',
+  );
+}
+
+/** The optional late-game ending: it celebrates without ending the ongoing run. */
+export function renderVictoryModal(gs, { onRestart, onContinue }) {
+  return renderStoryModal(
+    'You are enlightened!',
+    [
+      'One hundred and fifty days have passed. The House of Middleway stands restored: roof, kitchen, garden, and library all carrying the people who found their way here.',
+      'You did not escape the city. You learned how to belong to it.',
+    ],
+    [
+      el('button', { class: 'btn btn-primary', text: 'Continue →', onclick: onContinue }),
+      el('button', { class: 'btn', text: 'Restart', onclick: onRestart }),
+    ],
+    'victory-modal',
+  );
 }
