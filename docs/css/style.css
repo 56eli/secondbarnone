@@ -1861,6 +1861,9 @@ footer a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.fragile-fraud[hidden] {
+  display: none !important;
+}
 .story-modal {
   max-width: 39rem;
 }

@@ -497,3 +497,35 @@ maybe('a ten-turn playthrough never throws', async () => {
     assert.ok(true);
   } finally { cleanup(window); }
 });
+
+maybe('fragile fraud label is hidden on day 1 and visible after Kaden smear on day 2', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    const fraudEl = doc.getElementById('fragile-fraud');
+    assert.ok(fraudEl, 'fragile fraud element exists in DOM');
+    assert.equal(fraudEl.hasAttribute('hidden'), true, 'hidden attribute present on day 1');
+    assert.equal(window.getComputedStyle(fraudEl).display, 'none', 'visually hidden on day 1');
+
+    // Advance day 1 to day 2 (visit La Maison Calme)
+    [...doc.querySelectorAll('.choice')].find((b) => b.textContent.includes('La Maison')).click();
+    await settle();
+    doc.querySelector('.btn-primary').click();
+    await settle();
+
+    // Dismiss day 1 result modal to trigger day 2 morning and Kaden smear
+    const cont = [...doc.querySelectorAll('.modal button')].find((b) => b.textContent.includes('Continue'));
+    cont.click();
+    await settle();
+
+    // If Kaden smear modal is showing, dismiss it
+    const kadenBtn = doc.querySelector('.modal .btn-primary');
+    if (kadenBtn && kadenBtn.textContent.includes('Face the day')) {
+      kadenBtn.click();
+      await settle();
+    }
+
+    assert.equal(fraudEl.hasAttribute('hidden'), false, 'hidden attribute removed on day 2 after Kaden smear');
+    assert.notEqual(window.getComputedStyle(fraudEl).display, 'none', 'visually visible on day 2');
+  } finally { cleanup(window); }
+});
