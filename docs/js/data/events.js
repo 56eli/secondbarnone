@@ -104,6 +104,10 @@ function ev(id, character, title, description, category, rarity, deltas = {}, ex
     requiredTag: '',
     /** Optional extra gate on the day's weather id. */
     requiredWeather: '',
+    /** Authored encounters are one-shot unless explicitly marked ambient. */
+    oncePerRun: true,
+    /** Event ids that must already have fired — used for ordered story arcs. */
+    requiresEvents: [],
     ...extra,
   };
 }
@@ -729,6 +733,34 @@ export const EVENTS_BY_LOCATION = {
   // ========================================================== Canal Walk
   river_walk: [
     ev(
+      'hazel_blend',
+      'hazel',
+      'A Blend for Sleep',
+      'Hazel gathers canal-side herbs and makes you something for the nights and watches you put it in your pocket, unimpressed, knowing exactly what happens next.',
+      Category.COMMUNITY,
+      S,
+      { sanity: 5, energy: 6 },
+    ),
+    ev(
+      'hazel_corrects',
+      'hazel',
+      'Rigorous Where It Matters',
+      'She pulls a wild claim off the towpath noticeboard and replaces it with something true and much less exciting. Two people sulk.',
+      Category.COMMUNITY,
+      S,
+      { sanity: -4, insight: 2 },
+    ),
+    ev(
+      'hazel_harvest',
+      'hazel',
+      'The Herb Beds Come Good',
+      'A year of patience in the canal beds turns into enough dried stock to supply the community and sell the rest at a stall that sells out.',
+      Category.MARKET,
+      RH,
+      { money: 15, sanity: 5 },
+    ),
+
+    ev(
       'heron',
       'joar',
       'The Heron',
@@ -756,33 +788,7 @@ export const EVENTS_BY_LOCATION = {
       { sanity: 13, energy: -10, insight: 2 },
     ),
 
-    ev(
-      'rainy_day',
-      'oh',
-      'Rain on the Towpath',
-      'Oh walks the whole length beside you in the rain and says one sentence at the far end. You are still turning it over.',
-      Category.SPIRITUAL,
-      S,
-      { sanity: 6, insight: 1 },
-    ),
-    ev(
-      'found_the_thread',
-      'oh',
-      'You Found the Thread',
-      'Somewhere in the second hour the noise dropped away and the thing you had been circling for weeks simply stated itself.',
-      Category.SPIRITUAL,
-      S,
-      { sanity: 6, insight: 2 },
-    ),
-    ev(
-      'oh_eleven_words',
-      'oh',
-      'Eleven Words',
-      'Oh publishes for the second time in a decade. The whole poem fits on a postcard and the neighbourhood will not shut up about it.',
-      Category.DISCOVERY,
-      RH,
-      { sanity: 9, reputation: 8, insight: 3 },
-    ),
+
 
     ev(
       'last_bus',
@@ -816,60 +822,36 @@ export const EVENTS_BY_LOCATION = {
   // ==================================================== Community Garden
   community_garden: [
     ev(
-      'good_pitch',
-      'brock_lee',
-      'A Good Pitch',
-      'Brock Lee holds the corner spot for the garden\u2019s surplus, the weather holds, and by two in the afternoon there is nothing left.',
-      Category.MARKET,
-      S,
-      { sanity: 2, money: 9 },
-    ),
-    ev(
-      'brock_lee_puns',
-      'brock_lee',
-      'Lettuce Always Do Our Best',
-      'Eleven puns before ten in the morning. You weeded four beds mostly to get away from him and felt better for both.',
-      Category.COMMUNITY,
-      S,
-      { sanity: 5, energy: -6 },
-    ),
-    ev(
-      'brock_lee_glut',
-      'brock_lee',
-      'The Courgette Situation',
-      'Too much of one thing and not enough of anything else. It goes to the kitchen, the neighbours and, eventually, the compost.',
-      Category.MARKET,
-      S,
-      { money: -5, sanity: 3 },
-    ),
-
-    ev(
-      'hazel_blend',
-      'hazel',
-      'A Blend for Sleep',
-      'Hazel makes you something for the nights and watches you put it in your pocket, unimpressed, knowing exactly what happens next.',
-      Category.COMMUNITY,
-      S,
-      { sanity: 5, energy: 6 },
-    ),
-    ev(
-      'hazel_corrects',
-      'hazel',
-      'Rigorous Where It Matters',
-      'She pulls a wild claim off the noticeboard and replaces it with something true and much less exciting. Two people sulk.',
-      Category.COMMUNITY,
-      S,
-      { sanity: -4, insight: 2 },
-    ),
-    ev(
-      'hazel_harvest',
-      'hazel',
-      'The Herb Beds Come Good',
-      'A year of patience turns into enough dried stock to supply the community and sell the rest at a stall that sells out.',
+      'trader_tipoff',
+      'ahyeon',
+      'A Trader\u2019s Tip-off',
+      'Ahyeon Oh tells the garden which wholesaler is about to fold and what to buy for the cutting beds first. She is right about both.',
       Category.MARKET,
       RH,
-      { money: 15, sanity: 5 },
+      { sanity: 3, money: 14, reputation: 3 },
     ),
+    ev(
+      'ahyeon_leftovers',
+      'ahyeon',
+      'Whatever Did Not Sell',
+      'The flowers from the cutting beds, past their prime and, she insists, at their most interesting. The altar has never looked better.',
+      Category.COMMUNITY,
+      S,
+      { sanity: 6 },
+    ),
+    ev(
+      'ahyeon_wet_stall',
+      'ahyeon',
+      'A Wet Morning for Flowers',
+      'Rain from eight until two. Half the cut flowers are bruised and Ahyeon Oh gives them away rather than composting them.',
+      Category.MARKET,
+      S,
+      { money: -7, sanity: 2 },
+    ),
+
+
+
+
 
     ev(
       'blokely_wall',
@@ -931,32 +913,34 @@ export const EVENTS_BY_LOCATION = {
   // ==================================================== Saturday Market
   farmers_market: [
     ev(
-      'trader_tipoff',
-      'ahyeon',
-      'A Trader\u2019s Tip-off',
-      'Ahyeon tells you which wholesaler is about to fold and what to buy from them first. She is right about both.',
+      'good_pitch',
+      'brock_lee',
+      'A Good Pitch',
+      'Brock Lee holds the corner spot for the Saturday market\u2019s best produce, the weather holds, and by two in the afternoon there is nothing left.',
       Category.MARKET,
-      RH,
-      { sanity: 3, money: 14, reputation: 3 },
+      S,
+      { sanity: 2, money: 9 },
     ),
     ev(
-      'ahyeon_leftovers',
-      'ahyeon',
-      'Whatever Did Not Sell',
-      'The end-of-day flowers, past their prime and, she insists, at their most interesting. The altar has never looked better.',
+      'brock_lee_puns',
+      'brock_lee',
+      'Lettuce Always Do Our Best',
+      'Eleven puns before ten in the morning. You sorted four crates mostly to get away from him and felt better for both.',
       Category.COMMUNITY,
       S,
-      { sanity: 6 },
+      { sanity: 5, energy: -6 },
     ),
     ev(
-      'ahyeon_wet_stall',
-      'ahyeon',
-      'A Bad Saturday for Flowers',
-      'Rain from eight until two. Half the stock is unsellable and she gives most of that half away rather than bin it.',
+      'brock_lee_glut',
+      'brock_lee',
+      'The Courgette Situation',
+      'Too much of one thing and not enough of anything else. The market glut goes to the kitchen, the neighbours and, eventually, the compost.',
       Category.MARKET,
       S,
-      { money: -7, sanity: 2 },
+      { money: -5, sanity: 3 },
     ),
+
+
 
     ev(
       'sir_cruds_tribute',
@@ -1728,7 +1712,7 @@ export const EVENTS_BY_LOCATION = {
       Category.NEMESIS,
       S,
       { sanity: -5, money: -4 },
-      { minimumDay: 12 },
+      { minimumDay: 12, requiresEvents: ['kaden_paperwork'] },
     ),
     ev(
       'kaden_buyout',
@@ -1738,7 +1722,7 @@ export const EVENTS_BY_LOCATION = {
       Category.NEMESIS,
       RX,
       { sanity: -14, money: 16, reputation: -6 },
-      { minimumDay: 18 },
+      { minimumDay: 18, requiresEvents: ['kaden_setback'] },
     ),
     ev(
       'kaden_setback',
@@ -1748,7 +1732,7 @@ export const EVENTS_BY_LOCATION = {
       Category.NEMESIS,
       RH,
       { sanity: 14, reputation: 5 },
-      { minimumDay: 15 },
+      { minimumDay: 15, requiresEvents: ['kaden_survey'] },
     ),
 
     ev(
@@ -1842,7 +1826,7 @@ export const EVENTS_BY_LOCATION = {
       'sato_offer',
       'sato',
       'Sato Makes an Offer',
-      'A salary, a title, and the studio\u2019s branding on everything you have built. She is not gloating, which is the worst of it.',
+      'A salary, a title, and the studio\u2019s branding on everything you have built. He is not gloating, which is the worst of it.',
       Category.RIVAL,
       S,
       { sanity: -8, money: 10, reputation: -4 },
@@ -1855,7 +1839,7 @@ export const EVENTS_BY_LOCATION = {
       Category.RIVAL,
       RX,
       { sanity: -10, money: -6, reputation: -5 },
-      { minimumDay: 16 },
+      { minimumDay: 16, requiresEvents: ['sato_offer'] },
     ),
     ev(
       'sato_truce',
@@ -1865,7 +1849,7 @@ export const EVENTS_BY_LOCATION = {
       Category.RIVAL,
       RH,
       { sanity: 12, reputation: 4, insight: 2 },
-      { minimumDay: 22 },
+      { minimumDay: 22, requiresEvents: ['sato_poach'] },
     ),
 
     ev(
@@ -1944,7 +1928,7 @@ export const EVENTS_BY_LOCATION = {
       Category.RIVAL,
       S,
       { sanity: -5, money: -8 },
-      { minimumDay: 10 },
+      { minimumDay: 10, requiresEvents: ['alex_respect'] },
     ),
     ev(
       'alex_toast',
@@ -1954,7 +1938,7 @@ export const EVENTS_BY_LOCATION = {
       Category.RIVAL,
       RH,
       { sanity: 10, money: 5 },
-      { minimumDay: 20 },
+      { minimumDay: 20, requiresEvents: ['alex_raid'] },
     ),
 
     ev(

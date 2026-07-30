@@ -279,8 +279,8 @@ Canonical (current release contract — edit these as the game changes):
 - **README.md** (this file) — what the game is and what its rules are.
 - **PROJECT_OVERVIEW.md** — architecture, systems and internals.
 - **CHANGELOG.md** — dated record of what changed, newest first.
-- **AUDIT_2026-07-30.md** — the current full audit, including verification
-  results and the resolution log of every finding.
+- **AUDIT_2026-07-30.md** — the current full audit, including verification,
+  prioritized findings and the recommended action plan.
 - **DEVELOPMENT notes** in `notes/` — art standard, portrait exceptions and
   the balance postmortem that the tuning contract answers to.
 

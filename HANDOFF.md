@@ -1,6 +1,6 @@
 # Historical handoff (superseded)
 
-> **Frozen context — do not cite for current facts.** This handoff describes an earlier revision. Authoritative sources as of 30 July 2026: `README.md`, `PROJECT_OVERVIEW.md`, `CHANGELOG.md`, and `AUDIT_2026-07-30.md` (current audit, with the full resolution log). Kept for context only.
+> **Frozen context — do not cite for current facts.** This handoff describes an earlier revision. Authoritative sources as of 30 July 2026: `README.md`, `PROJECT_OVERVIEW.md`, `CHANGELOG.md`, and `AUDIT_2026-07-30.md` (current audit and prioritized action plan). Kept for context only.
 
 # Handoff notes
 

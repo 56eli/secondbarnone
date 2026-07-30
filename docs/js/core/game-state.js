@@ -301,7 +301,8 @@ export class GameState {
         !owned &&
         this.isRenovationUnlocked() &&
         this.insight >= r.cost.insight &&
-        this.money >= r.cost.money;
+        // Money reaching zero ends a run; a project may not spend the last coin.
+        this.money > r.cost.money;
       return { ...r, owned, canBuy };
     });
   }
@@ -310,7 +311,7 @@ export class GameState {
     if (!this.isRenovationUnlocked()) return false;
     const ren = getRenovation(id);
     if (!ren || this.renovations.has(id)) return false;
-    if (this.insight < ren.cost.insight || this.money < ren.cost.money) return false;
+    if (this.insight < ren.cost.insight || this.money <= ren.cost.money) return false;
 
     this.insight = Math.max(0, this.insight - ren.cost.insight);
     this.money = Math.max(0, this.money - ren.cost.money);
@@ -463,16 +464,25 @@ export class GameState {
    * where a single Sunday payment erased both today and the next Sunday.
    */
   prepayRent(weeks = 1) {
+    if (!Number.isInteger(weeks) || weeks < 1) return false;
     const cost = this.rentDue() * weeks;
-    if (this.money < cost) return false;
+    // The last coin is not spendable: reaching zero is the run's loss state,
+    // and an out-of-turn transaction must never create a recoverable zero.
+    if (this.money <= cost) return false;
+
     // First Sunday covered by the payment. If rent is due today, today is
     // explicitly excluded (you can't buy your way out of the morning's
     // notice with the same payment that covers next week) — cover starts in
     // seven days. Otherwise cover starts at the next upcoming Sunday.
     const wi = this.getWeekdayIndex();
     const daysUntilNextSunday = this.isRentDue() ? 7 : (6 - wi + 7) % 7 || 7;
+    let sunday = this.journeyDay + daysUntilNextSunday;
     for (let w = 0; w < weeks; w += 1) {
-      this.rentPrepaidDays.add(this.journeyDay + daysUntilNextSunday + w * 7);
+      // Repeated payments extend cover instead of charging for the same Set
+      // entry again.
+      while (this.rentPrepaidDays.has(sunday)) sunday += 7;
+      this.rentPrepaidDays.add(sunday);
+      sunday += 7;
     }
     this.money -= cost;
     this._statsChanged();
@@ -508,14 +518,16 @@ export class GameState {
     if (this.gameOver) return true;
     if (this.sanity <= 0) {
       this.gameOver = true;
-      this.won = false;
+      // `won` records that the endurance milestone was reached. A later death
+      // ends the run but cannot un-earn sixty days of survival.
       this.gameOverMessage = 'Your sanity has crumbled. The spiritual path was neglected too long.';
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;
     }
     if (this.money <= 0) {
       this.gameOver = true;
-      this.won = false;
+      // Preserve the monotonic endurance milestone; game-over state is tracked
+      // separately from what the player already achieved.
       this.gameOverMessage = "You're broke. The bills pile up and you can't sustain the community.";
       this.emit('game_over_triggered', this.gameOverMessage);
       return true;

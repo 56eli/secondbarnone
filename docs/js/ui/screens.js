@@ -293,6 +293,12 @@ export function openCharacterPopup(profile) {
   closeOpenPopup = close;
   const onKey = (e) => {
     if (e.key === 'Escape') close();
+    // The close affordance is the lightbox's sole control. Keep keyboard focus
+    // inside the aria-modal dialog instead of tabbing into the obscured game.
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      backdrop.querySelector('.portrait-close')?.focus();
+    }
   };
 
   const backdrop = renderPortraitPopup(profile, { onClose: close });
@@ -599,7 +605,7 @@ function renderSpecial(gs, location, onSpecial) {
       }),
       el('button', {
         class: 'btn btn-small',
-        disabled: gs.money < cost,
+        disabled: gs.money <= cost,
         text: `Pay a week ahead (${cost} money)`,
         onclick: () => onSpecial('prepay_rent'),
       }),
@@ -617,7 +623,10 @@ function renderSpecial(gs, location, onSpecial) {
 
 /** Floating motes. */
 function startParticles(container) {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
+  const settingDisablesMotion = document.documentElement.classList.contains('reduce-motion');
+  if (settingDisablesMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return () => {};
+  }
   const spawn = () => {
     if (!container.isConnected) return;
     const size = 2 + Math.random() * 3;
@@ -973,8 +982,7 @@ export function renderCharacters(profiles, { onBack, gs }) {
       'button',
       {
         class: `char-row role-${p.role}`,
-        role: 'option',
-        'aria-selected': 'false',
+        'aria-pressed': 'false',
       },
       avatar(p, 'avatar', { clickable: false }),
       el(
@@ -988,8 +996,8 @@ export function renderCharacters(profiles, { onBack, gs }) {
     );
 
     row.addEventListener('click', () => {
-      for (const r of allRows) r.setAttribute('aria-selected', 'false');
-      row.setAttribute('aria-selected', 'true');
+      for (const r of allRows) r.setAttribute('aria-pressed', 'false');
+      row.setAttribute('aria-pressed', 'true');
       showDetail(p);
     });
     row._profile = p;
@@ -997,7 +1005,10 @@ export function renderCharacters(profiles, { onBack, gs }) {
     return row;
   };
 
-  const list = el('div', { class: 'char-list', role: 'listbox', 'aria-label': 'Characters' });
+  // These are ordinary buttons, deliberately not an ARIA listbox: native Tab
+  // and activation behavior is more predictable than claiming an arrow-key
+  // widget we do not implement.
+  const list = el('div', { class: 'char-list', 'aria-label': 'Characters' });
   const groups = [];
   for (const role of ROLE_ORDER) {
     const members = profiles.filter((p) => p.role === role);

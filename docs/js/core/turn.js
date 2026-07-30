@@ -217,7 +217,11 @@ export function resolveTurn(gs, eventManager, locationId) {
       gs.getWeekdayIndex(),
       locationId,
       gs.consecutiveBarDays,
-      { tags: location?.tags ?? [], weatherId: weather.id },
+      {
+        tags: location?.tags ?? [],
+        weatherId: weather.id,
+        seenEvents: gs.eventsSeen,
+      },
     );
     if (event) {
       gs.recordEventSeen(event);
