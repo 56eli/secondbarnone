@@ -247,18 +247,15 @@ export function resolveTurn(gs, eventManager, locationId) {
   let extraDays = 0;
   let extraRent = 0;
   if (longTrip && !gameOver) {
-    const addNight = () => {
-      gs.journeyDay += 1;
-      gs._advanceCalendarDay();
-      gs.recoverEnergy();
+    const addNight = (announce = false) => {
+      const { rent = 0 } = gs.advanceSilentDay({ chargeRent: true, announce });
       extraDays += 1;
-      const r = gs.applyRentIfSunday();
-      if (r) extraRent += r;
+      if (rent) extraRent += rent;
       gs.visitedLocations.add(location.id);
     };
     // Two extra silent nights; the action day has already resolved above.
     addNight();
-    addNight();
+    addNight(true);
     gs.sanity = Math.max(0, Math.min(MAX_STAT, gs.sanity));
     gs.energy = Math.max(0, Math.min(MAX_ENERGY, gs.energy));
     gs.money = Math.max(0, gs.money);
@@ -269,15 +266,6 @@ export function resolveTurn(gs, eventManager, locationId) {
     // either reloads lose the pending-result modal or a second action can
     // fire without an intervening night.
     gs.markTurnResolved();
-    gs.emit(
-      'day_changed',
-      gs.journeyDay,
-      gs.getWeekdayName(),
-      gs.getMonthName(),
-      gs.year,
-      gs.dayOfMonth,
-    );
-    gs._statsChanged();
     // A Sunday encountered during travel can be fatal. This check is
     // deliberately after both nights and their rent charges.
     gameOver = gs.checkGameOver();

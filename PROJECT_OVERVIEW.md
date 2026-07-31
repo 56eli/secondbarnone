@@ -32,10 +32,10 @@ As plain ES modules the source _is_ the build:
 
 |                 | Godot                           | Current             |
 | --------------- | ------------------------------- | ------------------- |
-| Deploy payload  | 39.5 MB                         | **3.83 MB** eager to play (+5.37 MB portrait lightbox tier; 0.78 MB music is lazy) |
+| Deploy payload  | 39.5 MB                         | **3.85 MB** conservative eager tier (+5.37 MB portrait lightbox; 0.78 MB music lazy) |
 | Build step      | Godot binary + export templates | none                |
-| Automated tests | 0                               | **425**             |
-| Coverage        | —                               | **~98.1%**          |
+| Automated tests | 0                               | **446 Node/jsdom + 9 browser smoke cases** |
+| Coverage        | —                               | **~97%**            |
 
 Legacy Godot sources have been removed from this branch. The shipped game is
 the HTML/CSS/JS build under `docs/` only.
@@ -59,6 +59,7 @@ docs/js/
     game-state.js    stats, calendar, practices, save/load
     event-manager.js event scheduling and weighted selection
     turn.js          resolves one day in a fixed order
+    preview.js       shared exact/banded/veiled observable-preview contract
     rng.js           seedable RNG
   data/
     characters.js    77 profiles, each bound to one location
@@ -99,7 +100,8 @@ module. The earlier approach — importing `main.js` with a cache-busting query
 string — gave each boot its own module instance, which fragmented coverage
 reporting and leaked state between tests.
 
-`main.js` is now three lines: import, call, expose on `window.__game`.
+`main.js` remains a minimal entry point: parse the optional share seed, call
+`initGame()`, and expose the result on `window.__game` for debugging/tests.
 
 ### Signals
 
@@ -126,8 +128,8 @@ list, so a handler may safely unsubscribe mid-dispatch.
 | -------------- | ----- | -------- | ------------------------------------------------------------------------ |
 | **Sanity**     | 50    | 100      | Reaching 0 ends the run                                                  |
 | **Money**      | 50    | uncapped | Wallet. Reaching 0 ends the run; HUD bar is comfort vs 100               |
-| **Energy**     | 100   | 100      | Recovers 12/night — eight nights from empty to 96; running low costs sanity **and money** |
-| **Reputation** | 10    | 100      | Gates locations                                                          |
+| **Energy**     | 100   | 100      | Recovers 13/night — seven nights reach 91 and the eighth tops off; running low costs sanity **and money** |
+| **Reputation** | 80 → 15 on day 2 | 100 | Kaden's smear resets the opening goodwill; gates locations |
 | **Insight**    | 0     | —        | A currency, not a gauge. Spent on perks                                  |
 
 The two founding locations anchor the whole economy at their 30 July 2026
@@ -143,9 +145,10 @@ derived from one readable rule rather than picked individually:
 
 > **A week of pushing empties the tank.**
 
-`ENERGY_RECOVERY` is deliberately **12 a night** (Hard Winter, 30 July 2026):
-eight nights restore 96 energy and a ninth tops off. Seven back-to-back bar
-shifts flatline a full tank exactly. Every location's energy cost is priced
+`ENERGY_RECOVERY` is deliberately **13 a night** (hard-collapse retune, 31 July
+2026): seven nights restore 91 energy and an eighth tops off. Seven
+back-to-back bar shifts still flatline a full tank exactly. Thirteen restores
+the approved skill gradient while keeping zero energy immediately lethal. Every location's energy cost is priced
 _against_ that figure — a bar shift is −26, the community is −14, and rest
 (+28 at the loft, +18 at the bathhouse, always minus money and a day) is a
 costly recovery decision rather than a free reset.
@@ -168,10 +171,11 @@ test.)
 
 The balance suite asserts this as behaviour rather than arithmetic: the
 difficulty contract in `tests/difficulty.test.js` measures seven player models
-over 300 seeded runs each (v2.6 60-day goal: inattentive 0%, random/naive
-greedy 27%, reference average 42%, fully engaged 61–66%), and bands in
-`balance.test.js` pin the 200-day horizon (inattentive styles ~always die;
-even the best styles fail 3–13%).
+over 300 seeded runs each (hard-collapse 60-day goal: inattentive 0%, random
+29%, naive greedy 26%, reference average 48%, fully engaged 59–64%). The
+separately calibrated 200-day unlocked-map stress bands keep inattentive styles
+near zero horizon survival while strong styles still fail roughly 38–43% of
+fixed-seed runs.
 
 #### Variance
 
@@ -296,7 +300,7 @@ Rent Amnesty Day.
 
 - **10 perks** in a prerequisite tree, bought with insight. Test-enforced to be
   acyclic and declared in a buyable order.
-- **9 festivals** on fixed calendar dates, and **20 achievements** expressed as
+- **9 festivals** on fixed calendar dates, and **21 achievements** expressed as
   pure predicates over a state snapshot. The old "survive to day 200" milestone
   was retired along with the 100-day goal: an achievement three times longer
   than the win condition is a number, not a reward.
@@ -343,21 +347,36 @@ Scheduling stays deterministic at 2–5 journey-days apart. Authored encounters 
 `resolveTurn()` in `core/turn.js` applies, in this exact order:
 
 1. the day's effects — location, its daily variance, weather, festival, perks
-2. the exhaustion penalty
-3. Sunday rent
-4. the scheduled random event, scaled by perks
-5. achievements
-6. the game-over check
-7. one concise history line
+2. immediate hard-resource collapse (touching zero energy ends the run)
+3. the exhaustion sanity/money penalty
+4. Sunday rent
+5. the scheduled random event, scaled by perks
+6. silent travel days for a long trip, through `GameState.advanceSilentDay()`
+7. achievements, endings, final game-over check and one history line
 
-Order still matters: rent lands before the event, so an event can pull a player
-back from the brink that rent pushed them toward.
+Order still matters: energy collapse is immediate, while rent lands before the
+event so an event can still pull a wallet back from the brink.
 
 Step 1 is factored out as `computeDayEffects()`, which the UI calls with
 `{ preview: true }` to show the honest average a location offers _before_ the
 player commits — weather, festival and perks included; the deterministic
-variance swing is only added when null (i.e. at resolution). One function, two
-modes; they cannot drift because preview is strictly resolution-minus-dice.
+variance swing is only added at resolution. `core/preview.js` then converts the
+average into the player's observable exact/banded/veiled representation. The UI
+and simulator share that pure module, so strategy models cannot read arithmetic
+the weather hides from a person.
+
+### Persistence
+
+Save schema v6 stores the full run, event scheduler and seeded RNG cursor in
+`localStorage`. A resolved day is persisted with its pending result before the
+modal appears; reloading restores that exact result instead of rolling the
+choice back. Continue clears the pending result, advances once and saves the
+next playable morning. Purchases save immediately.
+
+Settings can export a human-readable JSON backup and import it in another
+browser. Import validates/migrates through a fresh `GameState`, rejects completed
+runs, filters unknown catalogue ids, normalizes integer counters and only then
+replaces local progress. Versions v3-v5 remain migratable.
 
 ---
 
@@ -502,10 +521,15 @@ asserts every repainted background keeps its master.
 
 Missing portraits fall back to an initials chip, which is exercised by test.
 
-Source art in `assets/` is ~250 MB (plain blobs — the LFS attribute exists
-but the migration is a recorded open decision; see README → "Repository size
-and history"); the deployed payload in
-`docs/assets/` is 3.83 MB eager plus 5.37 MB of on-demand portrait sheets; music is a separate 0.78 MB lazy asset (`warm_piano.wav`, synthesized by `scripts/gen-piano.py` and downsampled for the web by `scripts/downsample.py`).
+Source art in `assets/` is ~250 MB of ordinary Git blobs. The owner chose to
+defer LFS/history migration to minimize operational burden; see README and
+`notes/ASSET_STORAGE_OPTIONS.md`. The conservative non-hi/non-music `docs/` tier
+is 3.85 MB plus 5.37 MB of
+on-demand portrait sheets; music is a separate 0.78 MB lazy asset
+(`warm_piano.wav`, synthesized by `scripts/gen-piano.py` and downsampled for the
+web by `scripts/downsample.py`). Most files in the conservative tier are also
+loaded on demand by browser navigation; it is a release budget, not a literal
+first-transfer measurement.
 `scripts/build-portraits.js` rebuilds both portrait tiers and prunes orphans in
 one pass.
 
@@ -514,7 +538,9 @@ one pass.
 ## Testing
 
 The test suite spans rule, catalogue, asset, balance and jsdom UI coverage.
-**425 tests across 19 files** (30 July 2026, night; `npm test` prints the live count).
+**446 Node/jsdom tests across 20 files**, plus **9 Playwright smoke cases** across
+Chromium desktop/mobile and WebKit tablet (31 July 2026; commands print the
+live count).
 
 The suites that carry the most weight:
 
@@ -534,8 +560,9 @@ The suites that carry the most weight:
 the code that renders it: both tiers exist for all 77 characters, thumbnails
 never exceed 288px, a hi-res sheet is never _smaller_ than the thumbnail it
 enlarges, no orphaned or SVG portrait files ship, and every deployed
-background is referenced by a location. It skips cleanly if ImageMagick is
-unavailable.
+background is referenced by a location. Dimension/luminance checks skip cleanly
+without ImageMagick in a minimal local checkout; release CI installs ImageMagick
+explicitly, so skips are not accepted there.
 
 It also pins the four portraits repainted in the off-style pass (`kaj`,
 `lakshay`, `arian`, `dorian`) by content hash. Those four were pixel-art
@@ -573,9 +600,9 @@ zero just below its own threshold.
 Coverage on shipped code:
 
 ```
-Measured 30 July 2026 (run `npm run coverage:check` for the current figure):
+Measured 31 July 2026 (run `npm run coverage:check` for the current figure):
 
-all files          98.12 line | 86.10 branch | 92.56 funcs
+all files          97.41 line | 85.28 branch | 90.57 funcs
 ```
 
 `npm run coverage:check` enforces an 80% floor on all three metrics and exits
@@ -590,17 +617,35 @@ that state never goes invalid.
 ## Accessibility
 
 Semantic buttons and headings, visible focus rings, `aria-pressed` on the
-character list, `role="dialog"` with `aria-modal` on the result modal, labelled
-search input, and full keyboard operability.
+character list, labelled search input, meter roles and full keyboard
+operability. Result/story dialogs and portrait lightboxes share one modal
+session primitive: focus is trapped and restored, Escape follows the dialog's
+explicit policy, scrolling locks, and the obscured page becomes inert and
+`aria-hidden`.
 
 `prefers-reduced-motion` disables particles and collapses transitions — covered
 by a dedicated test that boots the app with the media query forced on.
+Playwright exercises the critical flow at 320px, desktop and 768px WebKit in CI.
+A human NVDA or VoiceOver pass remains required because automated DOM/browser
+checks cannot verify spoken order or felt touch ergonomics.
 
 ---
 
 ## Known gaps
 
-- **Not verified in a real browser.** The UI is jsdom-verified; a human pass on
-  a real phone is still worthwhile (HUD identity row + six-card hub grid).
-- **Music is optional and off by default.** A lazy-loaded PCM WAV loop is enabled only through Settings.
-  has not bitten yet.
+- **Human playtesting remains authoritative.** The restored simulator gradient
+  is a deterministic regression contract, not evidence of perceived fairness.
+- **Real assistive-technology/device pass remains.** Browser smoke covers layout
+  and lifecycle, but not NVDA/VoiceOver speech or physical touch.
+- **Asset growth still needs review.** The owner raised the conservative
+  non-hi/non-music tier to 10 MB on 31 July 2026. Current use is 3.85 MB; the
+  separate 11 MB total-gallery and 1 MB lazy-audio caps remain.
+- **Master-art storage is deliberately unchanged.** To minimize burden and
+  migration risk, source masters remain ordinary Git files and contributors use
+  shallow clones. Options are documented in `notes/ASSET_STORAGE_OPTIONS.md`.
+- **Commercial provenance is unresolved.** Integrity hashes prove which bytes
+  shipped, not commercial-use rights for generated art/content.
+- **All authored events are one-shot.** Observe long human runs before deciding
+  whether each location needs a small repeatable ambient pool.
+- **Music is optional and off by default.** The lazy PCM WAV starts at an
+  owner-approved 25% volume only after the player enables it.

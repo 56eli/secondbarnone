@@ -124,7 +124,7 @@ test('the daily focus cue reflects exhaustion', () => {
 
 // ==================================================== reputation & insight
 
-test('reputation starts low, is capped, and never goes negative', () => {
+test('reputation starts at declared goodwill, is capped, and never goes negative', () => {
   const gs = fresh();
   assert.equal(gs.reputation, START_REPUTATION);
   gs.applyDeltas({ reputation: 9999 });
@@ -344,4 +344,77 @@ test('the almanac forecast uses each day\'s own season across a boundary', () =>
       `day ${i} must use its own season`,
     );
   }
+});
+test('portable save export and import preserve a live run and scheduler extras', () => {
+  const sourceStorage = fakeStorage();
+  const source = fresh(4242);
+  source.journeyDay = 23;
+  source.dayOfMonth = 23;
+  source.money = 87;
+  source.visitedLocations.add('bar');
+  const events = manager(4242).toJSON();
+  assert.equal(saveStore.save(source, sourceStorage, { events }), true);
+
+  const exported = saveStore.exportText(sourceStorage);
+  assert.ok(exported?.endsWith('\n'));
+  assert.equal(JSON.parse(exported).events.nextEventDay, events.nextEventDay);
+
+  const targetStorage = fakeStorage();
+  const imported = saveStore.importText(exported, targetStorage);
+  assert.deepEqual(imported, { ok: true, reason: '' });
+  const restored = fresh();
+  assert.equal(saveStore.load(restored, targetStorage), true);
+  assert.equal(restored.journeyDay, 23);
+  assert.equal(restored.money, 87);
+  assert.deepEqual([...restored.visitedLocations], ['bar']);
+  assert.equal(saveStore.loadExtra(targetStorage).events.nextEventDay, events.nextEventDay);
+});
+
+test('portable save import rejects invalid or completed runs without replacing progress', () => {
+  const storage = fakeStorage();
+  const current = fresh(7);
+  assert.equal(saveStore.save(current, storage), true);
+  const before = storage.getItem(SAVE_KEY);
+
+  assert.equal(saveStore.importText('{bad json', storage).ok, false);
+  assert.equal(storage.getItem(SAVE_KEY), before);
+
+  const dead = { ...current.toJSON(), gameOver: true, gameOverMessage: 'done' };
+  assert.equal(saveStore.importText(JSON.stringify(dead), storage).ok, false);
+  assert.equal(storage.getItem(SAVE_KEY), before);
+});
+
+test('save loading normalizes integer counters and filters unknown catalogue ids', () => {
+  const gs = fresh();
+  const data = {
+    ...gs.toJSON(),
+    journeyDay: 12.9,
+    monthIndex: 2.8,
+    consecutiveBarDays: -4,
+    achievements: ['first_week', 'made_up'],
+    visitedLocations: ['bar', 'not_a_place'],
+    lastLocationVisited: 'not_a_place',
+  };
+  assert.equal(gs.loadFrom(data), true);
+  assert.equal(gs.journeyDay, 12);
+  assert.equal(gs.monthIndex, 2);
+  assert.equal(gs.consecutiveBarDays, 0);
+  assert.deepEqual([...gs.achievements], ['first_week']);
+  assert.deepEqual([...gs.visitedLocations], ['bar']);
+  assert.equal(gs.lastLocationVisited, '');
+});
+
+test('silent travel advances calendar, recovery and rent through the public state API', () => {
+  const gs = fresh(99);
+  gs.journeyDay = 3; // Saturday; the silent day lands on Sunday.
+  gs.dayOfMonth = 3;
+  gs.energy = 40;
+  gs.money = 100;
+  const { rent } = gs.advanceSilentDay();
+  assert.equal(gs.journeyDay, 4);
+  assert.equal(gs.dayOfMonth, 4);
+  assert.equal(gs.energy, 40 + ENERGY_RECOVERY);
+  assert.ok(rent > 0, 'Sunday rent resolves during travel');
+  assert.equal(gs.rentPaidCount, 1);
+  assert.equal(gs.kadenSmearSeen, false, 'silent travel does not invent a playable-morning story');
 });

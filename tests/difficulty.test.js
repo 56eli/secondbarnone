@@ -7,26 +7,26 @@
  * a stable, reviewable definition of "average player" and makes the intended
  * difficulty measurable.
  *
- * Current tuning contract (Hard Winter, 2026-07-30 — one canonical tuning,
+ * Current tuning contract (hard collapse, 2026-07-31 — one canonical tuning,
  * no easy mode):
  *
  *   model                    60-day goal   meaning
  *   doesnt_pay_attention     ~0%           alternates the founding pair and dies
  *   random                   <35%          luck is not a plan
  *   greedy                   15–30%        naive preview-reading dies ~3 of 4 runs
- *   average                  20–35%        the reference player: a real coin flip
+ *   average                  35–50%        the reference player: a real coin flip
  *   pays_attention_sometimes > average     attention is the game
  *   concentrates             ≥50%          engaged play wins ~3 of 5
  *   min_maxing               ≥ concentrates, <100% — nobody is immortal
  *
- * Measured (300 runs each, v2.6): DPA 0%, random/greedy 27%, average 42%,
- * sometimes 45%, concentrates 61%, min-maxing 66%.
+ * Measured (300 runs each, hard-collapse retune): DPA 0%, random 29%, greedy
+ * 26%, average 48%, sometimes 55%, concentrates 59%, min-maxing 64%.
  */
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { assessDifficulty, PLAYER_STRATEGIES } from '../scripts/simulate.js';
+import { assessDifficulty, playRun, PLAYER_STRATEGIES, summarise } from '../scripts/simulate.js';
 
 const RUNS = 300;
 const DAYS_TO_ASSESS = 61; // resolves day 60, then allows the normal advance
@@ -53,8 +53,8 @@ test('difficulty assessment exposes the agreed player behaviour models', () => {
 test('the average player faces a real coin flip over 60 days', () => {
   const average = results().average;
   assert.ok(
-    average.goalRate >= 0.2 && average.goalRate <= 0.35,
-    `average goal rate ${average.goalRate.toFixed(3)} is outside the 20–35% band`,
+    average.goalRate >= 0.35 && average.goalRate <= 0.5,
+    `average goal rate ${average.goalRate.toFixed(3)} is outside the 35–50% band`,
   );
   assert.equal(average.goalRate + average.deathRate, 1, 'runs end at the goal or a loss');
 });
@@ -94,11 +94,34 @@ test('attention produces a clear but not binary skill gradient', () => {
     'occasional informed choices should outperform the average baseline',
   );
   assert.ok(
-    s.concentrates.goalRate >= 0.25 && s.concentrates.goalRate > s.greedy.goalRate,
+    s.concentrates.goalRate >= 0.5 && s.concentrates.goalRate > s.greedy.goalRate,
     `consistent concentration must clearly beat naive greed without being safe: ${s.concentrates.goalRate.toFixed(3)}`,
   );
   assert.ok(
     s.min_maxing.goalRate >= s.concentrates.goalRate && s.min_maxing.goalRate < 1,
     `min-maxing should top the gradient without being immortal: ${s.min_maxing.goalRate.toFixed(3)}`,
   );
+});
+
+test('the inattentive model actually alternates the founding pair', () => {
+  const run = playRun(1013, 'doesnt_pay_attention', { maxDays: 20, poolMode: 'hub' });
+  assert.deepEqual(Object.keys(run.visits).sort(), ['bar', 'spiritual_community']);
+  assert.ok(
+    Math.abs(run.visits.bar - run.visits.spiritual_community) <= 1,
+    `founding visits did not alternate: ${JSON.stringify(run.visits)}`,
+  );
+});
+
+test('simulator death diagnostics account for lethal energy separately', () => {
+  const run = playRun(1013, 'doesnt_pay_attention', { maxDays: 61, poolMode: 'hub' });
+  assert.equal(run.cause, 'energy');
+  assert.equal(run.energy, 0);
+
+  const summary = summarise('doesnt_pay_attention', { runs: 12, maxDays: 61, poolMode: 'hub' });
+  assert.equal(
+    summary.deathsBySanity + summary.deathsByEnergy + summary.deathsByMoney,
+    summary.runs * summary.deathRate,
+  );
+  assert.equal(summary.deathsByEnergy, 12);
+  assert.equal(summary.deathsByMoney, 0);
 });

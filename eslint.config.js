@@ -20,6 +20,7 @@ export default [
         URL: 'readonly',
         URLSearchParams: 'readonly',
         Image: 'readonly',
+        Blob: 'readonly',
       },
     },
     rules: {

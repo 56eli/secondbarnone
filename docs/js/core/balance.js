@@ -41,10 +41,10 @@ export const START_ENERGY = 100.0;
  * How many nights of ordinary sleep take you from empty back to full.
  *
  * This is the anchor of the energy economy, and it is stated as a *duration*
- * rather than a rate on purpose: "a full week of rest still isn't quite a
- * full tank" is a rule a player can hold in their head, and every other
- * energy number is derived from it. (Hard Winter tuning, July 2026: 12 a
- * night — sleep helps, but you cannot out-sleep a bad week.)
+ * rather than a rate on purpose: "a full week of rest still leaves a little
+ * room, and the eighth night tops you off" is a rule a player can hold in
+ * their head. (Hard-collapse tuning, July 2026: 13 a night — enough to preserve
+ * the approved skill gradient now that touching zero ends the run immediately.)
  */
 export const ENERGY_FULL_RECOVERY_DAYS = 8;
 
@@ -55,7 +55,7 @@ export const ENERGY_FULL_RECOVERY_DAYS = 8;
  * cost more than one night returns, which is precisely what makes topping up
  * a decision rather than a formality.
  */
-export const ENERGY_RECOVERY = 12.0;
+export const ENERGY_RECOVERY = 13.0;
 
 /** Below this, actions bite harder (see `GameState.exhaustionPenalty`). */
 export const EXHAUSTION_THRESHOLD = 25.0;

@@ -36,7 +36,8 @@ const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
  *
  *   eager  everything except assets/portraits/hi/ — HTML, CSS, JS, the 288px
  *          portrait thumbnails and the location backgrounds. This is what a
- *          run actually costs to load, so it gets the tight budget.
+ *          run can eventually request outside the explicit lazy tiers, so it
+ *          gets the owner-approved conservative budget.
  *   total  eager + the 896px lightbox sheets, which are fetched only when a
  *          player taps a portrait to enlarge it. One extra sheet is ~80 KB
  *          on demand; nobody downloads all 77.
@@ -46,8 +47,8 @@ const MAX_FILE_BYTES = 400 * 1024;   // no single asset should exceed this
  * thumbnails were cut from a wildly oversized 512px to 288px — the largest
  * avatar the game ever renders inline is 84 CSS px.
  */
-const MAX_EAGER_BYTES = 4 * 1024 * 1024;
-// Hi-res portraits are lazy; keep a tight eager budget and a realistic total gallery budget.
+const MAX_EAGER_BYTES = 10 * 1024 * 1024;
+// Hi-res portraits are lazy; keep conservative non-hi and total-gallery budgets separate.
 // Total budget covers everything in docs/ including the lazy lightbox portraits
 // and the lazy music file. Real on-load cost stays at the eager budget.
 const MAX_TOTAL_BYTES = 11 * 1024 * 1024;
@@ -117,8 +118,8 @@ console.log(`  total payload: ${mb(total)} (limit ${mb(MAX_TOTAL_BYTES)})`);
 if (eager > MAX_EAGER_BYTES) fail(`eager payload exceeds ${mb(MAX_EAGER_BYTES)}`);
 if (total > MAX_TOTAL_BYTES) fail(`total payload exceeds ${mb(MAX_TOTAL_BYTES)}`);
 
-// Headroom policy: the 4 MB eager budget is deliberate and should stay — but
-// a content PR should never *discover* the wall by tripping CI. Warn loudly
+// Headroom policy: the owner-approved 10 MB conservative tier leaves room for
+// future content, but a PR should never *discover* the wall by tripping CI. Warn
 // once headroom drops below 10% so the optimisation conversation happens in
 // review, not in a failed build. (Budget decisions live in PROJECT_OVERVIEW.)
 const HEADROOM_FRACTION = 0.1;

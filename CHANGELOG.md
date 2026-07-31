@@ -5,6 +5,80 @@ claim in an entry must match `npm run simulate` output for that entry's
 revision — an entry that describes numbers the code doesn't have is a bug,
 and gets corrected in place rather than remembered fondly.
 
+## 2026-07-31 — Audit remediation: hard-collapse balance, truthful simulator, portable saves and release gates
+
+### Balance and simulator
+
+- Kept zero energy immediately lethal and raised ordinary overnight recovery
+  **12 -> 13**. Seven nights restore 91; the eighth tops off. This restores the
+  owner-approved skill gradient without removing the exhaustion ending.
+- Canonical 300-seed/61-day hub goals are now: inattentive **0%**, random
+  **29%**, greedy **26%**, average **48%**, sometimes attentive **55%**,
+  concentrates **59%**, min-maxing **64%**.
+- Added DOM-free `core/preview.js`, shared by UI and simulator. Models now see
+  exact averages, rain/snow bands, or fog focus icons exactly as players do.
+- Split event and decision RNG. Events use the production city seed; choices use
+  a separate deterministic stream.
+- Fixed a diagnostic bug that labeled every energy death as money. Reports now
+  include sanity/energy/money causes and mean ending energy.
+- `doesnt_pay_attention` now truly alternates the founding pair rather than
+  choosing one randomly.
+- Long-horizon models fund affordable renovations only while House of Middleway
+  is on the hub; reports include mastery rate and mean renovations.
+
+### Persistence and lifecycle
+
+- Added validated JSON save export/import in Settings. Imports normalize through
+  the current v6 model, reject completed/unsupported runs, filter unknown
+  catalogue ids and preserve safe event/pending-result state.
+- Tightened loaded-save integer/counter/id normalization.
+- Added public `GameState.advanceSilentDay()` so long trips no longer mutate
+  private calendar/stat internals from `turn.js`.
+
+### Accessibility and browser coverage
+
+- Centralized modal focus trapping/restoration, Escape policy, scroll lock and
+  inert/`aria-hidden` background behavior for result/story/portrait dialogs.
+- Added nine Playwright smoke cases: Chromium desktop, Chromium 320px and WebKit
+  768px, covering onboarding, pending-result reload, Kaden, settings, portraits,
+  portable saves, long travel, hard exhaustion and restart.
+
+### Tooling and governance
+
+- CI now installs ImageMagick; runs lint, format and type gates; executes the
+  Node/jsdom coverage suite once; enforces asset budgets; publishes the
+  canonical 300-seed balance report; and runs Chromium/WebKit smoke tests.
+- Node support now honestly declares **>=22.22.2**; `.nvmrc` pins 22.22.3.
+- Lint uses `--max-warnings=0`.
+- Superseded root audits and obsolete CI patch/authorization notes are archived
+  or removed. Current governance owner steps live in
+  `notes/REPOSITORY_GOVERNANCE.md`.
+- Owner direction retains the restored warm piano at a **25%** default and
+  raises the conservative non-hi/non-music payload tier from 4 MB to **10 MB**;
+  the 11 MB total and 1 MB lazy-audio caps remain.
+
+### Verification
+
+- 446 Node/jsdom tests pass, 0 fail, 0 skip.
+- Coverage: 97.41% line / 85.28% branch / 90.57% function.
+- Lint, format, typecheck and asset integrity pass.
+- Payload: 3.85 MB conservative tier / 5.37 MB lightbox / 0.78 MB music /
+  10.01 MB total; owner-approved tier limit is 10 MB, total remains 11 MB.
+- 300-seed/61-day canonical simulation passes the restored bands.
+- Playwright enumerates all 9 cases. Local browser download was blocked by CDN
+  TLS reset, so the first engine-backed Chromium/WebKit result is delegated to
+  the new CI browser job.
+
+### External follow-up
+
+The connected GitHub integration is read-only for repository settings and issue
+mutation (HTTP 403). An owner-authorized connection must make `crazy-branch`
+the default/protected branch, close accepted issues #44/#46/#47, prune merged
+session branches after this release merges, and create the release tag. Human
+balance/mobile/NVDA-or-VoiceOver validation remains authoritative.
+
+---
+
 ## 2026-07-30 (late) — The original piano loop, the day-1 smear leak, the Kaden face, and a stray focus ring
 
 Four owner-reported fixes on top of v2.6.0. None of them touch the economy, so
@@ -137,7 +211,8 @@ informed play, and the warm music returns to piano. Version **2.6.0**.
   min-maxing **66%**.
 - **Simulator fidelity is still pending**, explicitly—not silently declared
   solved. Models still see exact averages under weather-hidden previews and
-  share decision/event RNG. See `notes/SIMULATOR_FIDELITY_PENDING.md`.
+  share decision/event RNG. *(Historical limitation resolved 31 July; current
+  state is in `notes/SIMULATOR_FIDELITY.md`.)*
 
 ### Owner-directed art and audio
 
@@ -156,10 +231,10 @@ informed play, and the warm music returns to piano. Version **2.6.0**.
 ### Tooling, release and verification
 
 - GitHub Pages/release documentation now targets canonical `crazy-branch:/docs`.
-- The CI upgrade is reviewed and saved as `notes/CI_V26_WORKFLOW.patch`, but
-  GitHub rejected the workflow edit because this App lacks `workflows`
-  permission. Until an authorized checkout applies it, remote CI retains its
-  previous tests/assets/coverage shape. All proposed legs passed locally.
+- At this revision the CI upgrade was saved as
+  `notes/CI_V26_WORKFLOW.patch` because GitHub rejected the workflow edit.
+  *(Historical correction: the upgrade was applied on 31 July and the obsolete
+  patch removed.)*
 - Local server serves WAV as `audio/wav`. Package/lock versions agree at 2.6.0;
   jsdom is updated to 30.0.1; dependency audit is clean.
 - **425 tests pass, 0 fail, 0 skip. Coverage: 98.12% lines / 86.10% branches /
@@ -411,7 +486,7 @@ immortal. The calibration legend lives in `tests/difficulty.test.js`.
 - Added unit test suites for `PreferencesService`, `ModalController`, `RENOVATIONS`, and relationship markers.
 
 ### Art and Asset Pipeline
-- Configured Git LFS tracking for `assets/**` in `.gitattributes`. *(The attribute is present; the actual LFS migration of the masters has NOT happened — the repo still carries ~277 MB of plain blobs across two squashed snapshots. See README → "Repository size and history".)*
+- Configured Git LFS tracking for `assets/**` in `.gitattributes`. *(Historical correction, 31 July: no migration happened, and the inactive attributes were later removed when the owner chose the lowest-burden option—leave existing masters as ordinary Git blobs and use shallow clones.)*
 - Removed obsolete legacy procedural avatar scripts (`generate-avatars.js`, `process-portrait.sh`).
 - Regenerated clean, square, frame-less painterly portraits for 9 characters: Brock Lee, Kaschem, Carl-bot (turtle robot), Sir Cruds, Baris, Aril Stellar, Alvigunilla, Mrone, and Stephen, keeping gender and character identities consistent. Rebuilt deployed thumbnail (288px) and high-resolution (896px) WebP tiers and deleted obsolete circular-framed masters.
 

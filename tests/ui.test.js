@@ -190,6 +190,23 @@ maybe('the settings screen offers a copyable share-this-seed link', async () => 
   }
 });
 
+maybe('the settings screen exposes portable save backup controls', async () => {
+  const window = await boot();
+  try {
+    const doc = window.document;
+    doc.getElementById('settings-button').click();
+    await settle();
+    assert.ok(
+      [...doc.querySelectorAll('.settings-save-actions button')].some(
+        (button) => button.textContent === 'Export save',
+      ),
+    );
+    assert.ok(doc.querySelector('input[aria-label="Import save file"]'));
+  } finally {
+    cleanup(window);
+  }
+});
+
 maybe('the energy bar flags exhaustion', async () => {
   const window = await boot();
   try {

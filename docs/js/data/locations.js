@@ -129,10 +129,10 @@ export function locationsInSlot(slot) {
  * function of the location id, the journey day and the run seed, exactly like
  * the weather. That matters for two reasons:
  *
- *   1. the hub preview and the turn resolution call the same function, so the
- *      numbers on the card are the numbers you get; and
+ *   1. the hidden swing is stable for a given location/day/run, so resolution
+ *      cannot be rerolled by reopening a choice; and
  *   2. a save restores the same day, rather than re-rolling it in the
- *      player's favour.
+ *      player's favour. Previews deliberately show the average, not this swing.
  *
  * Variance never flips the *sign* of a resource the location is built around
  * — a bar shift always pays and a retreat always costs — because a place
