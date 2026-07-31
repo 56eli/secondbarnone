@@ -1,53 +1,81 @@
 name: check
-
 on:
   push:
     branches: ['**']
   pull_request:
   workflow_dispatch:
-
+permissions:
+  contents: read
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.22.3'
           cache: npm
-
-      # `npm ci` needs the lockfile, which is committed for exactly this reason.
       - name: Install dependencies
         run: npm ci
-
-      - name: Tests
-        run: npm test
-
-      # Asset integrity: every referenced portrait and background exists, and
-      # the deployed payload stays inside its budget. ImageMagick is not needed
-      # here — this only reads file sizes.
-      - name: Asset check
-        run: node scripts/check-assets.js
-
-      - name: Coverage gate
+      # Portrait dimensions and luminance are release gates, not optional test
+      # skips. Install the same image tooling used by the asset pipeline.
+      - name: Install ImageMagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          identify -version
+      - name: Lint
+        run: npm run lint
+      - name: Format check
+        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
+      # This runs the complete Node/jsdom suite once and enforces line, branch
+      # and function floors. Do not duplicate it with a separate `npm test`.
+      - name: Tests and coverage gate
         run: npm run coverage:check
-
-  # Balance is reported separately so a regression in the economy is legible
-  # in the Actions summary rather than buried in the test log. The assertions
-  # themselves live in tests/balance.test.js and already ran above.
+      - name: Asset integrity and payload budgets
+        run: node scripts/check-assets.js
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Browser smoke tests
+        run: npm run test:e2e
+      - name: Upload browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+  # Report the canonical player-facing contract separately so economy drift is
+  # legible in the Actions summary. Assertions run in the quality job.
   balance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.22.3'
       - name: Balance simulation
         run: |
           {
-            echo '### Balance simulation'
+            echo '### 60-day hub balance simulation (300 seeds)'
             echo '```'
-            node scripts/simulate.js --runs=100 --days=200
+            node scripts/simulate.js --runs=300 --days=61
             echo '```'
+            echo
+            echo '> Models consume exact/banded/veiled previews and use independent decision/event RNG streams. Utility functions remain authored proxies; human playtests are the authority on felt difficulty.'
           } >> "$GITHUB_STEP_SUMMARY"
