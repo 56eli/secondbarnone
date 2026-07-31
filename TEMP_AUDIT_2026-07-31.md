@@ -143,6 +143,8 @@ Asset integrity, dimensions, manifest hashes, and payload checks pass. The two-t
 | `npm run test:e2e` | **Blocked locally**; Chromium/WebKit executables are not installed |
 | `npx playwright test --list` | 9 cases enumerate successfully (reported by PR verification) |
 | GitHub `check` on `crazy-branch` at audited SHA | Pass; remote quality workflow green |
+| Pushed-branch GitHub Actions run (`f8edb22`) | Pass; `quality`, `browser`, and `balance` all green |
+| Local Playwright run | Blocked; browser executables are unavailable in this sandbox |
 | GitHub Pages deployment at audited SHA | Pass; deployment reports success |
 | `gh` repository state | Default branch remains `main`; Pages/release docs identify `crazy-branch` |
 
