@@ -3,8 +3,8 @@
  * Balance simulator.
  *
  * Drives the *real* `resolveTurn` over many seeded runs and reports how often
- * each play style survives. This is the harness the project was missing: 275
- * unit tests proved the code was correct while the game itself was unloseable,
+ * each play style survives. This is the harness the project was missing: a
+ * large unit suite proved the code was correct while the game itself was unloseable,
  * because nothing ever asked "can a competent player actually die?".
  *
  *   node scripts/simulate.js              # summary for every strategy
@@ -19,9 +19,11 @@
 import { GameState } from '../docs/js/core/game-state.js';
 import { EventManager } from '../docs/js/core/event-manager.js';
 import { resolveTurn, computeDayEffects } from '../docs/js/core/turn.js';
+import { observablePreview } from '../docs/js/core/preview.js';
 import { LOCATIONS, evaluateUnlock, dailySlotLineup } from '../docs/js/data/locations.js';
 import { createRng } from '../docs/js/core/rng.js';
 import { PERKS } from '../docs/js/data/perks.js';
+import { RENOVATIONS } from '../docs/js/data/renovations.js';
 
 /** The unlock snapshot, exactly as the UI builds it. */
 const snapshotOf = (gs) => ({
@@ -43,23 +45,27 @@ const randomChoice = (pool, rng) => pool[Math.floor(rng.random() * pool.length)]
 
 /** Score a preview with a configurable amount of survival awareness. */
 function scorePreview(gs, location, { focus = 1, optimise = false } = {}) {
-  // Player models score the same information a human sees: the preview is
-  // the honest average — weather, festival and perks included, variance not.
+  // Models consume exactly what the UI exposes. Rain/snow become signed bands
+  // and fog becomes positive focus icons; hidden arithmetic never leaks into a
+  // strategy decision.
   const { total } = computeDayEffects(gs, location.id, { preview: true });
+  const observed = observablePreview(gs.getWeather(), total, location);
+  const visible = observed.bundle;
   const sanityWeight = gs.sanity < 45 ? 1 + 4 * focus : 1;
   const moneyWeight = gs.money < 45 ? 1 + 4 * focus : 1;
   const energyWeight = gs.energy < 35 ? 0.4 + 1.4 * focus : 0.2;
   const rentSoon = gs.getWeekdayIndex() >= 4 && gs.money < gs.rentDue() + 20;
   const rentWeight = rentSoon ? 1.5 * focus : 0;
   const headroom = optimise
-    ? Math.min(gs.sanity + total.sanity, 100) * 0.08 + Math.min(gs.money + total.money, 100) * 0.08
+    ? Math.min(gs.sanity + visible.sanity, 100) * 0.08 +
+      Math.min(gs.money + visible.money, 100) * 0.08
     : 0;
   return (
-    total.sanity * sanityWeight +
-    total.money * (moneyWeight + rentWeight) +
-    total.energy * energyWeight +
-    total.reputation * 0.25 +
-    total.insight * 0.35 +
+    visible.sanity * sanityWeight +
+    visible.money * (moneyWeight + rentWeight) +
+    visible.energy * energyWeight +
+    visible.reputation * 0.25 +
+    visible.insight * 0.35 +
     headroom
   );
 }
@@ -81,10 +87,10 @@ export const STRATEGIES = {
   /** Picks uniformly at random. */
   random: (_gs, pool, rng) => randomChoice(pool, rng),
 
-  /** Repeats the founding loop without reading previews, energy or rent. */
-  doesnt_pay_attention: (_gs, pool, rng) => {
-    const core = pool.filter((l) => l.id === 'bar' || l.id === 'spiritual_community');
-    return randomChoice(core.length ? core : pool, rng);
+  /** Strictly alternates the founding pair without reading previews, energy or rent. */
+  doesnt_pay_attention: (gs, pool) => {
+    const wanted = gs.journeyDay % 2 === 1 ? 'spiritual_community' : 'bar';
+    return pool.find((location) => location.id === wanted) ?? pool[0];
   },
 
   /** Looks at a preview roughly one day in three; otherwise acts on impulse. */
@@ -96,7 +102,7 @@ export const STRATEGIES = {
    * calibrated against the real hub to make the 60-day goal a coin flip;
    * it moves when the economy does (see tests/difficulty.test.js). */
   average: (gs, pool, rng) =>
-    rng.random() < 0.3 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
+    rng.random() < 0.2 ? bestPreview(gs, pool, { focus: 0.75 }) : randomChoice(pool, rng),
 
   /** Reads every preview and consistently addresses the most urgent resource. */
   concentrates: (gs, pool) => bestPreview(gs, pool, { focus: 1 }),
@@ -110,14 +116,15 @@ export const STRATEGIES = {
     let bestScore = -Infinity;
     for (const l of pool) {
       const { total } = computeDayEffects(gs, l.id, { preview: true });
+      const visible = observablePreview(gs.getWeather(), total, l).bundle;
       const sanityWeight = gs.sanity < 40 ? 4 : 1;
       const moneyWeight = gs.money < 40 ? 4 : 1;
       const score =
-        total.sanity * sanityWeight +
-        total.money * moneyWeight +
-        total.energy * 0.4 +
-        total.reputation * 0.3 +
-        total.insight * 0.6;
+        visible.sanity * sanityWeight +
+        visible.money * moneyWeight +
+        visible.energy * 0.4 +
+        visible.reputation * 0.3 +
+        visible.insight * 0.6;
       if (score > bestScore) {
         bestScore = score;
         best = l;
@@ -152,14 +159,18 @@ export const PLAYER_STRATEGIES = Object.freeze([
 export function playRun(
   seed,
   strategyName = 'greedy',
-  { maxDays = 200, buyPerks = true, poolMode = 'unlocked' } = {},
+  { maxDays = 200, buyPerks = true, buyRenovations = true, poolMode = 'unlocked' } = {},
 ) {
   const strategy = STRATEGIES[strategyName];
   if (!strategy) throw new Error(`unknown strategy: ${strategyName}`);
 
   const gs = new GameState({ seed });
-  const rng = createRng(seed + 7);
-  const events = new EventManager(rng);
+  // Production seeds event scheduling directly from the city seed. Player
+  // decisions consume a separate deterministic stream so an impulsive choice
+  // cannot shift future event timing.
+  const eventRng = createRng(seed);
+  const decisionRng = createRng((seed + 0x9e3779b9) >>> 0);
+  const events = new EventManager(eventRng);
   events.initialize(gs.getCharacterNames());
 
   const visits = Object.create(null);
@@ -169,20 +180,42 @@ export function playRun(
     if (buyPerks) {
       for (const p of PERKS) if (gs.canBuy(p.id).ok) gs.buyPerk(p.id);
     }
-    const snap = snapshotOf(gs);
-    const open = LOCATIONS.filter((l) => evaluateUnlock(l, snap).unlocked);
+
+    let snap = snapshotOf(gs);
+    let open = LOCATIONS.filter((l) => evaluateUnlock(l, snap).unlocked);
     // The normal simulator retains its historic all-unlocked-map mode. The
     // difficulty suite uses the actual six-card hub: two foundations plus the
     // four deterministic rotating slot cards, filtered if locked/closed.
-    const hub = [
+    let hub = [
       ...LOCATIONS.filter((l) => l.id === 'spiritual_community' || l.id === 'bar'),
       ...dailySlotLineup(snap, gs.weatherSeed),
     ].filter(
       (l, i, all) => evaluateUnlock(l, snap).unlocked && all.findIndex((x) => x.id === l.id) === i,
     );
+
+    // Renovations are only available while the House of Middleway card is on
+    // the hub. They cost no day in production, so a long-horizon model funds
+    // every currently affordable project before choosing its daily action.
+    if (buyRenovations && hub.some((location) => location.id === 'house_of_middleway')) {
+      for (const renovation of RENOVATIONS) {
+        if (gs.getRenovations().find((entry) => entry.id === renovation.id)?.canBuy) {
+          gs.buyRenovation(renovation.id);
+        }
+      }
+      snap = snapshotOf(gs);
+      open = LOCATIONS.filter((l) => evaluateUnlock(l, snap).unlocked);
+      hub = [
+        ...LOCATIONS.filter((l) => l.id === 'spiritual_community' || l.id === 'bar'),
+        ...dailySlotLineup(snap, gs.weatherSeed),
+      ].filter(
+        (l, i, all) =>
+          evaluateUnlock(l, snap).unlocked && all.findIndex((x) => x.id === l.id) === i,
+      );
+    }
+
     const pool = poolMode === 'hub' ? hub : open;
     const choices = pool.length > 0 ? pool : [LOCATIONS[0]];
-    const choice = strategy(gs, choices, rng);
+    const choice = strategy(gs, choices, decisionRng);
     visits[choice.id] = (visits[choice.id] ?? 0) + 1;
 
     resolveTurn(gs, events, choice.id);
@@ -190,16 +223,21 @@ export function playRun(
     gs.advanceDay();
   }
 
+  const cause = !gs.gameOver ? '' : gs.sanity <= 0 ? 'sanity' : gs.energy <= 0 ? 'energy' : 'money';
+
   return {
     days: gs.journeyDay,
     died: gs.gameOver,
-    cause: gs.gameOver ? (gs.sanity <= 0 ? 'sanity' : 'money') : '',
+    cause,
     money: gs.money,
     sanity: gs.sanity,
+    energy: gs.energy,
     reputation: gs.reputation,
     insight: gs.insight,
     perks: gs.perks.size,
+    renovations: gs.renovations.size,
     reachedGoal: gs.won,
+    reachedMastery: gs.masteryWon,
     visits,
   };
 }
@@ -225,16 +263,20 @@ export function summarise(strategyName, { runs = 100, maxDays = 200, poolMode = 
     maxDays,
     deathRate: deaths.length / runs,
     deathsBySanity: deaths.filter((r) => r.cause === 'sanity').length,
+    deathsByEnergy: deaths.filter((r) => r.cause === 'energy').length,
     deathsByMoney: deaths.filter((r) => r.cause === 'money').length,
     // `goalRate` is monotonic: reaching day 60 stays earned after a later
     // death. `survivalRate` answers the separate maxDays-horizon question.
     goalRate: results.filter((r) => r.reachedGoal).length / runs,
+    masteryRate: results.filter((r) => r.reachedMastery).length / runs,
     survivalRate: results.filter((r) => !r.died).length / runs,
     meanDays: mean(results.map((r) => r.days)),
     meanMoney: mean(results.map((r) => r.money)),
     meanSanity: mean(results.map((r) => r.sanity)),
+    meanEnergy: mean(results.map((r) => r.energy)),
     meanReputation: mean(results.map((r) => r.reputation)),
     meanInsight: mean(results.map((r) => r.insight)),
+    meanRenovations: mean(results.map((r) => r.renovations)),
     unusedLocations: LOCATIONS.filter((l) => !visits[l.id]).map((l) => l.id),
     pickRates: Object.fromEntries(
       Object.entries(visits)
@@ -268,16 +310,19 @@ function main() {
     const s = summarise(name, { runs, maxDays, poolMode: 'hub' });
     console.log(
       `${name.padEnd(10)} death ${pct(s.deathRate).padStart(4)}` +
-        `  (sanity ${s.deathsBySanity}, money ${s.deathsByMoney})` +
+        `  (sanity ${s.deathsBySanity}, energy ${s.deathsByEnergy}, money ${s.deathsByMoney})` +
         `   goal ${pct(s.goalRate).padStart(4)}` +
+        `   mastery ${pct(s.masteryRate).padStart(4)}` +
         `   horizon ${pct(s.survivalRate).padStart(4)}` +
         `   mean survival ${s.meanDays.toFixed(0)}d`,
     );
     console.log(
       `${''.padEnd(10)} end: money ${s.meanMoney.toFixed(0)}` +
         `  sanity ${s.meanSanity.toFixed(0)}` +
+        `  energy ${s.meanEnergy.toFixed(0)}` +
         `  rep ${s.meanReputation.toFixed(0)}` +
-        `  insight ${s.meanInsight.toFixed(0)}`,
+        `  insight ${s.meanInsight.toFixed(0)}` +
+        `  renovations ${s.meanRenovations.toFixed(1)}`,
     );
     if (verbose) {
       const top = Object.entries(s.pickRates)

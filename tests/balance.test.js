@@ -65,20 +65,22 @@ const snapshot = (gs) => ({
 
 // ============================================================ energy: rate
 
-test('eight ordinary nights nearly restore a tank and the ninth tops it off', () => {
+test('seven ordinary nights nearly restore a tank and the eighth tops it off', () => {
   const gs = new GameState({ seed: 1 });
   gs.energy = 0;
-  for (let night = 0; night < ENERGY_FULL_RECOVERY_DAYS; night += 1) gs.recoverEnergy();
-  assert.equal(gs.energy, 96, 'eight nights leave a small but meaningful 4-point gap');
+  for (let night = 1; night < ENERGY_FULL_RECOVERY_DAYS; night += 1) gs.recoverEnergy();
+  assert.equal(gs.energy, 91, 'seven nights leave one meaningful working-day margin');
   gs.recoverEnergy();
   assert.equal(gs.energy, MAX_ENERGY);
 });
 
-test('the recovery rate is a deliberate 12-point pressure value', () => {
-  // Hard Winter (July 2026): 14 made the old loop energy-neutral; 12 makes
-  // energy the third resource it was designed to be.
-  assert.equal(ENERGY_RECOVERY, 12);
-  assert.ok(ENERGY_RECOVERY * ENERGY_FULL_RECOVERY_DAYS < MAX_ENERGY);
+test('the recovery rate is a deliberate 13-point hard-collapse value', () => {
+  // With zero energy now immediately lethal, 12 compressed engaged 60-day
+  // success below the approved gradient. Thirteen preserves a hard collapse
+  // while restoring the documented skill bands; 14 remains too forgiving.
+  assert.equal(ENERGY_RECOVERY, 13);
+  assert.ok(ENERGY_RECOVERY * (ENERGY_FULL_RECOVERY_DAYS - 1) < MAX_ENERGY);
+  assert.ok(ENERGY_RECOVERY * ENERGY_FULL_RECOVERY_DAYS >= MAX_ENERGY);
 });
 
 // ====================================================== energy: pressure
@@ -115,8 +117,8 @@ test('working every day without resting empties the tank in about a week', () =>
     if (gs.energy <= 0) dayEmptied = day;
     gs.advanceDay();
   }
-  // 100 − 26×n + 12×n hits zero on day 7: a week of pushing really does put
-  // you in the ground, and the README's fantasy is literally true.
+  // The first shift costs 26; later mornings return 13 before another shift.
+  // The seventh action still reaches zero: a week of pushing is literally fatal.
   assert.equal(dayEmptied, 7, `emptied on day ${dayEmptied}`);
 });
 
@@ -235,9 +237,10 @@ test('Second Wind makes exhaustion arrive later, exactly as it advertises', () =
 
 // ======================================================== balance bands
 
-test('the Hard Winter economy rewards attention without immortality at any skill level', () => {
-  // 200-day horizon: the long game must grind down every *inattentive* style,
-  // while even the best styles keep a real (but survivable) failure rate.
+test('the hard-collapse economy rewards attention without immortality at any skill level', () => {
+  // 200-day unlocked-map stress horizon: inattentive styles still wash out,
+  // while strong styles now survive a majority after the approved 13-point
+  // recovery retune. A substantial 20%+ failure floor preserves long-run risk.
   // `goalRate` remains earned after day 60; this contract deliberately uses
   // `survivalRate` for the separate 200-day horizon.
   const greedy = summarise('greedy', { runs: 40, maxDays: 200 });
@@ -247,21 +250,21 @@ test('the Hard Winter economy rewards attention without immortality at any skill
   const minMaxing = summarise('min_maxing', { runs: 40, maxDays: 200 });
 
   assert.ok(
-    greedy.deathRate >= 0.95,
+    greedy.deathRate >= 0.9,
     `naive preview-reading must die in the long game: ${greedy.deathRate}`,
   );
-  assert.ok(greedy.survivalRate <= 0.05, 'greedy almost never sees day 200');
+  assert.ok(greedy.survivalRate <= 0.1, 'greedy almost never sees day 200');
   assert.ok(random.deathRate >= 0.9, `random play must stay doomed: ${random.deathRate}`);
   assert.ok(
     alternate.deathRate >= 0.9,
     `the founding pair alone must not suffice — rest is mandatory: ${alternate.deathRate}`,
   );
   assert.ok(
-    concentrates.survivalRate >= 0.05 && concentrates.survivalRate < 0.5,
+    concentrates.survivalRate >= 0.4 && concentrates.survivalRate <= 0.75,
     `concentrating should usually but not always win the long game: ${concentrates.survivalRate}`,
   );
   assert.ok(
-    minMaxing.survivalRate >= 0.1 && minMaxing.survivalRate < 0.5,
+    minMaxing.survivalRate >= 0.45 && minMaxing.survivalRate <= 0.8,
     `min-maxing should usually but not always win the long game: ${minMaxing.survivalRate}`,
   );
   assert.ok(
@@ -540,11 +543,9 @@ test('a competent player reaches the goal most of the time', () => {
     }
     if (!gs.gameOver && gs.journeyDay >= ENDURANCE_GOAL_DAYS) wins += 1;
   }
-  // After event rebalance (making standard events less generous), the reference
-  // strategy achieves ~2/12 on the fixed seed set. 0.15 preserves the intent
-  // — a competent player should reach the goal sometimes — without forcing
-  // a revert of the event pressure.
-  assert.ok(wins >= runs * 0.15, `only ${wins}/${runs} sensible runs reached the goal`);
+  // The 13-point hard-collapse retune restores this literal contract: the
+  // fixed seed set currently reaches the goal in 8/12 runs.
+  assert.ok(wins >= runs * 0.5, `only ${wins}/${runs} sensible runs reached the goal`);
 });
 
 test('a competent player still has to think about energy on the way', () => {

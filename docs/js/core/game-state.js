@@ -12,7 +12,7 @@ import { createAllProfiles } from '../data/characters.js';
 import { aggregatePerks, canBuyPerk, getPerk } from '../data/perks.js';
 import { weatherForDay, closedTags } from '../data/weather.js';
 import { festivalOn } from '../data/festivals.js';
-import { evaluateAchievements } from '../data/achievements.js';
+import { evaluateAchievements, getAchievement } from '../data/achievements.js';
 import { RENOVATIONS, getRenovation } from '../data/renovations.js';
 import { LOCATIONS, getLocation } from '../data/locations.js';
 import {
@@ -223,6 +223,25 @@ export class GameState {
     this._advanceCalendarDay();
     this.recoverEnergy();
     const kadenSmear = this.triggerKadenSmearIfDue();
+    this._announceCurrentDay();
+    return kadenSmear;
+  }
+
+  /**
+   * Advance one interior day of a multi-day action without firing a playable
+   * morning story beat. Calendar, overnight recovery and optional rent still
+   * resolve through GameState rather than being reimplemented by turn.js.
+   */
+  advanceSilentDay({ chargeRent = true, announce = false } = {}) {
+    this.journeyDay += 1;
+    this._advanceCalendarDay();
+    this.recoverEnergy();
+    const rent = chargeRent ? this.applyRentIfSunday() : 0;
+    if (announce) this._announceCurrentDay();
+    return { rent };
+  }
+
+  _announceCurrentDay() {
     this.emit(
       'day_changed',
       this.journeyDay,
@@ -232,7 +251,6 @@ export class GameState {
       this.dayOfMonth,
     );
     this._statsChanged();
-    return kadenSmear;
   }
 
   /** Kaden's opening move lands on the second playable morning, exactly once. */
@@ -825,10 +843,10 @@ export class GameState {
     this.reputation = clamp(num(migrated.reputation, START_REPUTATION), 0, MAX_REPUTATION);
     this.insight = Math.max(num(migrated.insight, 0), 0);
 
-    this.journeyDay = Math.max(num(migrated.journeyDay, 1), 1);
-    this.dayOfMonth = clamp(num(migrated.dayOfMonth, 1), 1, 31);
-    this.monthIndex = clamp(num(migrated.monthIndex, 0), 0, 11);
-    this.year = num(migrated.year, 2026);
+    this.journeyDay = Math.max(Math.floor(num(migrated.journeyDay, 1)), 1);
+    this.dayOfMonth = clamp(Math.floor(num(migrated.dayOfMonth, 1)), 1, 31);
+    this.monthIndex = clamp(Math.floor(num(migrated.monthIndex, 0)), 0, 11);
+    this.year = clamp(Math.floor(num(migrated.year, 2026)), 1, 9999);
     this.gameOver = Boolean(migrated.gameOver);
     this.gameOverMessage =
       typeof migrated.gameOverMessage === 'string' ? migrated.gameOverMessage : '';
@@ -840,17 +858,18 @@ export class GameState {
     this.kadenSmearSeen = Boolean(migrated.kadenSmearSeen);
     this.kadenSmearAcknowledged = Boolean(migrated.kadenSmearAcknowledged);
 
-    this.consecutiveBarDays = num(migrated.consecutiveBarDays, 0);
-    this.lastLocationVisited =
-      typeof migrated.lastLocationVisited === 'string' ? migrated.lastLocationVisited : '';
-    this._turnResolvedOnDay = num(migrated.turnResolvedOnDay, -1);
-    this.rentPaidCount = num(migrated.rentPaidCount, 0);
+    this.consecutiveBarDays = Math.max(Math.floor(num(migrated.consecutiveBarDays, 0)), 0);
+    this.lastLocationVisited = getLocation(migrated.lastLocationVisited)
+      ? migrated.lastLocationVisited
+      : '';
+    this._turnResolvedOnDay = Math.floor(num(migrated.turnResolvedOnDay, -1));
+    this.rentPaidCount = Math.max(Math.floor(num(migrated.rentPaidCount, 0)), 0);
     // Rent prepayments: v5 stores an explicit set of Sundays; older saves
     // used a single "prepaidUntilDay" number. Import both.
     this.rentPrepaidDays = new Set();
     if (Array.isArray(migrated.rentPrepaidDays)) {
       for (const d of migrated.rentPrepaidDays) {
-        const n = Number(d);
+        const n = Math.floor(Number(d));
         if (Number.isFinite(n) && n >= this.journeyDay) this.rentPrepaidDays.add(n);
       }
     } else if (
@@ -870,11 +889,11 @@ export class GameState {
     this.perks = new Set(arr(migrated.perks).filter((id) => getPerk(id)));
     this.renovations = new Set(arr(migrated.renovations).filter((id) => getRenovation(id)));
     this.eventsSeen = new Set(arr(migrated.eventsSeen).filter((id) => typeof id === 'string'));
-    this.achievements = new Set(arr(migrated.achievements));
-    this.visitedLocations = new Set(arr(migrated.visitedLocations));
-    this.nightDays = num(migrated.nightDays, 0);
-    this.festivalsSeen = num(migrated.festivalsSeen, 0);
-    this.weatherSeed = num(migrated.weatherSeed, 0);
+    this.achievements = new Set(arr(migrated.achievements).filter((id) => getAchievement(id)));
+    this.visitedLocations = new Set(arr(migrated.visitedLocations).filter((id) => getLocation(id)));
+    this.nightDays = Math.max(Math.floor(num(migrated.nightDays, 0)), 0);
+    this.festivalsSeen = Math.max(Math.floor(num(migrated.festivalsSeen, 0)), 0);
+    this.weatherSeed = Math.floor(num(migrated.weatherSeed, 0)) >>> 0;
 
     this._statsChanged();
     this.emit(
@@ -996,6 +1015,46 @@ export const saveStore = {
       return false;
     } catch {
       return false;
+    }
+  },
+  /** Return a portable, human-readable copy of the current save. */
+  exportText(storage = globalThis.localStorage) {
+    if (!storage) return null;
+    try {
+      let raw = storage.getItem(SAVE_KEY);
+      for (const k of LEGACY_KEYS) if (!raw) raw = storage.getItem(k);
+      if (!raw) return null;
+      return `${JSON.stringify(JSON.parse(raw), null, 2)}\n`;
+    } catch {
+      return null;
+    }
+  },
+  /**
+   * Validate and normalize a portable save before replacing local progress.
+   * Unknown fields are discarded; safe event/pending-result extras survive.
+   */
+  importText(text, storage = globalThis.localStorage) {
+    if (!storage || typeof text !== 'string') return { ok: false, reason: 'No save data.' };
+    try {
+      const parsed = JSON.parse(text);
+      const probe = new GameState();
+      if (!probe.loadFrom(parsed)) return { ok: false, reason: 'Unsupported save format.' };
+      if (probe.gameOver || probe.sanity <= 0 || probe.money <= 0 || probe.energy <= 0) {
+        return { ok: false, reason: 'Completed or non-playable runs cannot be resumed.' };
+      }
+
+      const normalized = {
+        ...probe.toJSON(),
+        ...(parsed.events && typeof parsed.events === 'object' ? { events: parsed.events } : {}),
+        ...(parsed.pendingResult && typeof parsed.pendingResult === 'object'
+          ? { pendingResult: parsed.pendingResult }
+          : {}),
+      };
+      storage.setItem(SAVE_KEY, JSON.stringify(normalized));
+      for (const k of LEGACY_KEYS) storage.removeItem(k);
+      return { ok: true, reason: '' };
+    } catch {
+      return { ok: false, reason: 'That file is not a valid secondbarnone save.' };
     }
   },
 };

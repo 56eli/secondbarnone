@@ -69,14 +69,25 @@ test('PreferencesService toggles high contrast, reduced motion, and sound', () =
   assert.ok(audio);
 });
 
-test('ModalController shows and dismisses modals cleanly', () => {
+test('ModalController contains focus, inerts the page, and restores both cleanly', () => {
   const win = setupDom();
   const doc = win.document;
   const modals = new ModalController(doc);
 
-  const btn = doc.createElement('button');
+  const app = doc.createElement('main');
+  const trigger = doc.createElement('button');
+  app.append(trigger);
+  doc.body.append(app);
+  trigger.focus();
+
+  const dialog = doc.createElement('div');
+  dialog.setAttribute('role', 'dialog');
+  const first = doc.createElement('button');
+  first.className = 'btn-primary';
+  const last = doc.createElement('button');
+  dialog.append(first, last);
   const modal = doc.createElement('div');
-  modal.append(btn);
+  modal.append(dialog);
 
   let cleaned = false;
   modal._cleanup = () => {
@@ -85,10 +96,25 @@ test('ModalController shows and dismisses modals cleanly', () => {
 
   modals.showModal(modal);
   assert.equal(modals.activeModal, modal);
-  assert.equal(doc.body.children.length, 1);
+  assert.equal(doc.body.children.length, 2);
+  assert.equal(doc.activeElement, first);
+  assert.equal(app.hasAttribute('inert'), true);
+  assert.equal(app.getAttribute('aria-hidden'), 'true');
+  assert.equal(doc.body.style.overflow, 'hidden');
+
+  last.focus();
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+  assert.equal(doc.activeElement, first, 'Tab wraps to the first control');
+
+  doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(modals.activeModal, modal, 'a consequential modal ignores Escape');
 
   modals.dismissActive();
   assert.equal(modals.activeModal, null);
   assert.equal(cleaned, true);
-  assert.equal(doc.body.children.length, 0);
+  assert.equal(doc.body.children.length, 1);
+  assert.equal(app.hasAttribute('inert'), false);
+  assert.equal(app.hasAttribute('aria-hidden'), false);
+  assert.equal(doc.body.style.overflow, '');
+  assert.equal(doc.activeElement, trigger);
 });

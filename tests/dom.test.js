@@ -528,8 +528,11 @@ maybe('Kaden smear modal previews Kaden with his portrait, like the event popups
     const { renderKadenSmearModal } = await import(
       pathToFileURL(join(DOCS, 'js', 'ui', 'screens.js')).href
     );
+    const { ModalController } = await import(
+      pathToFileURL(join(DOCS, 'js', 'ui', 'modal-controller.js')).href
+    );
     const node = renderKadenSmearModal({ gs, onContinue: () => {} });
-    doc.body.append(node);
+    new ModalController(doc).showModal(node);
     await settle();
 
     const modal = doc.querySelector('.kaden-smear-modal');

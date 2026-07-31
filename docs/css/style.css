@@ -1836,8 +1836,9 @@ footer a {
   }
 }
 
-/* Share-it link on the Settings screen */
-.share-controls {
+/* Share and portable-save controls on the Settings screen */
+.share-controls,
+.settings-save-actions {
   display: flex;
   align-items: center;
   gap: 8px;

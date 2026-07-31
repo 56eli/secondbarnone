@@ -6,18 +6,20 @@
   "private": true,
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
-    "lint": "eslint docs/js/",
-    "format": "prettier --write docs/js/ docs/css/ docs/index.html",
-    "format:check": "prettier --check docs/js/ docs/css/ docs/index.html",
+    "lint": "eslint docs/js/ --max-warnings=0",
+    "format": "prettier --write docs/js/ docs/css/ docs/index.html playwright.config.js tests/e2e/",
+    "format:check": "prettier --check docs/js/ docs/css/ docs/index.html playwright.config.js tests/e2e/",
     "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"tests/**\" --test-coverage-exclude=\"scripts/**\" --test-reporter=spec \"tests/**/*.test.js\"",
     "coverage:check": "node scripts/coverage-gate.js",
     "serve": "node scripts/serve.js",
     "assets": "./scripts/optimize-assets.sh",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm test && node scripts/check-assets.js",
     "typecheck": "tsc --project jsconfig.json",
-    "simulate": "node scripts/simulate.js"
+    "simulate": "node scripts/simulate.js",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "eslint": "^10.8.0",
     "jsdom": "^30.0.1",
     "prettier": "^3.0.0",
@@ -25,6 +27,6 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.22.2"
   }
 }

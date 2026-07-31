@@ -366,6 +366,34 @@ export function initGame(opts = {}) {
             toast('Select the link and copy it manually.');
           }
         },
+        onExportSave: () => {
+          saveStore.save(gs, storage, {
+            events: events.toJSON(),
+            ...(pendingResult ? { pendingResult } : {}),
+          });
+          const text = saveStore.exportText(storage);
+          if (!text) {
+            toast('No save is available to export.');
+            return;
+          }
+          const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+          const download = document.createElement('a');
+          download.href = url;
+          download.download = `secondbarnone-day-${gs.journeyDay}-seed-${gs.weatherSeed}.json`;
+          document.body.append(download);
+          download.click();
+          download.remove();
+          URL.revokeObjectURL(url);
+          toast('Save exported.');
+        },
+        onImportSave: (text) => {
+          const imported = saveStore.importText(text, storage);
+          if (!imported.ok) {
+            toast(imported.reason);
+            return;
+          }
+          window.location.reload();
+        },
         onAbandon: () => {
           restart();
           toast('New run started.');

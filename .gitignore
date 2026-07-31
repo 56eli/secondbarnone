@@ -1,6 +1,9 @@
 # Node
 node_modules/
 npm-debug.log*
+playwright-report/
+test-results/
+blob-report/
 
 # Godot editor and cache (legacy project — see README)
 .godot/

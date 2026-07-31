@@ -10,6 +10,7 @@ import { getInitials, Role, roleLabel, smallTalkFor } from '../data/characters.j
 import { eventsForCharacter } from '../data/events.js';
 import { MAX_STAT, MAX_ENERGY, MAX_REPUTATION, ENDURANCE_GOAL_DAYS } from '../core/game-state.js';
 import { computeDayEffects } from '../core/turn.js';
+import { locationFocusResources, previewBand, previewMode } from '../core/preview.js';
 import {
   LOCATIONS,
   getLocation,
@@ -23,6 +24,7 @@ import { PERKS, getPerk } from '../data/perks.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
 import { forecast } from '../data/weather.js';
 import { upcomingFestivals } from '../data/festivals.js';
+import { activateModal } from './modal-controller.js';
 
 /** Small DOM helper. */
 export function el(tag, attrs = {}, ...children) {
@@ -71,55 +73,20 @@ export function effectChips(bundle, cls = 'chips', weatherEmoji = '') {
   return el('div', { class: cls, 'data-preview-mode': 'exact' }, ...chips);
 }
 
-/**
- * How much of the day's numbers the weather lets you see.
- *
- * - `'exact'`  — the full adjusted preview (most days);
- * - `'banded'` — rain and snow blur the details: every delta collapses to a
- *   rough `+` / `++` / `-` / `--` estimate, so you keep direction and a
- *   sense of scale but lose the arithmetic;
- * - `'veiled'` — fog hides arithmetic/reasons and keeps only positive focus icons.
- */
-export function previewMode(weather) {
-  if (weather?.id === 'fog') return 'veiled';
-  if (weather?.id === 'rain' || weather?.id === 'snow') return 'banded';
-  return 'exact';
-}
-
-/** |delta| at or above this renders as the double band. */
-export const BAND_STRONG = 6;
+/** Keep the established UI exports while the pure implementation lives in core. */
+export { BAND_STRONG, locationFocusResources, previewMode } from '../core/preview.js';
 
 export function effectBandedChips(bundle, cls = 'chips', weatherEmoji = '') {
   const chips = STAT_META.filter(([key]) => Math.round(bundle[key] ?? 0) !== 0).map(
     ([key, emoji]) => {
       const v = Math.round(bundle[key]);
-      const band = Math.abs(v) >= BAND_STRONG ? (v > 0 ? '++' : '--') : v > 0 ? '+' : '-';
+      const band = previewBand(v);
       const label = weatherEmoji ? `${weatherEmoji} ${emoji} ${band}` : `${emoji} ${band}`;
       return el('span', { class: `chip banded ${v > 0 ? 'pos' : 'neg'}` }, label);
     },
   );
   if (chips.length === 0) chips.push(el('span', { class: 'chip', text: 'no change' }));
   return el('div', { class: cls, 'data-preview-mode': 'banded' }, ...chips);
-}
-
-/**
- * A location's clearest positive purpose, derived from its base contract.
- * Resources within two points of the strongest gain are peers; fog reveals
- * only these icons, never sign or magnitude. This keeps place identity legible
- * without leaking the day's hidden arithmetic.
- */
-export function locationFocusResources(locationOrId) {
-  const location = typeof locationOrId === 'string' ? getLocation(locationOrId) : locationOrId;
-  if (!location) return [];
-  const positive = STAT_META.map(([key, emoji, label]) => ({
-    key,
-    emoji,
-    label,
-    value: location.effects[key] ?? 0,
-  })).filter((entry) => entry.value > 0);
-  if (positive.length === 0) return [];
-  const strongest = Math.max(...positive.map((entry) => entry.value));
-  return positive.filter((entry) => entry.value >= strongest - 2);
 }
 
 /** Fog shows only the location's positive focus icon(s), with no +/- markers. */
@@ -317,30 +284,20 @@ export function openCharacterPopup(profile) {
   // the DOM alone would orphan its document keydown listener, one per open.
   closeOpenPopup?.();
 
-  const previouslyFocused = document.activeElement;
+  let deactivate = () => {};
   const close = () => {
     backdrop.remove();
-    document.removeEventListener('keydown', onKey);
+    deactivate();
     if (closeOpenPopup === close) closeOpenPopup = null;
-    if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
   };
   closeOpenPopup = close;
-  const onKey = (e) => {
-    if (e.key === 'Escape') close();
-    // The close affordance is the lightbox's sole control. Keep keyboard focus
-    // inside the aria-modal dialog instead of tabbing into the obscured game.
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      backdrop.querySelector('.portrait-close')?.focus();
-    }
-  };
 
   const backdrop = renderPortraitPopup(profile, { onClose: close });
-  document.addEventListener('keydown', onKey);
   document.body.append(backdrop);
-  // The close affordance is the only focusable thing in the lightbox, so
-  // focus lands there and Escape/Enter both do the obvious thing.
-  backdrop.querySelector('.portrait-close')?.focus();
+  deactivate = activateModal(document, backdrop, {
+    initialFocusSelector: '.portrait-close',
+    onEscape: close,
+  });
 }
 
 /** Look up a character profile by id from a GameState (or raw list). */
@@ -833,6 +790,8 @@ export function renderSettings(
     onToggleSound,
     onChangeVolume,
     onCopyShare,
+    onExportSave,
+    onImportSave,
     onBack,
     onAbandon,
   },
@@ -934,6 +893,50 @@ export function renderSettings(
           ),
         )
       : null,
+
+    (() => {
+      const importInput = el('input', {
+        type: 'file',
+        accept: 'application/json,.json',
+        hidden: true,
+        'aria-label': 'Import save file',
+        onchange: async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          const confirmed = window.confirm(
+            'Import this save? Your current local run will be replaced after validation.',
+          );
+          if (confirmed) onImportSave?.(await file.text());
+          event.target.value = '';
+        },
+      });
+      return el(
+        'section',
+        { class: 'settings-group' },
+        el('h3', { text: 'Save backup' }),
+        el('p', {
+          class: 'settings-desc',
+          text: 'Export this run to a JSON file, or restore a backup from another browser.',
+        }),
+        el(
+          'div',
+          { class: 'settings-save-actions' },
+          el('button', {
+            class: 'btn btn-small',
+            type: 'button',
+            text: 'Export save',
+            onclick: () => onExportSave?.(),
+          }),
+          el('button', {
+            class: 'btn btn-small',
+            type: 'button',
+            text: 'Import save',
+            onclick: () => importInput.click(),
+          }),
+          importInput,
+        ),
+      );
+    })(),
 
     el(
       'section',
@@ -1228,35 +1231,9 @@ export function renderResultModal(result, gs, { onContinue }) {
   // Intentionally *do not* advance time on a backdrop click: a stray tap must
   // never roll the calendar. The Continue button is the only way forward.
 
-  // Focus management + Escape (consistent with the portrait lightbox). Escape
-  // does NOT continue — that would also advance time on an errant keypress.
-  // It is simply bound to "no action" here because there is no cancel state;
-  // the day has been resolved and the player must click Continue.
-  const focusable = modal.querySelectorAll(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-  );
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  const prevFocus = document.activeElement;
-  setTimeout(() => first?.focus(), 0);
-
-  const onKey = (e) => {
-    if (e.key === 'Tab' && focusable.length) {
-      const active = document.activeElement;
-      if (e.shiftKey && active === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-    }
-  };
-  document.addEventListener('keydown', onKey);
-  backdrop._cleanup = () => {
-    document.removeEventListener('keydown', onKey);
-    if (prevFocus instanceof HTMLElement) prevFocus.focus();
-  };
+  // ModalController supplies the shared focus trap, inert background, scroll
+  // lock and focus restoration. Escape is intentionally contained but does
+  // not continue a resolved day; the explicit Continue button is the exit.
   return backdrop;
 }
 
@@ -1293,16 +1270,7 @@ function renderStoryModal(title, lines, actions, className = '', lead = null) {
     ...lines.map((line) => el('p', { text: line })),
     el('div', { class: 'modal-actions' }, ...actions),
   );
-  const backdrop = el('div', { class: 'modal-backdrop' }, modal);
-  const previous = document.activeElement;
-  // Focus the primary action (Continue), not a portrait lead button that may
-  // sit earlier in the DOM — the explicit action is this modal's only exit.
-  const first = modal.querySelector('.btn-primary') || modal.querySelector('button');
-  setTimeout(() => first?.focus(), 0);
-  backdrop._cleanup = () => {
-    if (previous instanceof HTMLElement) previous.focus();
-  };
-  return backdrop;
+  return el('div', { class: 'modal-backdrop' }, modal);
 }
 
 /** Kaden's fixed opening story beat, shown once when day two begins. */

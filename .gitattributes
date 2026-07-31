@@ -1,5 +1,6 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
 
-# Git LFS tracking for source asset masters in assets/
-assets/** filter=lfs diff=lfs merge=lfs -text
+# Full-resolution source art remains ordinary Git data for now. A partial LFS
+# declaration without an installed/migrated LFS workflow created more failure
+# modes than value; see notes/ASSET_STORAGE_OPTIONS.md before revisiting.

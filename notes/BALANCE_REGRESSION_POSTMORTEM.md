@@ -1,42 +1,65 @@
 # Balance regression postmortem
 
-## What regressed
+## First regression: pressure disappeared
 
-The shipped variant combined several changes that all pulled pressure out of the
+A shipped variant combined several changes that all removed pressure in the
 same direction:
 
-1. **Rent escalation disappeared.** Rent became a flat 18-money weekly bill,
-   while location and event rewards continued to add positive long-run value.
-2. **Rest became too efficient.** Home Loft changed from a costly recovery day
-   (+30 energy, -6 money, +2 sanity) into a much cheaper and more rewarding
-   one (+32 energy, -3 money, +4 sanity). Bathhouse and several city options
-   received similar upside.
-3. **Income perks grew at the same time.** Community, night and market bonuses
-   returned to 4/3/4 instead of their restrained 3/2/3 values.
-4. **Energy numbers changed without retuning the whole loop.** The founding
-   bar/community choices became much harsher while rest became stronger,
-   making the advertised loop unreliable and rewarding a rest-heavy strategy.
-5. **There was no survival-band test.** Rule and catalogue tests passed even
-   when a preview-reading strategy was effectively immortal.
+1. rent became a flat 18-money weekly bill while rewards kept scaling;
+2. Home Loft and Bathhouse became cheap, over-efficient recovery days;
+3. income perks grew at the same time;
+4. energy numbers changed without retuning the full loop;
+5. no survival-band test asked whether a preview-reading strategy could die.
 
-The likely process cause was branch/content work reapplying newer location and
-perk values without carrying forward the earlier balancing patch as a unit.
-Balance constants, location effects, rent policy and simulation tests were not
-owned as one release contract.
+The process cause was branch/content work reapplying location and perk values
+without carrying the earlier economy patch as one unit. Balance constants,
+location effects, rent policy and simulation tests did not share release
+ownership.
 
-## Fixes now locked in
+## Second regression: hard collapse compressed the skill gradient
 
-- 14 energy returns per night; the bar/community pair consumes energy over
-  time instead of cancelling overnight recovery.
-- Rest, city and founding-location base effects were restored to the balanced
-  values; income perk bonuses were reduced.
-- Rent escalates by 3 every 24 days and caps at 42. Reputation discounts remain
-  modest rather than erasing the long-run sink.
-- The Sunday prepayment exploit and duplicate-turn model exploit are covered.
-- `tests/balance.test.js` asserts simulation bands: careless play fares worse,
-  a preview reader has real long-run risk, and the founding loop is viable but
-  not immortal.
+The v2.6 pass established a 300-seed 60-day hub gradient with an average proxy
+near a coin flip and engaged models around three wins in five. A later change
+made touching zero energy immediately lethal. The ending was desirable, but the
+same PR lowered test thresholds instead of retuning the economy and left the old
+measured table in canonical docs. Current audit work found engaged success had
+fallen to roughly 29-33% and that the simulator mislabeled every energy death as
+money.
 
-Run `node scripts/simulate.js --runs=100 --days=200` whenever economy data,
-perks, events or location effects change. Do not weaken those tests merely to
-ship a content change; retune the content deliberately.
+The correction kept hard energy death, fixed simulator observability/RNG/death
+diagnostics, and raised ordinary overnight recovery from 12 to **13**. That
+single point restores decision margin without making the founding loop safe.
+The average model's attention cadence was recalibrated transparently from 30%
+to 20% after decision/event RNG were separated.
+
+## Current locked contract (31 July 2026)
+
+- 13 energy returns per ordinary night: seven nights restore 91 and the eighth
+  tops off.
+- Zero energy remains an immediate exhaustion ending.
+- Rent starts at 18, escalates by 3 every 14 journey days, and caps at 48 before
+  modest perk/reputation relief.
+- Rest, city and founding effects remain priced against the same constants.
+- Sunday prepayment and duplicate-turn exploits are covered.
+- UI and simulator share exact/banded/veiled observable previews.
+- Event and decision randomness use independent seeded streams; event seeding
+  matches production.
+- Simulator deaths distinguish sanity, energy and money.
+- 300-seed/61-day hub goals: inattentive 0%, random 29%, greedy 26%, average
+  48%, sometimes attentive 55%, concentrates 59%, min-maxing 64%.
+- Informed rotating-card share is 42-53% (test floor 25%).
+- A separate 40-seed/200-day unlocked-map stress contract keeps random and
+  founding-pair-only horizon survival at 0%, greedy at 7.5%, concentrates at
+  57.5% and min-maxing at 62.5%.
+
+Run both horizons whenever economy data, perks, events, previews or location
+effects change:
+
+```bash
+node scripts/simulate.js --runs=300 --days=61
+node scripts/simulate.js --runs=40 --days=200
+```
+
+Do not weaken assertions merely to ship content. If a product rule changes,
+state the new target first, measure before/after, retune deliberately, and keep
+human playtests as the authority on felt fairness.
