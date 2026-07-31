@@ -5,7 +5,7 @@ async function freshGame(page) {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.locator('.hub')).toBeVisible();
+  await expect(page.locator('.hub:not(.swap-out)')).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -41,7 +41,7 @@ test('fresh run, pending-result reload, and Kaden day-two story', async ({ page 
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: /Face the day/ })).toBeFocused();
   await page.getByRole('button', { name: /Face the day/ }).click();
-  await expect(page.locator('.hub')).toBeVisible();
+  await expect(page.locator('.hub:not(.swap-out)')).toBeVisible();
   await expect(page.locator('#hud-day')).toHaveText('Journey Day 2');
   await expect(page.locator('#app')).not.toHaveAttribute('inert', '');
 });
@@ -70,7 +70,7 @@ test('settings, portrait lightbox, and portable save round-trip', async ({ page 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByLabel('Import save file').setInputFiles(path);
   await page.waitForLoadState('load');
-  await expect(page.locator('.hub')).toBeVisible();
+  await expect(page.locator('.hub:not(.swap-out)')).toBeVisible();
   await expect(page.locator('#hud-day')).toHaveText('Journey Day 1');
 });
 
@@ -96,6 +96,6 @@ test('long trip is atomic and hard energy collapse restarts cleanly', async ({ p
   await page.locator('.location .btn-primary').click();
   await expect(page.locator('.gameover')).toContainText('Léon drops down due to exhaustion');
   await page.getByRole('button', { name: 'Begin again' }).click();
-  await expect(page.locator('.hub')).toBeVisible();
+  await expect(page.locator('.hub:not(.swap-out)')).toBeVisible();
   await expect(page.locator('#hud-day')).toHaveText('Journey Day 1');
 });
