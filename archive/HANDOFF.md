@@ -253,3 +253,5 @@ possible to write in 40 lines.
   choice, it just shouldn't be free.
 - **`ENERGY_RECOVERY` is 14, an odd-looking number.** It is load-bearing: 15
   makes `alternate` immortal again, 13 makes it 87% lethal.
+
+NOTE (2026-07-31): This document is superseded by README.md, PROJECT_OVERVIEW.md, CHANGELOG.md, and AUDIT_2026-07-30.md / AUDIT_2026-07-31_SENIOR.md. Do not cite for current facts.
